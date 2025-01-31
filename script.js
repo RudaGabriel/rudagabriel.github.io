@@ -84,6 +84,14 @@ function verificarVencimento(data) {
 	return diffDias;
 }
 
+function selectTudo(elemento) {
+    const range = document.createRange()
+    const selection = window.getSelection()
+    range.selectNodeContents(elemento)
+    selection.removeAllRanges()
+    selection.addRange(range)
+}
+
 function atualizarLista() {
 	lista.innerHTML = "";
 	let produtosProximos = [],
@@ -103,18 +111,9 @@ function atualizarLista() {
 		let estilo = proximo ? "font-size:1.2em;font-weight:bold;filter:drop-shadow(2px 0px 5px red)" : "";
 		let fontbold = "font-size:1.2em;font-weight:bold;";
 		
-function selectTudo(elemento){
-	document.querySelector(elemento).addEventListener("dblclick", function () {
-    const range = document.createRange()
-    const selection = window.getSelection()
-    range.selectNodeContents(this)
-    selection.removeAllRanges()
-    selection.addRange(range)
-})
-}
 		tr.innerHTML = `
-            <td class="${vencido ? "riscado" : ""}" ondblclick="${selectTudo(this)}" style="${estilo}">${p.codigoBarras}</td>
-            <td class="${vencido ? "riscado" : ""}" ondblclick="${selectTudo(this)}" style="${estilo}">${p.nome}</td>
+            <td class="${vencido ? "riscado" : ""}" onclick="selectTudo(this);" style="${estilo}">${p.codigoBarras}</td>
+            <td class="${vencido ? "riscado" : ""}" onclick="selectTudo(this);" style="${estilo}">${p.nome}</td>
             <td class="${vencido ? "riscado" : ""}" style="${estilo}">${p.quantidade}</td>
             <td ${proximo ? 'class="back-vermelho"' : ""} class="${vencido ? "riscado" : ""}" style="${proximo ? fontbold : ''}">${formatarData(p.vencimento)}</td>
             <td>
