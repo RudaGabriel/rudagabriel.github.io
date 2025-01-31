@@ -258,7 +258,7 @@ function alertarProdutosProximos() {
 		let p = proximos[index];
 		confirmar.textContent = "Sim";
 		cancelar.textContent = "Não";
-		modalBody.innerHTML = `O produto <b>${p.nome}</b> está próximo do vencimento.<br><br>Deseja continuar sendo alertado?`;
+		modalBody.innerHTML = `O produto <b>${p.nome}</b> está próximo do vencimento! <b>${p.vencimento}</b><br><br>Deseja continuar sendo alertado?`;
 		modal.style.display = "flex";
 
 		confirmarBtn.onclick = () => {
