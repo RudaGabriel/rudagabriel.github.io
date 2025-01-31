@@ -155,7 +155,7 @@ function removerProduto(nome, vencimento) {
 		localStorage.setItem("produtos", JSON.stringify(produtos));
 		modal.style.display = "none";
 	}
-	modalBody.innerHTML = `Tem certeza que deseja remover o item <b>${nome}</b> com vencimento em <b>${vencimento}</b> ?`;
+	modalBody.innerHTML = `Tem certeza que deseja remover o item<br><b>${nome}</b><br>com vencimento em <b>${vencimento}</b> ?`;
 	confirmar.textContent = "Sim";
 	cancelar.textContent = "Não";
 	modal.style.display = "flex";
