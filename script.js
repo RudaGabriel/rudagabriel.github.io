@@ -51,6 +51,7 @@ function adicionarProduto() {
 	ocultarVencidos = false;
 	salvarProdutos();
 	atualizarLista();
+	filtroInput.value = '';
 	produtoInput.value = quantidadeInput.value = vencimentoInput.value = codigoBarrasInput.value = "";
 }
 
