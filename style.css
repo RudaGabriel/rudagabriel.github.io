@@ -154,6 +154,10 @@ input#nAlertar {
   margin: 0;
 }
 
+thead {
+	user-select: none;
+}
+
 select {
     padding: 10px;
     background-color: #333;
