@@ -154,7 +154,7 @@ input#nAlertar {
   margin: 0;
 }
 
-thead {
+thead, button, input {
 	user-select: none;
 }
 
