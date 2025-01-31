@@ -1,8 +1,9 @@
-* {
+*:not(td:nth-child(1), td:nth-child(2)) {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
     font-family: Arial, sans-serif;
+	user-select: none;
 }
 
 body {
@@ -152,10 +153,6 @@ label {
 input#nAlertar {
   height: 37px;
   margin: 0;
-}
-
-thead, button, input, .controls, .back-vermelho {
-	user-select: none;
 }
 
 select {
