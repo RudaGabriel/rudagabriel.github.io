@@ -107,8 +107,6 @@ th:hover {
   width: 12px; /* Aumenta a largura do scroll no hover */
 }
 
-
-
 p#modalBody {
 	padding: 10px;
 	line-height: 30px;
@@ -148,6 +146,7 @@ label {
     margin-right: 5px;
     font-variant: all-petite-caps;
     font-weight: 500;
+	user-select: none;
 }
 
 input#nAlertar {
