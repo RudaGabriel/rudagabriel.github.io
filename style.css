@@ -154,7 +154,7 @@ input#nAlertar {
   margin: 0;
 }
 
-thead, button, input, .controls, .back-vermelho, td {
+thead, button, input, .controls, .back-vermelho {
 	user-select: none;
 }
 
