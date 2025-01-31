@@ -123,6 +123,12 @@ function atualizarLista() {
             </td>
         `;
 
+produtosProximos.sort((a, b) => {
+	let dataA = new Date(a.children[3].textContent.split('/').reverse().join('-'));
+	let dataB = new Date(b.children[3].textContent.split('/').reverse().join('-'));
+	return dataA - dataB;
+});
+
 		if (vencido) produtosVencidos.push(tr);
 		else if (proximo) produtosProximos.push(tr);
 		else produtosRestantes.push(tr);
@@ -171,8 +177,6 @@ function removerProduto(nome, vencimento) {
 	confirmarBtn.onclick = removerItem;
 	cancelarBtn.onclick = () => modal.style.display = "none";
 }
-
-
 
 function toggleVencidos() {
 	if (filtroInput.value) return;
@@ -244,11 +248,8 @@ function salvarConfiguracaoAlerta() {
 	atualizarLista(); // Atualiza a tabela após modificar a configuração
 }
 
-
 document.getElementById("nAlertar").addEventListener("input", salvarConfiguracaoAlerta);
 document.getElementById("como").addEventListener("change", salvarConfiguracaoAlerta);
-
-
 
 function alertarProdutosProximos() {
 	const alertarValor = parseInt(document.getElementById("nAlertar").value) || 60;
@@ -286,7 +287,6 @@ function alertarProdutosProximos() {
 
 	if (proximos.length > 0) mostrarAlerta(0);
 }
-
 
 function reverterAlerta(cod) {
 	ignorados = ignorados.filter(c => c !== cod);
