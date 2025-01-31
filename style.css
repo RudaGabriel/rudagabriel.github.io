@@ -1,4 +1,4 @@
-*:not(td:nth-child(1), td:nth-child(2)) {
+*:not(td:nth-child(1)):not(td:nth-child(2)) {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
