@@ -85,11 +85,11 @@ function verificarVencimento(data) {
 }
 
 function selectTudo(elemento) {
-    const range = document.createRange()
-    const selection = window.getSelection()
-    range.selectNodeContents(elemento)
-    selection.removeAllRanges()
-    selection.addRange(range)
+	const range = document.createRange()
+	const selection = window.getSelection()
+	range.selectNodeContents(elemento)
+	selection.removeAllRanges()
+	selection.addRange(range)
 }
 
 function atualizarLista() {
@@ -110,7 +110,7 @@ function atualizarLista() {
 		let proximo = dias > -1 && dias <= limiteAlerta;
 		let estilo = proximo ? "font-size:1.2em;font-weight:bold;filter:drop-shadow(2px 0px 5px red)" : "";
 		let fontbold = "font-size:1.2em;font-weight:bold;";
-		
+
 		tr.innerHTML = `
             <td class="${vencido ? "riscado" : ""}" onclick="selectTudo(this);" style="${estilo}">${p.codigoBarras}</td>
             <td class="${vencido ? "riscado" : ""}" onclick="selectTudo(this);" style="${estilo}">${p.nome}</td>
@@ -123,15 +123,15 @@ function atualizarLista() {
             </td>
         `;
 
-produtosProximos.sort((a, b) => {
-	let dataA = new Date(a.children[3].textContent.split('/').reverse().join('-'));
-	let dataB = new Date(b.children[3].textContent.split('/').reverse().join('-'));
-	return dataA - dataB;
-});
-
 		if (vencido) produtosVencidos.push(tr);
 		else if (proximo) produtosProximos.push(tr);
 		else produtosRestantes.push(tr);
+	});
+
+	produtosProximos.sort((a, b) => {
+		let dataA = new Date(a.children[3].textContent.split('/').reverse().join('-'));
+		let dataB = new Date(b.children[3].textContent.split('/').reverse().join('-'));
+		return dataA - dataB;
 	});
 
 	produtosProximos.forEach(tr => (lista.appendChild(tr), piscar(tr.children[3])));
