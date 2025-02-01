@@ -55,16 +55,6 @@ function adicionarProduto() {
 	produtoInput.value = quantidadeInput.value = vencimentoInput.value = codigoBarrasInput.value = "";
 }
 
-function editarProduto(index) {
-	let p = produtos[index];
-	produtoInput.value = p.nome;
-	quantidadeInput.value = p.quantidade;
-	vencimentoInput.value = p.vencimento;
-	codigoBarrasInput.value = p.codigoBarras;
-	produtoEditadoIndex = index;
-	adicionarBtn.textContent = "Atualizar";
-}
-
 function salvarProdutos() {
 	localStorage.setItem("produtos", JSON.stringify(produtos));
 }
@@ -176,6 +166,16 @@ function removerProduto(nome, vencimento) {
 
 	confirmarBtn.onclick = removerItem;
 	cancelarBtn.onclick = () => modal.style.display = "none";
+}
+
+function editarProduto(index) {
+	let p = produtos[index];
+	produtoInput.value = p.nome;
+	quantidadeInput.value = p.quantidade;
+	vencimentoInput.value = p.vencimento;
+	codigoBarrasInput.value = p.codigoBarras;
+	produtoEditadoIndex = index;
+	adicionarBtn.textContent = "Atualizar";
 }
 
 function toggleVencidos() {
