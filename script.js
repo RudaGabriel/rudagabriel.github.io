@@ -119,7 +119,7 @@ function atualizarLista() {
             <td>
                 <button onclick="editarProduto(${index})">Editar</button>
                 <button onclick="removerProduto('${p.nome}','${formatarData(p.vencimento)}')">Remover</button>
-                ${ignorados.includes(p.vencimento + "+" + p.codigoBarras) ? `<button onclick="reverterAlerta('${p.vencimento + "+" + p.codigoBarras}')">Mostrar alerta ao iniciar</button>` : ""}
+                ${!vencido && ignorados.includes(p.vencimento + "+" + p.codigoBarras) ? `<button onclick="reverterAlerta('${p.vencimento + "+" + p.codigoBarras}')">Mostrar alerta ao iniciar</button>` : ""}
             </td>
         `;
 
