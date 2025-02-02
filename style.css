@@ -15,7 +15,6 @@
 
     .table-container {
         max-height: 300px;
-        overflow-x: auto;
     }
 
     th, td, #lista tr, #lista td {
