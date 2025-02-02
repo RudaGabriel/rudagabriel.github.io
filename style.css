@@ -18,7 +18,7 @@
         overflow-x: auto;
     }
 
-    th, td {
+    th, td, #lista tr, #lista td {
         padding: 8px;
         font-size: 14px;
     }
@@ -33,7 +33,12 @@
         bottom: 0;
         padding: 5px;
     }
+
+    label, select {
+        font-size: 16px;
+    }
 }
+
 
 * {
     margin: 0;
