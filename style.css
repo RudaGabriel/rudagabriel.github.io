@@ -191,6 +191,8 @@ label {
 	user-select: none;
 }
 
+.controls {display: flex;justify-content: center;align-items: center;}
+
 input#nAlertar {
   height: 37px;
   margin: 0;
