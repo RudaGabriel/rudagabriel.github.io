@@ -37,9 +37,16 @@
         padding: 5px;
     }
 
-    label, select {
-        font-size: 16px;
+    label, select, #nAlertar {
+        max-width: 70px;
+        max-height: 23px;
+        font-size: 11px !important;!i;!;!o;!o,;!o;!;
+        text-align: center;
     }
+	
+	input#nAlertar {
+		max-width: 50px;
+	}
 }
 
 * {
