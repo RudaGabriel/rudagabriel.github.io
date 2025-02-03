@@ -195,6 +195,7 @@ input#nAlertar {
   height: 37px;
   margin: 0;
   max-width: 70px;
+  margin-right: 4px;
 }
 
 thead, button, input, .controls, .back-vermelho, td:not(td:nth-child(1)):not(td:nth-child(2)) {
