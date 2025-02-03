@@ -46,7 +46,7 @@
     }
 	
 	input#nAlertar {
-		max-width: 50px;
+		height: fit-content !important;
 	}
 }
 
