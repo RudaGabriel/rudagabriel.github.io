@@ -18,6 +18,7 @@ let produtos = JSON.parse(localStorage.getItem("produtos")) || [];
 let ocultarVencidos = false;
 let ignorados = JSON.parse(localStorage.getItem("ignorados")) || [];
 let produtoEditadoIndex = -1
+let botaodesabilitado;
 
 function adicionarProduto() {
 	let nome = produtoInput.value.trim(),
@@ -44,7 +45,8 @@ function adicionarProduto() {
 			codigoBarras
 		});
 		produtoEditadoIndex = -1;
-		adicionarBtn.textContent = "Adicionar"
+		adicionarBtn.textContent = "Adicionar";
+		if(botaodesabilitado) botaodesabilitado.disabled = false;
 	}
 
 	filtroVencidosBtn.textContent = "Mostrar produtos vencidos";
@@ -53,6 +55,65 @@ function adicionarProduto() {
 	atualizarLista();
 	filtroInput.value = '';
 	produtoInput.value = quantidadeInput.value = vencimentoInput.value = codigoBarrasInput.value = "";
+}
+
+function editarProduto(index, botao) {
+	let p = produtos[index];
+	produtoInput.value = p.nome;
+	quantidadeInput.value = p.quantidade;
+	vencimentoInput.value = p.vencimento;
+	codigoBarrasInput.value = p.codigoBarras;
+	produtoEditadoIndex = index;
+	adicionarBtn.textContent = "Atualizar";
+	if(botaodesabilitado) botaodesabilitado.disabled = false;
+	botaodesabilitado = botao.parentNode.children[1];
+	botaodesabilitado.disabled = true;
+}
+
+function atualizarLista() {
+	lista.innerHTML = "";
+	let produtosProximos = [],
+		produtosVencidos = [],
+		produtosRestantes = [];
+
+	const alertarValor = parseInt(document.getElementById("nAlertar").value) || 60;
+	const unidade = document.getElementById("como").value;
+	const fator = unidade === "meses" ? 30 : 1;
+	const limiteAlerta = alertarValor * fator;
+
+	produtos.forEach((p, index) => {
+		let dias = verificarVencimento(p.vencimento);
+		let tr = document.createElement("tr");
+		let vencido = dias < 0;
+		let proximo = dias > -1 && dias <= limiteAlerta;
+		let estilo = proximo ? "font-size:1.2em;font-weight:bold;filter:drop-shadow(2px 0px 5px red)" : "";
+		let fontbold = "font-size:1.2em;font-weight:bold;";
+
+		tr.innerHTML = `
+            <td class="${vencido ? "riscado" : ""}" onclick="selectTudo(this);" style="${estilo}">${p.codigoBarras}</td>
+            <td class="${vencido ? "riscado" : ""}" onclick="selectTudo(this);" style="${estilo}">${p.nome}</td>
+            <td class="${vencido ? "riscado" : ""}" style="${estilo}">${p.quantidade}</td>
+            <td ${proximo ? 'class="back-vermelho"' : ""} class="${vencido ? "riscado" : ""}" style="${proximo ? fontbold : ''}">${formatarData(p.vencimento)}</td>
+            <td>
+                <button onclick="editarProduto(${index}, this)">Editar</button>
+                <button onclick="removerProduto('${p.nome}','${formatarData(p.vencimento)}')">Remover</button>
+                ${!vencido && ignorados.includes(p.vencimento + "+" + p.codigoBarras) ? `<button onclick="reverterAlerta('${p.vencimento + "+" + p.codigoBarras}')">Mostrar alerta ao iniciar</button>` : ""}
+            </td>
+        `;
+
+		if (vencido) produtosVencidos.push(tr);
+		else if (proximo) produtosProximos.push(tr);
+		else produtosRestantes.push(tr);
+	});
+
+	produtosProximos.sort((a, b) => {
+		let dataA = new Date(a.children[3].textContent.split('/').reverse().join('-'));
+		let dataB = new Date(b.children[3].textContent.split('/').reverse().join('-'));
+		return dataA - dataB;
+	});
+
+	produtosProximos.forEach(tr => (lista.appendChild(tr), piscar(tr.children[3])));
+	produtosRestantes.concat(produtosVencidos).forEach(tr => lista.appendChild(tr));
 }
 
 function salvarProdutos() {
@@ -81,53 +142,6 @@ function selectTudo(elemento) {
 	selection.removeAllRanges()
 	selection.addRange(range)
 }
-
-function atualizarLista() {
-	lista.innerHTML = "";
-	let produtosProximos = [],
-		produtosVencidos = [],
-		produtosRestantes = [];
-
-	const alertarValor = parseInt(document.getElementById("nAlertar").value) || 60;
-	const unidade = document.getElementById("como").value;
-	const fator = unidade === "meses" ? 30 : 1;
-	const limiteAlerta = alertarValor * fator;
-
-	produtos.forEach((p, index) => {
-		let dias = verificarVencimento(p.vencimento);
-		let tr = document.createElement("tr");
-		let vencido = dias < 0;
-		let proximo = dias > -1 && dias <= limiteAlerta;
-		let estilo = proximo ? "font-size:1.2em;font-weight:bold;filter:drop-shadow(2px 0px 5px red)" : "";
-		let fontbold = "font-size:1.2em;font-weight:bold;";
-
-		tr.innerHTML = `
-            <td class="${vencido ? "riscado" : ""}" onclick="selectTudo(this);" style="${estilo}">${p.codigoBarras}</td>
-            <td class="${vencido ? "riscado" : ""}" onclick="selectTudo(this);" style="${estilo}">${p.nome}</td>
-            <td class="${vencido ? "riscado" : ""}" style="${estilo}">${p.quantidade}</td>
-            <td ${proximo ? 'class="back-vermelho"' : ""} class="${vencido ? "riscado" : ""}" style="${proximo ? fontbold : ''}">${formatarData(p.vencimento)}</td>
-            <td>
-                <button onclick="editarProduto(${index})">Editar</button>
-                <button onclick="removerProduto('${p.nome}','${formatarData(p.vencimento)}')">Remover</button>
-                ${!vencido && ignorados.includes(p.vencimento + "+" + p.codigoBarras) ? `<button onclick="reverterAlerta('${p.vencimento + "+" + p.codigoBarras}')">Mostrar alerta ao iniciar</button>` : ""}
-            </td>
-        `;
-
-		if (vencido) produtosVencidos.push(tr);
-		else if (proximo) produtosProximos.push(tr);
-		else produtosRestantes.push(tr);
-	});
-
-	produtosProximos.sort((a, b) => {
-		let dataA = new Date(a.children[3].textContent.split('/').reverse().join('-'));
-		let dataB = new Date(b.children[3].textContent.split('/').reverse().join('-'));
-		return dataA - dataB;
-	});
-
-	produtosProximos.forEach(tr => (lista.appendChild(tr), piscar(tr.children[3])));
-	produtosRestantes.concat(produtosVencidos).forEach(tr => lista.appendChild(tr));
-}
-
 
 function filtrarProdutos() {
 	filtroVencidosBtn.textContent = "Mostrar produtos vencidos";
@@ -168,15 +182,6 @@ function removerProduto(nome, vencimento) {
 	cancelarBtn.onclick = () => modal.style.display = "none";
 }
 
-function editarProduto(index) {
-	let p = produtos[index];
-	produtoInput.value = p.nome;
-	quantidadeInput.value = p.quantidade;
-	vencimentoInput.value = p.vencimento;
-	codigoBarrasInput.value = p.codigoBarras;
-	produtoEditadoIndex = index;
-	adicionarBtn.textContent = "Atualizar";
-}
 
 function toggleVencidos() {
 	if (filtroInput.value) return;
