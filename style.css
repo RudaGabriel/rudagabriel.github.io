@@ -42,7 +42,7 @@
         max-height: 23px;
         font-size: 11px !important;
         text-align: center;
-		margin: 15px;
+		margin: 0 15px 0 15px;
     }
 	
 	input#nAlertar {
