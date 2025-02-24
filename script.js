@@ -346,7 +346,7 @@ iniciar.addEventListener("click", () => {
                 stream.getTracks().forEach(track => track.stop())
             }
         })
-    }).catch(() => alert("Erro ao acessar a câmera")
+    }).catch(() => alert("Erro ao acessar a câmera"))
 })
 
 const scriptler = document.createElement("script")
