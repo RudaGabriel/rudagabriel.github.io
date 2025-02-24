@@ -334,30 +334,37 @@ const ajustarAlturaTabela = () => {
 	document.querySelector('.table-container').style.maxHeight = `${alturaTabela}px`;
 };
 
-function startScanner() {
-	Quagga.init({
-		inputStream: {
-			type: "LiveStream",
-			constraints: {
-				facingMode: "environment"
-			},
-			target: document.querySelector("#camera")
-		},
-		decoder: {
-			readers: ["ean_reader", "code_128_reader"]
-		}
-	}, err => {
-		if (err) console.error(err);
-		else Quagga.start();
-	});
+function iniciarLeitor() {
+    navigator.mediaDevices.enumerateDevices().then(dispositivos => {
+        const cameras = dispositivos.filter(d => d.kind === "videoinput");
+        if (cameras.length === 0) {
+            alert("Nenhuma câmera encontrada. Verifique as permissões.");
+            return;
+        }
 
-	Quagga.onDetected(data => {
-		alert(data.codeResult.code);
-		Quagga.stop();
-	});
+        const cameraId = cameras.length > 1 ? cameras[1].deviceId : cameras[0].deviceId;
+
+        Quagga.init({
+            inputStream: {
+                type: "LiveStream",
+                constraints: { deviceId: { exact: cameraId }, facingMode: "environment" },
+                target: document.body
+            },
+            decoder: { readers: ["ean_reader", "code_128_reader"] }
+        }, err => {
+            if (err) console.error(err);
+            else Quagga.start();
+        });
+
+        Quagga.onDetected(dado => {
+            console.log("Código detectado:", dado.codeResult.code);
+            alert("Código: " + dado.codeResult.code);
+            Quagga.stop();
+        });
+    }).catch(console.error);
 }
 
-iniciar.addEventListener("click", startScanner);
+iniciar.addEventListener("click", iniciarLeitor());
 	
 window.addEventListener('load', ajustarAlturaTabela);
 window.addEventListener('resize', ajustarAlturaTabela);
