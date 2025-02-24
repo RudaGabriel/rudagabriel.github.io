@@ -334,8 +334,8 @@ const ajustarAlturaTabela = () => {
 	document.querySelector('.table-container').style.maxHeight = `${alturaTabela}px`;
 };
 
+iniciar.addEventListener("click", function(){
 const scanner = new Html5Qrcode("reader");
-
 Html5Qrcode.getCameras().then(cameras => {
 	if (cameras.length) {
 		scanner.start(
@@ -353,6 +353,7 @@ Html5Qrcode.getCameras().then(cameras => {
 		);
 	}
 }).catch(alert(error));
+});
 	
 window.addEventListener('load', ajustarAlturaTabela);
 window.addEventListener('resize', ajustarAlturaTabela);
