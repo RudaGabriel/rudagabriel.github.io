@@ -336,22 +336,31 @@ const ajustarAlturaTabela = () => {
 
 const video = document.getElementById("video"), iniciar = document.getElementById("iniciar")
 
-iniciar.addEventListener("click", () => {
-	navigator.mediaDevices.getUserMedia({
-		video: {
-			facingMode: "environment"
-		}
-	}).then(stream => {
-		video.srcObject = stream
-		video.play()
-		new ZXing.BrowserBarcodeReader().decodeFromVideoDevice(undefined, video, (res, err) => {
-			if (res) {
-				alert("Código: " + res.text)
-				stream.getTracks().forEach(track => track.stop())
-			}
-		})
-	}).catch(() => alert("Erro ao acessar a câmera"))
+document.addEventListener("DOMContentLoaded", () => {
+    if (!window.ZXing) {
+        const script = document.createElement("script")
+        script.src = "https://unpkg.com/@zxing/library@latest"
+        script.onload = inicializarLeitor
+        document.head.appendChild(script)
+    } else {
+        inicializarLeitor()
+    }
 })
+
+function inicializarLeitor() {
+    iniciar.addEventListener("click", () => {
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(stream => {
+            video.srcObject = stream
+            video.play()
+            new ZXing.BrowserBarcodeReader().decodeFromVideoDevice(undefined, video, (res, err) => {
+                if (res) {
+                    alert("Código: " + res.text)
+                    stream.getTracks().forEach(track => track.stop())
+                }
+            })
+        }).catch(() => alert("Erro ao acessar a câmera"))
+    })
+}
 	
 window.addEventListener('load', ajustarAlturaTabela);
 window.addEventListener('resize', ajustarAlturaTabela);
