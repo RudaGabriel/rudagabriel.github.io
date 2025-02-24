@@ -336,23 +336,22 @@ const ajustarAlturaTabela = () => {
 
 const video = document.getElementById("video"), iniciar = document.getElementById("iniciar")
 
-const scriptler = document.createElement("script")
-scriptler.src = "https://unpkg.com/@zxing/library@latest"
-scriptler.onload = () => {
-    iniciar.addEventListener("click", () => {
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(stream => {
-            video.srcObject = stream
-            video.play()
-            new ZXing.BrowserBarcodeReader().decodeFromVideoDevice(undefined, video, (res, err) => {
-                if (res) {
-                    alert("Código: " + res.text)
-                    stream.getTracks().forEach(track => track.stop())
-                }
-            })
-        }).catch(() => alert("Erro ao acessar a câmera"))
-    })
-}
-document.head.appendChild(scriptler)
-
+iniciar.addEventListener("click", () => {
+	navigator.mediaDevices.getUserMedia({
+		video: {
+			facingMode: "environment"
+		}
+	}).then(stream => {
+		video.srcObject = stream
+		video.play()
+		new ZXing.BrowserBarcodeReader().decodeFromVideoDevice(undefined, video, (res, err) => {
+			if (res) {
+				alert("Código: " + res.text)
+				stream.getTracks().forEach(track => track.stop())
+			}
+		})
+	}).catch(() => alert("Erro ao acessar a câmera"))
+})
+	
 window.addEventListener('load', ajustarAlturaTabela);
 window.addEventListener('resize', ajustarAlturaTabela);
