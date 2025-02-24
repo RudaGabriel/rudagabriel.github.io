@@ -334,33 +334,18 @@ const ajustarAlturaTabela = () => {
 	document.querySelector('.table-container').style.maxHeight = `${alturaTabela}px`;
 };
 
-const video = document.getElementById("video"), iniciar = document.getElementById("iniciar")
+const scanner = new Html5Qrcode("reader");
 
-document.addEventListener("DOMContentLoaded", () => {
-    if (!window.ZXing) {
-        const script = document.createElement("script")
-        script.src = "https://unpkg.com/@zxing/library@latest"
-        script.onload = inicializarLeitor
-        document.head.appendChild(script)
-    } else {
-        inicializarLeitor()
-    }
-})
-
-function inicializarLeitor() {
-    iniciar.addEventListener("click", () => {
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(stream => {
-            video.srcObject = stream
-            video.play()
-            new ZXing.BrowserBarcodeReader().decodeFromVideoDevice(undefined, video, (res, err) => {
-                if (res) {
-                    alert("Código: " + res.text)
-                    stream.getTracks().forEach(track => track.stop())
-                }
-            })
-        }).catch(() => alert("Erro ao acessar a câmera"))
-    })
-}
+        Html5Qrcode.getCameras().then(cameras => {
+            if (cameras.length) {
+                scanner.start(
+                    cameras[0].id,
+                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    decodedText => { alert(decodedText); },
+                    errorMessage => {}
+                );
+            }
+}).catch(alert(error));
 	
 window.addEventListener('load', ajustarAlturaTabela);
 window.addEventListener('resize', ajustarAlturaTabela);
