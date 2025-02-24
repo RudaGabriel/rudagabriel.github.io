@@ -334,27 +334,30 @@ const ajustarAlturaTabela = () => {
 	document.querySelector('.table-container').style.maxHeight = `${alturaTabela}px`;
 };
 
-iniciar.addEventListener("click", function() {
-        function startScanner() {
-            Quagga.init({
-                inputStream: {
-                    type: "LiveStream",
-                    constraints: { facingMode: "environment" }, 
-                    target: document.querySelector("#camera") 
-                },
-                decoder: { readers: ["ean_reader", "code_128_reader"] } 
-            }, err => {
-                if (err) console.error(err);
-                else Quagga.start();
-            });
+function startScanner() {
+	Quagga.init({
+		inputStream: {
+			type: "LiveStream",
+			constraints: {
+				facingMode: "environment"
+			},
+			target: document.querySelector("#camera")
+		},
+		decoder: {
+			readers: ["ean_reader", "code_128_reader"]
+		}
+	}, err => {
+		if (err) console.error(err);
+		else Quagga.start();
+	});
 
-            Quagga.onDetected(data => {
-                alert(data.codeResult.code);
-                Quagga.stop();
-            });
-        }
-        startScanner();
-});
+	Quagga.onDetected(data => {
+		alert(data.codeResult.code);
+		Quagga.stop();
+	});
+}
+
+iniciar.addEventListener("click", startScanner);
 	
 window.addEventListener('load', ajustarAlturaTabela);
 window.addEventListener('resize', ajustarAlturaTabela);
