@@ -334,7 +334,7 @@ const ajustarAlturaTabela = () => {
 	document.querySelector('.table-container').style.maxHeight = `${alturaTabela}px`;
 };
 
-const video = document.getElementById("video"), resultado = document.getElementById("resultado"), iniciar = document.getElementById("iniciar")
+const video = document.getElementById("video"), iniciar = document.getElementById("iniciar")
 
 iniciar.addEventListener("click", () => {
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(stream => {
@@ -342,11 +342,11 @@ iniciar.addEventListener("click", () => {
         video.play()
         new ZXing.BrowserBarcodeReader().decodeFromVideoDevice(undefined, video, (res, err) => {
             if (res) {
-                resultado.textContent = "Código: " + res.text
+                alert("Código: " + res.text)
                 stream.getTracks().forEach(track => track.stop())
             }
         })
-    }).catch(() => resultado.textContent = "Erro ao acessar a câmera")
+    }).catch(() => alert("Erro ao acessar a câmera")
 })
 
 const scriptler = document.createElement("script")
