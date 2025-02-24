@@ -334,25 +334,25 @@ const ajustarAlturaTabela = () => {
 	document.querySelector('.table-container').style.maxHeight = `${alturaTabela}px`;
 };
 
-iniciar.addEventListener("click", function(){
-const scanner = new Html5Qrcode("reader");
-Html5Qrcode.getCameras().then(cameras => {
-	if (cameras.length) {
-		scanner.start(
-			cameras[0].id, {
-				fps: 10,
-				qrbox: {
-					width: 250,
-					height: 250
-				}
-			},
-			decodedText => {
-				alert(decodedText);
-			},
-			errorMessage => {}
-		);
-	}
-}).catch(alert(error));
+iniciar.addEventListener("click", function() {
+	const scanner = new Html5Qrcode("reader");
+	Html5Qrcode.getCameras().then(cameras => {
+		if (cameras.length) {
+			scanner.start(
+				cameras[0].id, {
+					fps: 10,
+					qrbox: {
+						width: 250,
+						height: 250
+					}
+				},
+				decodedText => {
+					alert(decodedText);
+				},
+				errorMessage => {}
+			);
+		}
+	}).catch(alert(error));
 });
 	
 window.addEventListener('load', ajustarAlturaTabela);
