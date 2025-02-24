@@ -335,24 +335,25 @@ const ajustarAlturaTabela = () => {
 };
 
 iniciar.addEventListener("click", function() {
-	const scanner = new Html5Qrcode("reader");
-	Html5Qrcode.getCameras().then(cameras => {
-		if (cameras.length) {
-			scanner.start(
-				cameras[0].id, {
-					fps: 10,
-					qrbox: {
-						width: 250,
-						height: 250
-					}
-				},
-				decodedText => {
-					alert(decodedText);
-				},
-				errorMessage => {}
-			);
-		}
-	}).catch(alert(error));
+        function startScanner() {
+            Quagga.init({
+                inputStream: {
+                    type: "LiveStream",
+                    constraints: { facingMode: "environment" }, 
+                    target: document.querySelector("#camera") 
+                },
+                decoder: { readers: ["ean_reader", "code_128_reader"] } 
+            }, err => {
+                if (err) console.error(err);
+                else Quagga.start();
+            });
+
+            Quagga.onDetected(data => {
+                alert(data.codeResult.code);
+                Quagga.stop();
+            });
+        }
+        startScanner();
 });
 	
 window.addEventListener('load', ajustarAlturaTabela);
