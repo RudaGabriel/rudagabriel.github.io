@@ -35,7 +35,7 @@
       } else {
         const appfire = initializeApp(firebaseConfig);
         db = getFirestore(appfire);
-        console.log("✅ Firebase inicializado com sucesso!");
+        console.log("✅ Firebase inicializado com sucesso!", firebaseConfig);
       }
       // Função para salvar LocalStorage no Firestore
       async function salvarLocalStorageOnline() {
