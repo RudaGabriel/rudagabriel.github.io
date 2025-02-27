@@ -389,12 +389,12 @@ iniciar.addEventListener("click", function() {
 });
 
 ConfirmarDadosFire.addEventListener("click", function() {
-	SUA_CHAVE?.value ? localStorage.setItem("chave-fire", SUA_CHAVE.value) : none;
-	SEU_DOMINIO?.value ? localStorage.setItem("dominio-fire", SEU_DOMINIO.value) : none;
-	SEU_PROJETO?.value ? localStorage.setItem("projeto-fire", SEU_PROJETO.value) : none;
-	SEU_BUCKET?.value ? localStorage.setItem("bucket-fire", SEU_BUCKET.value) : none;
-	SEU_ID?.value ? localStorage.setItem("id-fire", SEU_ID.value) : none;
-	SUA_APP_ID?.value ? localStorage.setItem("appid-fire", SUA_APP_ID.value) : none;
+	SUA_CHAVE?.value ? localStorage.setItem("chave-fire", SUA_CHAVE.value) : null;
+	SEU_DOMINIO?.value ? localStorage.setItem("dominio-fire", SEU_DOMINIO.value) : null;
+	SEU_PROJETO?.value ? localStorage.setItem("projeto-fire", SEU_PROJETO.value) : null;
+	SEU_BUCKET?.value ? localStorage.setItem("bucket-fire", SEU_BUCKET.value) : null;
+	SEU_ID?.value ? localStorage.setItem("id-fire", SEU_ID.value) : null;
+	SUA_APP_ID?.value ? localStorage.setItem("appid-fire", SUA_APP_ID.value) : null;
 	const firebaseConfig = {
 		apiKey: SUA_CHAVE?.value || localStorage.getItem("chave-fire") || "",
 		authDomain: SEU_DOMINIO?.value || localStorage.getItem("dominio-fire") || "",
@@ -423,9 +423,8 @@ sincronizar.addEventListener("click", function() {
 	}
 });
 
-const db = firebase.firestore();
-
 async function salvarLocalStorageOnline() {
+	let db = firebase.firestore();
 	let todosDados = {};
 	Object.keys(localStorage).forEach(chave => {
 		todosDados[chave] = localStorage.getItem(chave);
@@ -436,6 +435,7 @@ async function salvarLocalStorageOnline() {
 }
 
 async function carregarLocalStorageOnline() {
+	let db = firebase.firestore();
 	let doc = await db.collection("dados").doc("sync").get();
 	if (doc.exists) {
 		Object.entries(doc.data().dados).forEach(([chave, valor]) => {
