@@ -349,7 +349,7 @@ iniciar.addEventListener("click", function(){
             decoder: { readers: ["ean_reader", "code_128_reader"] }
         }, (err) => {
             if (err) {
-                console.error("Erro ao iniciar Quagga:", err)
+                alert("Erro ao iniciar Quagga:", err)
                 return
             }
             Quagga.start()
