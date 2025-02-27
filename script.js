@@ -8,6 +8,7 @@ const lista = document.getElementById("lista"),
 	filtroVencidosBtn = document.getElementById("filtroVencidos"),
 	exportarBtn = document.getElementById("exportar"),
 	importarInput = document.getElementById("importar"),
+	iniciar = document.getElementById("iniciar"),
 	botaoImportar = document.getElementById("botaoImportar"),
 	modal = document.getElementById("modal"),
 	modalBody = document.getElementById("modalBody"),
@@ -336,3 +337,26 @@ const ajustarAlturaTabela = () => {
 	
 window.addEventListener('load', ajustarAlturaTabela);
 window.addEventListener('resize', ajustarAlturaTabela);
+
+iniciar.addEventListener("click", function(){
+	Quagga.init({
+            inputStream: {
+                type: "LiveStream",
+                constraints: { facingMode: "environment" },
+                target: document.getElementById("leitor")
+            },
+            decoder: { readers: ["ean_reader", "code_128_reader"] }
+        }, (err) => {
+            if (err) {
+                console.error("Erro ao iniciar Quagga:", err)
+                return
+            }
+            Quagga.start()
+        })
+
+        Quagga.onDetected((res) => {
+            let codigo = res.codeResult.code
+            alert(codigo);
+            Quagga.stop()
+})
+});
