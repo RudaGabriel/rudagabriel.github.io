@@ -34,7 +34,10 @@ function adicionarProduto() {
 
 	if (produtoEditadoIndex === -1 && adicionarBtn.textContent !== "Atualizar") {
 		if (produtos.some(p => p.codigoBarras === codigoBarras && p.nome === nome && p.vencimento === vencimento))
-			return alert("Produto já adicionado com o mesmo código de barras, nome e data de vencimento!");
+			confirmar.textContent = "OK";
+			cancelar.style.display = "none";
+			modal.style.display = "flex";
+			return modalBody.innerHTML = "Produto já adicionado com o mesmo código de barras, nome e data de vencimento!";
 		produtos.push({
 			nome,
 			quantidade,
@@ -180,6 +183,7 @@ function removerProduto(nome, vencimento) {
 	}
 	modalBody.innerHTML = `Tem certeza que deseja remover o item<br><b>${nome}</b><br>com vencimento em <b>${vencimento}</b> ?`;
 	confirmar.textContent = "Sim";
+	cancelar.removeAttribute("style");
 	cancelar.textContent = "Não";
 	modal.style.display = "flex";
 
@@ -277,6 +281,7 @@ function alertarProdutosProximos() {
 
 		let p = proximos[index];
 		confirmar.textContent = "Sim";
+		cancelar.removeAttribute("style");
 		cancelar.textContent = "Não";
 		modalBody.innerHTML = `O produto <b>${p.nome}</b><br>está próximo do vencimento! <b>${formatarData(p.vencimento)}</b><br>Deseja continuar sendo alertado?`;
 		modal.style.display = "flex";
@@ -361,7 +366,10 @@ iniciar.addEventListener("click", function() {
 		}
 	}, (err) => {
 		if (err) {
-			alert(err);
+			confirmar.textContent = "OK";
+			cancelar.style.display = "none";
+			modalBody.innerHTML = err;
+			modal.style.display = "flex";
 			containerleitor.style.display = "none";
 			return
 		}
