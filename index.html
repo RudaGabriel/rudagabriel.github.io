@@ -29,11 +29,12 @@
         messagingSenderId: localStorage.getItem("id-fire") || "",
         appId: localStorage.getItem("appid-fire") || ""
       };
+	  let db;
       if (Object.values(firebaseConfig).every(valor => valor === "")) {
         console.error("⚠️ Configuração do Firebase está vazia!");
       } else {
         const appfire = initializeApp(firebaseConfig);
-        const db = getFirestore(appfire);
+        db = getFirestore(appfire);
         console.log("✅ Firebase inicializado com sucesso!");
       }
       // Função para salvar LocalStorage no Firestore
