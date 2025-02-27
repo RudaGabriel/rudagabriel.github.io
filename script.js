@@ -340,6 +340,7 @@ window.addEventListener('load', ajustarAlturaTabela);
 window.addEventListener('resize', ajustarAlturaTabela);
 
 iniciar.addEventListener("click", function(){
+	leitor.style.display = "inline";
 	Quagga.init({
             inputStream: {
                 type: "LiveStream",
@@ -349,11 +350,11 @@ iniciar.addEventListener("click", function(){
             decoder: { readers: ["ean_reader", "code_128_reader"] }
         }, (err) => {
             if (err) {
-                alert("Erro ao iniciar Quagga:", err)
+                alert("Erro ao iniciar Quagga:", err);
+				leitor.style.display = "none";
                 return
             }
             Quagga.start()
-			leitor.style.display = "inline";
         })
 
         Quagga.onDetected((res) => {
