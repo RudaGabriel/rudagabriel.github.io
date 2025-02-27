@@ -35,10 +35,10 @@ function adicionarProduto() {
 	if (produtoEditadoIndex === -1 && adicionarBtn.textContent !== "Atualizar") {
 		if (produtos.some(p => p.codigoBarras === codigoBarras && p.nome === nome && p.vencimento === vencimento))
 			confirmar.textContent = "OK";
-			cancelar.style.display = "none";
-			modal.style.display = "flex";
-			confirmar.onclick = () => modal.style.display = "none";
-			return modalBody.innerHTML = "Produto já adicionado com o mesmo código de barras, nome e data de vencimento!";
+		cancelar.style.display = "none";
+		modal.style.display = "flex";
+		confirmar.onclick = () => modal.style.display = "none";
+		return modalBody.innerHTML = "Produto já adicionado com o mesmo código de barras, nome e data de vencimento!";
 		produtos.push({
 			nome,
 			quantidade,
@@ -54,7 +54,7 @@ function adicionarProduto() {
 		});
 		produtoEditadoIndex = -1;
 		adicionarBtn.textContent = "Adicionar";
-		if(botaodesabilitado) botaodesabilitado.disabled = false;
+		if (botaodesabilitado) botaodesabilitado.disabled = false;
 	}
 
 	filtroVencidosBtn.textContent = "Mostrar produtos vencidos";
@@ -73,7 +73,7 @@ function editarProduto(index, botao) {
 	codigoBarrasInput.value = p.codigoBarras;
 	produtoEditadoIndex = index;
 	adicionarBtn.textContent = "Atualizar";
-	if(botaodesabilitado) botaodesabilitado.disabled = false;
+	if (botaodesabilitado) botaodesabilitado.disabled = false;
 	botaodesabilitado = botao.parentNode.children[1];
 	botaodesabilitado.disabled = true;
 }
@@ -152,14 +152,14 @@ function selectTudo(elemento) {
 }
 
 function filtrarProdutos() {
-    filtroVencidosBtn.textContent = "Mostrar produtos vencidos";
-    ocultarVencidos = false;
-    let filtro = filtroInput.value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-    document.querySelectorAll("#lista tr").forEach(row => {
-        let [codigo, nome] = row.children;
-        let nomeNormalizado = nome.textContent.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-        row.style.display = nomeNormalizado.includes(filtro) || codigo.textContent.includes(filtro) ? "" : "none";
-    });
+	filtroVencidosBtn.textContent = "Mostrar produtos vencidos";
+	ocultarVencidos = false;
+	let filtro = filtroInput.value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+	document.querySelectorAll("#lista tr").forEach(row => {
+		let [codigo, nome] = row.children;
+		let nomeNormalizado = nome.textContent.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+		row.style.display = nomeNormalizado.includes(filtro) || codigo.textContent.includes(filtro) ? "" : "none";
+	});
 }
 
 function removerProduto(nome, vencimento) {
@@ -344,7 +344,7 @@ const ajustarAlturaTabela = () => {
 	const alturaTabela = alturaTela - alturaAcimaDaTabela - 80;
 	document.querySelector('.table-container').style.maxHeight = `${alturaTabela}px`;
 };
-	
+
 window.addEventListener('load', ajustarAlturaTabela);
 window.addEventListener('resize', ajustarAlturaTabela);
 
