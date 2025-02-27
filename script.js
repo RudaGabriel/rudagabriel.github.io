@@ -10,6 +10,8 @@ const lista = document.getElementById("lista"),
 	importarInput = document.getElementById("importar"),
 	iniciar = document.getElementById("iniciar"),
 	leitor = document.getElementById("leitor"),
+	pararquagga = document.getElementById("pararquagga"),
+	containerleitor = document.getElementById("containerleitor"),
 	botaoImportar = document.getElementById("botaoImportar"),
 	modal = document.getElementById("modal"),
 	modalBody = document.getElementById("modalBody"),
@@ -339,8 +341,12 @@ const ajustarAlturaTabela = () => {
 window.addEventListener('load', ajustarAlturaTabela);
 window.addEventListener('resize', ajustarAlturaTabela);
 
+pararquagga.addEventListener("click", function() {
+	Quagga.stop()
+	containerleitor.style.display = "none";
+});
+
 iniciar.addEventListener("click", function() {
-	leitor.style.display = "inline";
 	Quagga.init({
 		inputStream: {
 			type: "LiveStream",
@@ -355,16 +361,17 @@ iniciar.addEventListener("click", function() {
 	}, (err) => {
 		if (err) {
 			alert("Erro ao iniciar Quagga:" + err);
-			leitor.style.display = "none";
+			containerleitor.style.display = "none";
 			return
 		}
 		Quagga.start()
+		containerleitor.style.display = "inline";
 	})
 
 	Quagga.onDetected((res) => {
 		let codigo = res.codeResult.code
 		codigoBarras.value = codigo;
 		Quagga.stop()
-		leitor.style.display = "none";
+		containerleitor.style.display = "none";
 	})
 });
