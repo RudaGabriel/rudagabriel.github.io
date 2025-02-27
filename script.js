@@ -10,6 +10,7 @@ const lista = document.getElementById("lista"),
 	importarInput = document.getElementById("importar"),
 	iniciar = document.getElementById("iniciar"),
 	leitor = document.getElementById("leitor"),
+	sincronizar = document.getElementById("sincronizar"),
 	pararquagga = document.getElementById("pararquagga"),
 	containerleitor = document.getElementById("containerleitor"),
 	botaoImportar = document.getElementById("botaoImportar"),
@@ -376,7 +377,7 @@ iniciar.addEventListener("click", function() {
 			return
 		}
 		Quagga.start()
-		containerleitor.style.display = "inline";
+		containerleitor.style.display = "flex";
 	})
 
 	Quagga.onDetected((res) => {
@@ -386,3 +387,62 @@ iniciar.addEventListener("click", function() {
 		containerleitor.style.display = "none";
 	})
 });
+
+ConfirmarDadosFire.addEventListener("click", function() {
+	SUA_CHAVE?.value ? localStorage.setItem("chave-fire", SUA_CHAVE.value) : none;
+	SEU_DOMINIO?.value ? localStorage.setItem("dominio-fire", SEU_DOMINIO.value) : none;
+	SEU_PROJETO?.value ? localStorage.setItem("projeto-fire", SEU_PROJETO.value) : none;
+	SEU_BUCKET?.value ? localStorage.setItem("bucket-fire", SEU_BUCKET.value) : none;
+	SEU_ID?.value ? localStorage.setItem("id-fire", SEU_ID.value) : none;
+	SUA_APP_ID?.value ? localStorage.setItem("appid-fire", SUA_APP_ID.value) : none;
+	const firebaseConfig = {
+		apiKey: SUA_CHAVE?.value || localStorage.getItem("chave-fire") || "",
+		authDomain: SEU_DOMINIO?.value || localStorage.getItem("dominio-fire") || "",
+		projectId: SEU_PROJETO?.value || localStorage.getItem("projeto-fire") || "",
+		storageBucket: SEU_BUCKET?.value || localStorage.getItem("bucket-fire") || "",
+		messagingSenderId: SEU_ID?.value || localStorage.getItem("id-fire") || "",
+		appId: SUA_APP_ID?.value || localStorage.getItem("appid-fire") || ""
+	};
+	firebase.initializeApp(firebaseConfig);
+	dadosfirediv.style.display = "none";
+});
+
+sincronizar.addEventListener("click", function() {
+	const firebaseConfig = {
+		apiKey: SUA_CHAVE?.value || localStorage.getItem("chave-fire") || "",
+		authDomain: SEU_DOMINIO?.value || localStorage.getItem("dominio-fire") || "",
+		projectId: SEU_PROJETO?.value || localStorage.getItem("projeto-fire") || "",
+		storageBucket: SEU_BUCKET?.value || localStorage.getItem("bucket-fire") || "",
+		messagingSenderId: SEU_ID?.value || localStorage.getItem("id-fire") || "",
+		appId: SUA_APP_ID?.value || localStorage.getItem("appid-fire") || ""
+	};
+	if (Object.values(firebaseConfig).every(valor => valor === "")) {
+		dadosfirediv.style.display = "flex";
+	} else {
+		firebase.initializeApp(firebaseConfig);
+	}
+});
+
+const db = firebase.firestore();
+
+async function salvarLocalStorageOnline() {
+	let todosDados = {};
+	Object.keys(localStorage).forEach(chave => {
+		todosDados[chave] = localStorage.getItem(chave);
+	});
+	await db.collection("dados").doc("sync").set({
+		dados: todosDados
+	});
+}
+
+async function carregarLocalStorageOnline() {
+	let doc = await db.collection("dados").doc("sync").get();
+	if (doc.exists) {
+		Object.entries(doc.data().dados).forEach(([chave, valor]) => {
+			localStorage.setItem(chave, valor);
+		});
+	}
+}
+
+window.addEventListener("storage", salvarLocalStorageOnline);
+carregarLocalStorageOnline();
