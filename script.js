@@ -9,6 +9,7 @@ const lista = document.getElementById("lista"),
 	exportarBtn = document.getElementById("exportar"),
 	importarInput = document.getElementById("importar"),
 	iniciar = document.getElementById("iniciar"),
+	leitor = document.getElementById("leitor"),
 	botaoImportar = document.getElementById("botaoImportar"),
 	modal = document.getElementById("modal"),
 	modalBody = document.getElementById("modalBody"),
@@ -352,11 +353,13 @@ iniciar.addEventListener("click", function(){
                 return
             }
             Quagga.start()
+			leitor.style.display = "inline";
         })
 
         Quagga.onDetected((res) => {
             let codigo = res.codeResult.code
-            alert(codigo);
+            codigoBarras.value = codigo;
             Quagga.stop()
+			leitor.style.display = "none";
 })
 });
