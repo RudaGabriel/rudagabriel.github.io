@@ -361,7 +361,7 @@ iniciar.addEventListener("click", function() {
 		}
 	}, (err) => {
 		if (err) {
-			alert("Erro ao iniciar Quagga:" + err);
+			alert(err);
 			containerleitor.style.display = "none";
 			return
 		}
