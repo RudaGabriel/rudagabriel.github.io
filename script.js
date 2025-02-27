@@ -339,28 +339,32 @@ const ajustarAlturaTabela = () => {
 window.addEventListener('load', ajustarAlturaTabela);
 window.addEventListener('resize', ajustarAlturaTabela);
 
-iniciar.addEventListener("click", function(){
+iniciar.addEventListener("click", function() {
 	leitor.style.display = "inline";
 	Quagga.init({
-            inputStream: {
-                type: "LiveStream",
-                constraints: { facingMode: "environment" },
-                target: document.getElementById("leitor")
-            },
-            decoder: { readers: ["ean_reader", "code_128_reader"] }
-        }, (err) => {
-            if (err) {
-                alert("Erro ao iniciar Quagga:", err);
-				leitor.style.display = "none";
-                return
-            }
-            Quagga.start()
-        })
-
-        Quagga.onDetected((res) => {
-            let codigo = res.codeResult.code
-            codigoBarras.value = codigo;
-            Quagga.stop()
+		inputStream: {
+			type: "LiveStream",
+			constraints: {
+				facingMode: "environment"
+			},
+			target: document.getElementById("leitor")
+		},
+		decoder: {
+			readers: ["ean_reader", "code_128_reader"]
+		}
+	}, (err) => {
+		if (err) {
+			alert("Erro ao iniciar Quagga:", err);
 			leitor.style.display = "none";
-})
+			return
+		}
+		Quagga.start()
+	})
+
+	Quagga.onDetected((res) => {
+		let codigo = res.codeResult.code
+		codigoBarras.value = codigo;
+		Quagga.stop()
+		leitor.style.display = "none";
+	})
 });
