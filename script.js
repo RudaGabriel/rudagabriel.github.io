@@ -148,13 +148,14 @@ function selectTudo(elemento) {
 }
 
 function filtrarProdutos() {
-	filtroVencidosBtn.textContent = "Mostrar produtos vencidos";
-	ocultarVencidos = false;
-	let filtro = filtroInput.value.toLowerCase();
-	document.querySelectorAll("#lista tr").forEach(row => {
-		let [codigo, nome] = row.children;
-		row.style.display = nome.textContent.toLowerCase().includes(filtro) || codigo.textContent.includes(filtro) ? "" : "none";
-	});
+    filtroVencidosBtn.textContent = "Mostrar produtos vencidos";
+    ocultarVencidos = false;
+    let filtro = filtroInput.value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    document.querySelectorAll("#lista tr").forEach(row => {
+        let [codigo, nome] = row.children;
+        let nomeNormalizado = nome.textContent.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        row.style.display = nomeNormalizado.includes(filtro) || codigo.textContent.includes(filtro) ? "" : "none";
+    });
 }
 
 function removerProduto(nome, vencimento) {
