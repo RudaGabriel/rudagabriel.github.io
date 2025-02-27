@@ -37,6 +37,7 @@ function adicionarProduto() {
 			confirmar.textContent = "OK";
 			cancelar.style.display = "none";
 			modal.style.display = "flex";
+			confirmar.onclick = () => modal.style.display = "none";
 			return modalBody.innerHTML = "Produto já adicionado com o mesmo código de barras, nome e data de vencimento!";
 		produtos.push({
 			nome,
@@ -371,6 +372,7 @@ iniciar.addEventListener("click", function() {
 			modalBody.innerHTML = err;
 			modal.style.display = "flex";
 			containerleitor.style.display = "none";
+			confirmar.onclick = () => modal.style.display = "none";
 			return
 		}
 		Quagga.start()
