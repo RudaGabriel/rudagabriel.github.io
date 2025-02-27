@@ -12,7 +12,7 @@
   <body>
     <script type="module">
    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js";
-   import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
+   import { getFirestore, doc, setDoc, getDoc, disableNetwork } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
 
    // Configuração do Firebase
    const firebaseConfig = {
@@ -31,6 +31,7 @@
      try {
        const appfire = initializeApp(firebaseConfig);
        db = getFirestore(appfire);
+	   disableNetwork(db);
        console.log("✅ Firebase inicializado com sucesso!", firebaseConfig);
      } catch (error) {
        console.error("❌ Erro ao inicializar o Firebase:", error);
