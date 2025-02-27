@@ -10,6 +10,78 @@
     <meta name="google-adsense-account" content="ca-pub-2042570332495044">
   </head>
   <body>
+    <script type="module">
+      import {
+        initializeApp
+      } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js";
+      import {
+        getFirestore,
+        doc,
+        setDoc,
+        getDoc
+      } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
+      // Configuração do Firebase
+      const firebaseConfig = {
+        apiKey: localStorage.getItem("chave-fire") || "",
+        authDomain: localStorage.getItem("dominio-fire") || "",
+        projectId: localStorage.getItem("projeto-fire") || "",
+        storageBucket: localStorage.getItem("bucket-fire") || "",
+        messagingSenderId: localStorage.getItem("id-fire") || "",
+        appId: localStorage.getItem("appid-fire") || ""
+      };
+      let db; // Inicializar db fora do escopo
+      if (Object.values(firebaseConfig).every(valor => valor === "")) {
+        console.error("⚠️ Configuração do Firebase está vazia!");
+      } else {
+        const appfire = initializeApp(firebaseConfig);
+        db = getFirestore(appfire); // Inicializa db após o Firebase ser configurado corretamente
+        console.log("✅ Firebase inicializado com sucesso!");
+      }
+      // Função para salvar LocalStorage no Firestore
+      async function salvarLocalStorageOnline() {
+        if (!db) {
+          console.error("❌ Firebase não inicializado corretamente.");
+          return;
+        }
+        let todosDados = {};
+        Object.keys(localStorage).forEach(chave => {
+          todosDados[chave] = localStorage.getItem(chave);
+        });
+        try {
+          const docRef = doc(db, "dados", "sync");
+          await setDoc(docRef, {
+            dados: todosDados
+          });
+          console.log("✅ Dados salvos no Firebase!");
+        } catch (error) {
+          console.error("❌ Erro ao salvar dados:", error);
+        }
+      }
+      // Função para carregar LocalStorage do Firestore
+      async function carregarLocalStorageOnline() {
+        if (!db) {
+          console.error("❌ Firebase não inicializado corretamente.");
+          return;
+        }
+        try {
+          const docRef = doc(db, "dados", "sync");
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            Object.entries(docSnap.data().dados).forEach(([chave, valor]) => {
+              localStorage.setItem(chave, valor);
+            });
+            console.log("✅ Dados carregados do Firebase!");
+          } else {
+            console.log("⚠️ Nenhum dado encontrado no Firestore.");
+          }
+        } catch (error) {
+          console.error("❌ Erro ao carregar dados:", error);
+        }
+      }
+      // Sincroniza sempre que houver mudança no LocalStorage
+      window.addEventListener("storage", salvarLocalStorageOnline);
+      carregarLocalStorageOnline();
+    </script>
     <div id="dadosfirediv" style="position: absolute;width: 100%;height: 100%;justify-content: center;align-items: center;top: 0;z-index: 100;backdrop-filter: blur(10px);display: none;flex-direction: column;">
       <input type="text" id="SUA_CHAVE" placeholder="SUA_CHAVE">
       <input type="text" id="SEU_DOMINIO" placeholder="SEU_DOMINIO.firebaseapp.com">
@@ -75,7 +147,5 @@
     </div>
     <script src="script.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js"></script>
   </body>
 </html>

@@ -388,61 +388,48 @@ iniciar.addEventListener("click", function() {
 	})
 });
 
-ConfirmarDadosFire.addEventListener("click", function() {
-	SUA_CHAVE?.value ? localStorage.setItem("chave-fire", SUA_CHAVE.value) : null;
-	SEU_DOMINIO?.value ? localStorage.setItem("dominio-fire", SEU_DOMINIO.value) : null;
-	SEU_PROJETO?.value ? localStorage.setItem("projeto-fire", SEU_PROJETO.value) : null;
-	SEU_BUCKET?.value ? localStorage.setItem("bucket-fire", SEU_BUCKET.value) : null;
-	SEU_ID?.value ? localStorage.setItem("id-fire", SEU_ID.value) : null;
-	SUA_APP_ID?.value ? localStorage.setItem("appid-fire", SUA_APP_ID.value) : null;
-	const firebaseConfig = {
-		apiKey: SUA_CHAVE?.value || localStorage.getItem("chave-fire") || "",
-		authDomain: SEU_DOMINIO?.value || localStorage.getItem("dominio-fire") || "",
-		projectId: SEU_PROJETO?.value || localStorage.getItem("projeto-fire") || "",
-		storageBucket: SEU_BUCKET?.value || localStorage.getItem("bucket-fire") || "",
-		messagingSenderId: SEU_ID?.value || localStorage.getItem("id-fire") || "",
-		appId: SUA_APP_ID?.value || localStorage.getItem("appid-fire") || ""
-	};
-	firebase.initializeApp(firebaseConfig);
-	dadosfirediv.style.display = "none";
+ConfirmarDadosFire.addEventListener("click", () => {
+	// Coleta os valores dos campos
+	const chaveValue = SUA_CHAVE?.value;
+	const dominioValue = SEU_DOMINIO?.value;
+	const projetoValue = SEU_PROJETO?.value;
+	const bucketValue = SEU_BUCKET?.value;
+	const idValue = SEU_ID?.value;
+	const appIdValue = SUA_APP_ID?.value;
+
+	// Verifica se todos os campos estão preenchidos
+	const allFilled = chaveValue && dominioValue && projetoValue && bucketValue && idValue && appIdValue;
+
+	if (!chaveValue && !dominioValue && !projetoValue && !bucketValue && !idValue && !appIdValue) {
+		// Se nenhum campo tiver valor, oculta a div
+		dadosfirediv.style.display = "none";
+	} else if (!allFilled) {
+		// Caso algum campo esteja vazio, alerta o usuário
+		alert("Todos os campos devem estar preenchidos!");
+	} else {
+		// Salva os dados no localStorage
+		localStorage.setItem("chave-fire", chaveValue || "");
+		localStorage.setItem("dominio-fire", dominioValue || "");
+		localStorage.setItem("projeto-fire", projetoValue || "");
+		localStorage.setItem("bucket-fire", bucketValue || "");
+		localStorage.setItem("id-fire", idValue || "");
+		localStorage.setItem("appid-fire", appIdValue || "");
+		window.location.reload();
+	}
 });
 
-sincronizar.addEventListener("click", function() {
+sincronizar.addEventListener("click", () => {
 	const firebaseConfig = {
-		apiKey: SUA_CHAVE?.value || localStorage.getItem("chave-fire") || "",
-		authDomain: SEU_DOMINIO?.value || localStorage.getItem("dominio-fire") || "",
-		projectId: SEU_PROJETO?.value || localStorage.getItem("projeto-fire") || "",
-		storageBucket: SEU_BUCKET?.value || localStorage.getItem("bucket-fire") || "",
-		messagingSenderId: SEU_ID?.value || localStorage.getItem("id-fire") || "",
-		appId: SUA_APP_ID?.value || localStorage.getItem("appid-fire") || ""
+		apiKey: localStorage.getItem("chave-fire") || "",
+		authDomain: localStorage.getItem("dominio-fire") || "",
+		projectId: localStorage.getItem("projeto-fire") || "",
+		storageBucket: localStorage.getItem("bucket-fire") || "",
+		messagingSenderId: localStorage.getItem("id-fire") || "",
+		appId: localStorage.getItem("appid-fire") || ""
 	};
 	if (Object.values(firebaseConfig).every(valor => valor === "")) {
 		dadosfirediv.style.display = "flex";
 	} else {
-		firebase.initializeApp(firebaseConfig);
+		console.log("⚠️ Firebase já inicializado.");
 	}
 });
-
-async function salvarLocalStorageOnline() {
-	let db = firebase.firestore();
-	let todosDados = {};
-	Object.keys(localStorage).forEach(chave => {
-		todosDados[chave] = localStorage.getItem(chave);
-	});
-	await db.collection("dados").doc("sync").set({
-		dados: todosDados
-	});
-}
-
-async function carregarLocalStorageOnline() {
-	let db = firebase.firestore();
-	let doc = await db.collection("dados").doc("sync").get();
-	if (doc.exists) {
-		Object.entries(doc.data().dados).forEach(([chave, valor]) => {
-			localStorage.setItem(chave, valor);
-		});
-	}
-}
-
-window.addEventListener("storage", salvarLocalStorageOnline);
-carregarLocalStorageOnline();
