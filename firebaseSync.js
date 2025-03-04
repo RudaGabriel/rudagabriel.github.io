@@ -22,12 +22,14 @@ if (Object.values(firebaseConfig).some(v => !v)) {
 
 let ultimaVersaoLocal = {}; 
 let syncTimeout;
-let bloqueioSync = false; // Evita loops de sincronização
+let bloqueioSync = false;
+let aguardandoSalvar = false;
 
-// 🔄 Salvar LocalStorage no Firestore (com debounce)
+// 🔄 Salvar LocalStorage no Firestore (com debounce e verificação de alteração)
 export async function salvarLocalStorageOnline() {
-  if (!db || bloqueioSync) return;
-
+  if (!db || bloqueioSync || aguardandoSalvar) return;
+  
+  aguardandoSalvar = true;
   clearTimeout(syncTimeout);
   syncTimeout = setTimeout(async () => {
     let novosDados = {};
@@ -36,14 +38,15 @@ export async function salvarLocalStorageOnline() {
     if (JSON.stringify(novosDados) !== JSON.stringify(ultimaVersaoLocal)) {
       try {
         console.log("⏳ Salvando dados no Firestore...");
-        await setDoc(doc(db, "dados", "sync"), { dados: novosDados });
+        await setDoc(doc(db, "dados", "sync"), { dados: novosDados }, { merge: true });
         ultimaVersaoLocal = novosDados;
         console.log("✅ Dados salvos no Firestore!");
       } catch (error) {
         console.error("❌ Erro ao salvar dados:", error);
       }
     }
-  }, 2000); // Aguardar 2 segundos antes de sincronizar
+    aguardandoSalvar = false;
+  }, 5000); // Aguardar 5 segundos antes de salvar
 }
 
 // 🔄 Carregar LocalStorage do Firestore (evitando sobrecarga)
@@ -55,11 +58,11 @@ export async function carregarLocalStorageOnline() {
     if (docSnap.exists()) {
       let dadosRemotos = docSnap.data().dados;
       if (JSON.stringify(dadosRemotos) !== JSON.stringify(ultimaVersaoLocal)) {
-        bloqueioSync = true; // Evita loop de sincronização
+        bloqueioSync = true;
         Object.entries(dadosRemotos).forEach(([chave, valor]) => localStorage.setItem(chave, valor));
         ultimaVersaoLocal = dadosRemotos;
         console.log("✅ Dados carregados do Firebase!");
-        setTimeout(() => bloqueioSync = false, 2000); // Desbloqueia após 2s
+        setTimeout(() => bloqueioSync = false, 3000);
       }
     } else {
       console.log("⚠️ Nenhum dado encontrado no Firestore.");
@@ -96,7 +99,7 @@ if (db) {
           }
         });
         ultimaVersaoLocal = dadosRemotos;
-        setTimeout(() => bloqueioSync = false, 2000); // Desbloqueia após 2s
+        setTimeout(() => bloqueioSync = false, 3000);
       }
     }
   });
