@@ -42,11 +42,11 @@ export async function salvarLocalStorageOnline() {
         ultimaVersaoLocal = novosDados;
         console.log("✅ Dados salvos no Firestore!");
       } catch (error) {
-        console.error("❌ Erro ao salvar dados:", error);
+        console.error("❌ Erro ao salvar dados:", error.code, error.message);
       }
     }
     aguardandoSalvar = false;
-  }, 5000); // Aguardar 5 segundos antes de salvar
+  }, 3000); // Reduzido para 3 segundos para testar a sincronização
 }
 
 // 🔄 Carregar LocalStorage do Firestore (evitando sobrecarga)
@@ -62,14 +62,14 @@ export async function carregarLocalStorageOnline() {
         Object.entries(dadosRemotos).forEach(([chave, valor]) => localStorage.setItem(chave, valor));
         ultimaVersaoLocal = dadosRemotos;
         console.log("✅ Dados carregados do Firebase!");
-		atualizarLista();
+        atualizarLista(); // Se a função atualizarLista não estiver causando problemas
         setTimeout(() => bloqueioSync = false, 3000);
       }
     } else {
       console.log("⚠️ Nenhum dado encontrado no Firestore.");
     }
   } catch (error) {
-    console.error("❌ Erro ao carregar dados:", error);
+    console.error("❌ Erro ao carregar dados:", error.code, error.message);
   }
 }
 
@@ -97,7 +97,7 @@ if (db) {
           if (localStorage.getItem(chave) !== valor) {
             localStorage.setItem(chave, valor);
             console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
-			atualizarLista();
+            atualizarLista(); // Se a função atualizarLista não estiver causando problemas
           }
         });
         ultimaVersaoLocal = dadosRemotos;
