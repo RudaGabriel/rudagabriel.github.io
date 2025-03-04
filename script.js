@@ -425,7 +425,7 @@ ConfirmarDadosFire.addEventListener("click", () => {
 		cancelar.style.display = "none";
 		modalBody.innerHTML = "Dados sendo sincronizados, aguarde!";
 		modal.style.display = "flex";
-		confirmar.onclick = () => modal.style.display = "none";
+		confirmar.onclick = () => window.location.reload();
 	}
 });
 
