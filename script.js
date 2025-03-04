@@ -81,6 +81,7 @@ function editarProduto(index, botao) {
 }
 
 function atualizarLista() {
+	produtos = JSON.parse(localStorage.getItem("produtos")) || [];
 	lista.innerHTML = "";
 	let produtosProximos = [],
 		produtosVencidos = [],
