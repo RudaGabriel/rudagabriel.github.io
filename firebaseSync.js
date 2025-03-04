@@ -49,6 +49,22 @@ export async function carregarLocalStorageOnline() {
   }
 }
 
+// ✅ Interceptar mudanças no localStorage
+const originalSetItem = localStorage.setItem;
+localStorage.setItem = function (chave, valor) {
+  originalSetItem.apply(this, arguments);
+  console.log("📥 LocalStorage modificado:", chave, valor);
+  salvarLocalStorageOnline();
+};
+
+// ✅ Interceptar remoção de itens do localStorage
+const originalRemoveItem = localStorage.removeItem;
+localStorage.removeItem = function (chave) {
+  originalRemoveItem.apply(this, arguments);
+  console.log("🗑 LocalStorage item removido:", chave);
+  salvarLocalStorageOnline();
+};
+
 // Observador de mudanças no Firestore
 if (db) {
   onSnapshot(doc(db, "dados", "sync"), snapshot => {
@@ -63,5 +79,5 @@ if (db) {
   });
 }
 
-// Observador de mudanças no LocalStorage
-window.addEventListener
+// Carregar os dados ao iniciar
+carregarLocalStorageOnline();
