@@ -89,4 +89,11 @@ if (db) {
             console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
           }
         });
-        ultima
+        ultimaVersaoLocal = dadosRemotos;
+      }
+    }
+  });
+}
+
+// 🔄 Carregar dados ao iniciar
+carregarLocalStorageOnline();
