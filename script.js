@@ -423,7 +423,7 @@ ConfirmarDadosFire.addEventListener("click", () => {
 		dadosfirediv.style.display = "none";
 		confirmar.textContent = "OK";
 		cancelar.style.display = "none";
-		modalBody.innerHTML = "Dados sendo sincronizados, aguarde!";
+		modalBody.innerHTML = "Dados serão sincronizados após a pagina recarregar!";
 		modal.style.display = "flex";
 		confirmar.onclick = () => window.location.reload();
 	}
