@@ -11,7 +11,7 @@ const lista = document.getElementById("lista"),
 	iniciar = document.getElementById("iniciar"),
 	leitor = document.getElementById("leitor"),
 	sincronizar = document.getElementById("sincronizar"),
-	pararquagga = document.getElementById("pararquagga"),
+	pararleitor = document.getElementById("pararleitor"),
 	containerleitor = document.getElementById("containerleitor"),
 	botaoImportar = document.getElementById("botaoImportar"),
 	modal = document.getElementById("modal"),
@@ -350,7 +350,7 @@ const ajustarAlturaTabela = () => {
 window.addEventListener('load', ajustarAlturaTabela);
 window.addEventListener('resize', ajustarAlturaTabela);
 
-pararquagga.addEventListener("click", function() {
+pararleitor.addEventListener("click", function() {
 	Quagga.stop()
 	containerleitor.style.display = "none";
 });
