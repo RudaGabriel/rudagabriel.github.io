@@ -420,6 +420,12 @@ ConfirmarDadosFire.addEventListener("click", () => {
 		localStorage.setItem("bucket-fire", bucketValue || "");
 		localStorage.setItem("id-fire", idValue || "");
 		localStorage.setItem("appid-fire", appIdValue || "");
+		dadosfirediv.style.display = "none";
+		confirmar.textContent = "OK";
+		cancelar.style.display = "none";
+		modalBody.innerHTML = "Dados sendo sincronizados, aguarde!";
+		modal.style.display = "flex";
+		confirmar.onclick = () => modal.style.display = "none";
 	}
 });
 
