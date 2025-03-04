@@ -407,7 +407,11 @@ ConfirmarDadosFire.addEventListener("click", () => {
 		dadosfirediv.style.display = "none";
 	} else if (!allFilled) {
 		// Caso algum campo esteja vazio, alerta o usuário
-		alert("Todos os campos devem estar preenchidos!");
+		confirmar.textContent = "OK";
+		cancelar.style.display = "none";
+		modalBody.innerHTML = "Todos os campos devem estar preenchidos!";
+		modal.style.display = "flex";
+		confirmar.onclick = () => modal.style.display = "none";
 	} else {
 		// Salva os dados no localStorage
 		localStorage.setItem("chave-fire", chaveValue || "");
