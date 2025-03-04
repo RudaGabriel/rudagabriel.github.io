@@ -12,59 +12,36 @@ const firebaseConfig = {
 };
 
 let db;
-if (Object.values(firebaseConfig).some(v => !v)) {
+if (Object.values(firebaseConfig).some(valor => !valor)) {
   console.error("⚠️ Configuração do Firebase está vazia!");
 } else {
   const appfire = initializeApp(firebaseConfig);
   db = getFirestore(appfire);
-  console.log("✅ Firebase inicializado!", firebaseConfig);
+  console.log("✅ Firebase inicializado com sucesso!", firebaseConfig);
 }
 
-let ultimaVersaoLocal = {}; 
-let syncTimeout;
-let bloqueioSync = false;
-let aguardandoSalvar = false;
-
-// 🔄 Salvar LocalStorage no Firestore (com debounce e verificação de alteração)
+// Salvar LocalStorage no Firestore
 export async function salvarLocalStorageOnline() {
-  if (!db || bloqueioSync || aguardandoSalvar) return;
-  
-  aguardandoSalvar = true;
-  clearTimeout(syncTimeout);
-  syncTimeout = setTimeout(async () => {
-    let novosDados = {};
-    Object.keys(localStorage).forEach(chave => novosDados[chave] = localStorage.getItem(chave));
-
-    if (JSON.stringify(novosDados) !== JSON.stringify(ultimaVersaoLocal)) {
-      try {
-        console.log("⏳ Salvando dados no Firestore...");
-        await setDoc(doc(db, "dados", "sync"), { dados: novosDados }, { merge: true });
-        ultimaVersaoLocal = novosDados;
-        console.log("✅ Dados salvos no Firestore!");
-      } catch (error) {
-        console.error("❌ Erro ao salvar dados:", error);
-      }
-    }
-    aguardandoSalvar = false;
-  }, 5000); // Aguardar 5 segundos antes de salvar
+  if (!db) return console.error("❌ Firebase não inicializado corretamente.");
+  let todosDados = {};
+  Object.keys(localStorage).forEach(chave => todosDados[chave] = localStorage.getItem(chave));
+  try {
+    await setDoc(doc(db, "dados", "sync"), { dados: todosDados });
+    console.log("✅ Dados salvos no Firebase!");
+  } catch (error) {
+    console.error("❌ Erro ao salvar dados:", error);
+  }
 }
 
-// 🔄 Carregar LocalStorage do Firestore (evitando sobrecarga)
+// Carregar LocalStorage do Firestore
 export async function carregarLocalStorageOnline() {
-  if (!db) return;
-
+  if (!db) return console.error("❌ Firebase não inicializado corretamente.");
   try {
     const docSnap = await getDoc(doc(db, "dados", "sync"));
     if (docSnap.exists()) {
-      let dadosRemotos = docSnap.data().dados;
-      if (JSON.stringify(dadosRemotos) !== JSON.stringify(ultimaVersaoLocal)) {
-        bloqueioSync = true;
-        Object.entries(dadosRemotos).forEach(([chave, valor]) => localStorage.setItem(chave, valor));
-        ultimaVersaoLocal = dadosRemotos;
-        console.log("✅ Dados carregados do Firebase!");
-		atualizarLista();
-        setTimeout(() => bloqueioSync = false, 3000);
-      }
+      Object.entries(docSnap.data().dados).forEach(([chave, valor]) => localStorage.setItem(chave, valor));
+      console.log("✅ Dados carregados do Firebase!");
+	  atualizarLista();
     } else {
       console.log("⚠️ Nenhum dado encontrado no Firestore.");
     }
@@ -73,39 +50,38 @@ export async function carregarLocalStorageOnline() {
   }
 }
 
-// ✅ Interceptar mudanças no LocalStorage (com debounce)
+// ✅ Interceptar mudanças no localStorage
 const originalSetItem = localStorage.setItem;
 localStorage.setItem = function (chave, valor) {
   originalSetItem.apply(this, arguments);
-  if (!bloqueioSync) salvarLocalStorageOnline();
+  console.log("📥 LocalStorage modificado:", chave, valor);
+  atualizarLista();
+  salvarLocalStorageOnline();
 };
 
+// ✅ Interceptar remoção de itens do localStorage
 const originalRemoveItem = localStorage.removeItem;
 localStorage.removeItem = function (chave) {
   originalRemoveItem.apply(this, arguments);
-  if (!bloqueioSync) salvarLocalStorageOnline();
+  console.log("🗑 LocalStorage item removido:", chave);
+  atualizarLista();
+  salvarLocalStorageOnline();
 };
 
-// 🔄 Observador do Firestore (evita loops e sobrecarga)
+// Observador de mudanças no Firestore
 if (db) {
   onSnapshot(doc(db, "dados", "sync"), snapshot => {
-    if (snapshot.exists() && !bloqueioSync) {
-      let dadosRemotos = snapshot.data().dados;
-      if (JSON.stringify(dadosRemotos) !== JSON.stringify(ultimaVersaoLocal)) {
-        bloqueioSync = true;
-        Object.entries(dadosRemotos).forEach(([chave, valor]) => {
-          if (localStorage.getItem(chave) !== valor) {
-            localStorage.setItem(chave, valor);
-            console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
-			atualizarLista();
-          }
-        });
-        ultimaVersaoLocal = dadosRemotos;
-        setTimeout(() => bloqueioSync = false, 3000);
-      }
+    if (snapshot.exists()) {
+      Object.entries(snapshot.data().dados).forEach(([chave, valor]) => {
+        if (localStorage.getItem(chave) !== valor) {
+          localStorage.setItem(chave, valor);
+          console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
+		  atualizarLista();
+        }
+      });
     }
   });
 }
 
-// 🔄 Carregar dados ao iniciar
+// Carregar os dados ao iniciar
 carregarLocalStorageOnline();
