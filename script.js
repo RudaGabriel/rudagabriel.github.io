@@ -350,43 +350,29 @@ const ajustarAlturaTabela = () => {
 window.addEventListener('load', ajustarAlturaTabela);
 window.addEventListener('resize', ajustarAlturaTabela);
 
+const scanner = new Dynamsoft.BarcodeScanner();
+
+scanner.onFrameRead = (results) => {
+    if (results.length > 0) {
+      const barcode = results[0].barcodeText;
+      console.log("Código detectado:", barcode);
+      codigoBarras.value = barcode;
+    }
+  };
+  
+function startScanner() {
+    const videoSettings = { facingMode: 'environment' };
+    scanner.open(videoSettings);
+    scanner.start();
+  }
+  
 pararleitor.addEventListener("click", function() {
-	Quagga.stop()
+	scanner.stop();
 	containerleitor.style.display = "none";
 });
 
 iniciar.addEventListener("click", function() {
-	Quagga.init({
-		inputStream: {
-			type: "LiveStream",
-			constraints: {
-				facingMode: "environment"
-			},
-			target: document.getElementById("leitor")
-		},
-		decoder: {
-			readers: ["ean_reader", "code_128_reader"]
-		}
-	}, (err) => {
-		if (err) {
-			confirmar.textContent = "OK";
-			cancelar.style.display = "none";
-			modalBody.innerHTML = err;
-			modal.style.display = "flex";
-			containerleitor.style.display = "none";
-			confirmar.onclick = () => modal.style.display = "none";
-			return
-		}
-		Quagga.start()
-		containerleitor.style.display = "flex";
-	})
-
-	Quagga.onDetected((res) => {
-		let codigo = res.codeResult.code
-		codigoBarras.value = codigo;
-		Quagga.stop()
-		containerleitor.style.display = "none";
-	})
+	startScanner();
 });
 
 ConfirmarDadosFire.addEventListener("click", () => {
