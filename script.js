@@ -416,7 +416,6 @@ ConfirmarDadosFire.addEventListener("click", () => {
 		localStorage.setItem("bucket-fire", bucketValue || "");
 		localStorage.setItem("id-fire", idValue || "");
 		localStorage.setItem("appid-fire", appIdValue || "");
-		window.location.reload();
 	}
 });
 
