@@ -62,6 +62,7 @@ export async function carregarLocalStorageOnline() {
         Object.entries(dadosRemotos).forEach(([chave, valor]) => localStorage.setItem(chave, valor));
         ultimaVersaoLocal = dadosRemotos;
         console.log("✅ Dados carregados do Firebase!");
+		atualizarLista();
         setTimeout(() => bloqueioSync = false, 3000);
       }
     } else {
@@ -96,6 +97,7 @@ if (db) {
           if (localStorage.getItem(chave) !== valor) {
             localStorage.setItem(chave, valor);
             console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
+			atualizarLista();
           }
         });
         ultimaVersaoLocal = dadosRemotos;
