@@ -34,12 +34,13 @@ function adicionarProduto() {
 	if (!nome || !quantidade || !vencimento || !codigoBarras) return alert("Preencha todos os campos!");
 
 	if (produtoEditadoIndex === -1 && adicionarBtn.textContent !== "Atualizar") {
-		if (produtos.some(p => p.codigoBarras === codigoBarras && p.nome === nome && p.vencimento === vencimento))
+		if (produtos.some(p => p.codigoBarras === codigoBarras && p.nome === nome && formatarData(p.vencimento) === formatarData(vencimento))) {
 			confirmar.textContent = "OK";
-		cancelar.style.display = "none";
-		modal.style.display = "flex";
-		confirmar.onclick = () => modal.style.display = "none";
-		return modalBody.innerHTML = "Produto já adicionado com o mesmo código de barras, nome e data de vencimento!";
+			cancelar.style.display = "none";
+			modal.style.display = "flex";
+			confirmar.onclick = () => modal.style.display = "none";
+			return modalBody.innerHTML = "Produto já adicionado com o mesmo código de barras, nome e data de vencimento!";
+		}
 		produtos.push({
 			nome,
 			quantidade,
