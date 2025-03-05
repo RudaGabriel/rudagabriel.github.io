@@ -1,7 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js";
 import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
 
-// Configuração do Firebase
 const firebaseConfig = {
   apiKey: localStorage.getItem("chave-fire") || "",
   authDomain: localStorage.getItem("dominio-fire") || "",
@@ -12,76 +11,69 @@ const firebaseConfig = {
 };
 
 let db;
-if (Object.values(firebaseConfig).some(valor => !valor)) {
+if (Object.values(firebaseConfig).some(v => !v)) {
   console.error("⚠️ Configuração do Firebase está vazia!");
 } else {
   const appfire = initializeApp(firebaseConfig);
   db = getFirestore(appfire);
-  console.log("✅ Firebase inicializado com sucesso!", firebaseConfig);
+  console.log("✅ Firebase inicializado!");
 }
 
-// Salvar LocalStorage no Firestore
-export async function salvarLocalStorageOnline() {
-  if (!db) return console.error("❌ Firebase não inicializado corretamente.");
-  let todosDados = {};
-  Object.keys(localStorage).forEach(chave => todosDados[chave] = localStorage.getItem(chave));
-  try {
-    await setDoc(doc(db, "dados", "sync"), { dados: todosDados });
-    console.log("✅ Dados salvos no Firebase!");
-  } catch (error) {
-    console.error("❌ Erro ao salvar dados:", error);
-  }
-}
+async function sincronizarDados() {
+  if (!db) return console.error("❌ Firebase não inicializado.");
 
-// Carregar LocalStorage do Firestore
-export async function carregarLocalStorageOnline() {
-  if (!db) return console.error("❌ Firebase não inicializado corretamente.");
-  try {
-    const docSnap = await getDoc(doc(db, "dados", "sync"));
-    if (docSnap.exists()) {
-      Object.entries(docSnap.data().dados).forEach(([chave, valor]) => localStorage.setItem(chave, valor));
-      console.log("✅ Dados carregados do Firebase!");
-	  atualizarLista();
-    } else {
-      console.log("⚠️ Nenhum dado encontrado no Firestore.");
+  const docSnap = await getDoc(doc(db, "dados", "sync"));
+  const dadosFirestore = docSnap.exists() ? docSnap.data().dados : {};
+  const dadosLocal = Object.fromEntries(Object.entries(localStorage));
+
+  let atualizado = false;
+
+  Object.entries(dadosLocal).forEach(([chave, valor]) => {
+    if (!(chave in dadosFirestore)) {
+      dadosFirestore[chave] = valor;
+      atualizado = true;
     }
-  } catch (error) {
-    console.error("❌ Erro ao carregar dados:", error);
+  });
+
+  Object.entries(dadosFirestore).forEach(([chave, valor]) => {
+    if (!(chave in dadosLocal)) {
+      localStorage.setItem(chave, valor);
+      atualizado = true;
+    }
+  });
+
+  if (atualizado) {
+    await setDoc(doc(db, "dados", "sync"), { dados: dadosFirestore });
+    console.log("✅ Sincronização concluída!");
   }
 }
 
-// ✅ Interceptar mudanças no localStorage
 const originalSetItem = localStorage.setItem;
 localStorage.setItem = function (chave, valor) {
   originalSetItem.apply(this, arguments);
-  console.log("📥 LocalStorage modificado:", chave, valor);
-  atualizarLista();
-  salvarLocalStorageOnline();
+  console.log("📥 LocalStorage atualizado:", chave, valor);
+  sincronizarDados();
 };
 
-// ✅ Interceptar remoção de itens do localStorage
 const originalRemoveItem = localStorage.removeItem;
 localStorage.removeItem = function (chave) {
   originalRemoveItem.apply(this, arguments);
   console.log("🗑 LocalStorage item removido:", chave);
-  atualizarLista();
-  salvarLocalStorageOnline();
+  sincronizarDados();
 };
 
-// Observador de mudanças no Firestore
 if (db) {
   onSnapshot(doc(db, "dados", "sync"), snapshot => {
     if (snapshot.exists()) {
-      Object.entries(snapshot.data().dados).forEach(([chave, valor]) => {
+      const dadosFirestore = snapshot.data().dados;
+      Object.entries(dadosFirestore).forEach(([chave, valor]) => {
         if (localStorage.getItem(chave) !== valor) {
           localStorage.setItem(chave, valor);
-          console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
-		  atualizarLista();
+          console.log("🔄 Firestore → LocalStorage:", chave);
         }
       });
     }
   });
 }
 
-// Carregar os dados ao iniciar
-carregarLocalStorageOnline();
+sincronizarDados();
