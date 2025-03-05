@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: localStorage.getItem("chave-fire") || "",
@@ -11,69 +11,76 @@ const firebaseConfig = {
 };
 
 let db;
-if (Object.values(firebaseConfig).some(v => !v)) {
+if (Object.values(firebaseConfig).some(valor => !valor)) {
   console.error("⚠️ Configuração do Firebase está vazia!");
 } else {
   const appfire = initializeApp(firebaseConfig);
   db = getFirestore(appfire);
-  console.log("✅ Firebase inicializado!");
+  console.log("✅ Firebase inicializado com sucesso!", firebaseConfig);
 }
 
-async function sincronizarDados() {
-  if (!db) return console.error("❌ Firebase não inicializado.");
+async function sincronizarLocalStorageComFirestore() {
+  if (!db) return console.error("❌ Firebase não inicializado corretamente.");
+  
+  try {
+    const docSnap = await getDoc(doc(db, "dados", "sync"));
+    const dadosFirebase = docSnap.exists() ? docSnap.data().dados : {};
+    const dadosLocal = Object.fromEntries(Object.entries(localStorage));
 
-  const docSnap = await getDoc(doc(db, "dados", "sync"));
-  const dadosFirestore = docSnap.exists() ? docSnap.data().dados : {};
-  const dadosLocal = Object.fromEntries(Object.entries(localStorage));
-
-  let atualizado = false;
-
-  Object.entries(dadosLocal).forEach(([chave, valor]) => {
-    if (!(chave in dadosFirestore)) {
-      dadosFirestore[chave] = valor;
-      atualizado = true;
+    let atualizado = false;
+    
+    for (const [chave, valor] of Object.entries(dadosLocal)) {
+      if (!(chave in dadosFirebase) || dadosFirebase[chave] !== valor) {
+        dadosFirebase[chave] = valor;
+        atualizado = true;
+      }
     }
-  });
 
-  Object.entries(dadosFirestore).forEach(([chave, valor]) => {
-    if (!(chave in dadosLocal)) {
-      localStorage.setItem(chave, valor);
-      atualizado = true;
+    for (const [chave, valor] of Object.entries(dadosFirebase)) {
+      if (!(chave in dadosLocal)) {
+        localStorage.setItem(chave, valor);
+        console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
+      }
     }
-  });
 
-  if (atualizado) {
-    await setDoc(doc(db, "dados", "sync"), { dados: dadosFirestore });
-    console.log("✅ Sincronização concluída!");
+    if (atualizado) {
+      await setDoc(doc(db, "dados", "sync"), { dados: dadosFirebase });
+      console.log("✅ Firebase atualizado com novos dados.");
+    }
+  } catch (error) {
+    console.error("❌ Erro na sincronização:", error);
   }
 }
 
 const originalSetItem = localStorage.setItem;
 localStorage.setItem = function (chave, valor) {
   originalSetItem.apply(this, arguments);
-  console.log("📥 LocalStorage atualizado:", chave, valor);
-  sincronizarDados();
+  console.log("📥 LocalStorage modificado:", chave, valor);
+  atualizarLista();
+  sincronizarLocalStorageComFirestore();
 };
 
 const originalRemoveItem = localStorage.removeItem;
 localStorage.removeItem = function (chave) {
   originalRemoveItem.apply(this, arguments);
   console.log("🗑 LocalStorage item removido:", chave);
-  sincronizarDados();
+  atualizarLista();
+  sincronizarLocalStorageComFirestore();
 };
 
 if (db) {
   onSnapshot(doc(db, "dados", "sync"), snapshot => {
     if (snapshot.exists()) {
-      const dadosFirestore = snapshot.data().dados;
-      Object.entries(dadosFirestore).forEach(([chave, valor]) => {
+      const dadosFirebase = snapshot.data().dados;
+      Object.entries(dadosFirebase).forEach(([chave, valor]) => {
         if (localStorage.getItem(chave) !== valor) {
           localStorage.setItem(chave, valor);
-          console.log("🔄 Firestore → LocalStorage:", chave);
+          console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
+          atualizarLista();
         }
       });
     }
   });
 }
 
-sincronizarDados();
+sincronizarLocalStorageComFirestore();
