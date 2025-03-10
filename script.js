@@ -210,6 +210,16 @@ function toggleVencidos() {
 	});
 }
 
+function carregarConfiguracaoAlerta() {
+	let config = JSON.parse(localStorage.getItem("configAlerta")) || {
+		alertarValor: 60,
+		unidade: "meses"
+	};
+	document.getElementById("nAlertar").value = config.alertarValor;
+	document.getElementById("como").value = config.unidade;
+}
+carregarConfiguracaoAlerta();
+
 function exportarLista() {
 	let configAlerta = JSON.parse(localStorage.getItem("configAlerta")) || { alertarValor: 60, unidade: "meses" };
 	let firebaseConfig = {
@@ -227,17 +237,6 @@ function exportarLista() {
 	a.download = "estoque.json";
 	a.click();
 }
-
-function carregarConfiguracaoAlerta() {
-	let config = JSON.parse(localStorage.getItem("configAlerta")) || {
-		alertarValor: 60,
-		unidade: "meses"
-	};
-	document.getElementById("nAlertar").value = config.alertarValor;
-	document.getElementById("como").value = config.unidade;
-}
-carregarConfiguracaoAlerta();
-
 
 function importarLista(event) {
 	let file = event.target.files[0];
