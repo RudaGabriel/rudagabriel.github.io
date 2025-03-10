@@ -90,15 +90,16 @@ if (db) {
         }
       });
 
-     /* // 🔹 Remover chaves locais que não existem mais no Firestore
+      /*// 🔹 Remover chaves locais que não existem mais no Firestore
       Object.keys(localStorage).forEach(chave => {
         if (!(chave in firebaseData)) {
-          localStorage.removeItem(chave);
-          console.log("🗑 Removido LocalStorage → Firestore:", chave);
+			if(confirm(`O seguinte item não existe mais:${chave} | Deseja remover?`)){
+				localStorage.removeItem(chave);
+				console.log("🗑 Removido LocalStorage → Firestore:", chave);
+				atualizarLista();
+			}
         }
-      });
-
-      atualizarLista();*/
+      });*/
     }
   });
 }
