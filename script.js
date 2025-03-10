@@ -469,12 +469,12 @@ sincronizar.addEventListener("click", () => {
 			dadosfirediv.style.display = "flex";
 
 			// Preenche os inputs com os valores do localStorage, se existirem
-			if (chaveValue) document.getElementById("chave-input").value = chaveValue;
-			if (dominioValue) document.getElementById("dominio-input").value = dominioValue;
-			if (projetoValue) document.getElementById("projeto-input").value = projetoValue;
-			if (bucketValue) document.getElementById("bucket-input").value = bucketValue;
-			if (idValue) document.getElementById("id-input").value = idValue;
-			if (appIdValue) document.getElementById("appid-input").value = appIdValue;
+			if (chaveValue) document.getElementById("SUA_CHAVE").value = chaveValue;
+			if (dominioValue) document.getElementById("SEU_DOMINIO").value = dominioValue;
+			if (projetoValue) document.getElementById("SEU_PROJETO").value = projetoValue;
+			if (bucketValue) document.getElementById("SEU_BUCKET").value = bucketValue;
+			if (idValue) document.getElementById("SEU_ID").value = idValue;
+			if (appIdValue) document.getElementById("SUA_APP_ID").value = appIdValue;
 		}
 	}
 });
