@@ -254,7 +254,6 @@ function importarLista(event) {
 		salvarProdutos();
 		atualizarLista();
 		carregarConfiguracaoAlerta();
-		window.location.reload();
 	};
 	reader.readAsText(file);
 }
