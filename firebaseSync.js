@@ -11,7 +11,7 @@ const firebaseConfig = {
 };
 
 let db;
-let docRef;
+let docRef = db ? doc(db, "dados", "sync") : null;
 if (Object.values(firebaseConfig).some(valor => !valor)) {
 	console.error("⚠️ Configuração do Firebase está vazia.");
 } else {
@@ -21,8 +21,6 @@ if (Object.values(firebaseConfig).some(valor => !valor)) {
 	console.log("✅ Firebase inicializado com sucesso!");
 	compararEPrivilegiarDados();
 }
-
-const docRef = db ? doc(db, "dados", "sync") : null;
 
 async function salvarLocalStorageOnline() {
 	if (!db) return console.error("❌ Firebase não inicializado.");
