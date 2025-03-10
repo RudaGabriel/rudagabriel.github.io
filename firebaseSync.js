@@ -20,7 +20,11 @@ const firebaseConfig = {
 
 let db;
 if (Object.values(firebaseConfig).some(valor => !valor)) {
-	console.error("⚠️ Configuração do Firebase está vazia!");
+	confirmar.textContent = "OK";
+	cancelar.style.display = "none";
+	modalBody.innerHTML = "⚠️ Configuração do Firebase está vazia!<br>Clique no botão sincronizar para verificar!";
+	modal.style.display = "flex";
+	confirmar.onclick = () => modal.style.display = "none";
 } else {
 	const appfire = initializeApp(firebaseConfig);
 	db = getFirestore(appfire);
@@ -51,7 +55,7 @@ export async function carregarLocalStorageOnline() {
 	if (!db) {
 		confirmar.textContent = "Sim";
 		cancelar.textContent = "Não";
-		modalBody.innerHTML = "Firebase não foi inicializado, deseja recarregar a página?";
+		modalBody.innerHTML = "❌ Firebase não foi inicializado, deseja recarregar a página?";
 		modal.style.display = "flex";
 		confirmar.onclick = () => window.location.reload();
 		cancelar.onclick = () => modal.style.display = "none";
