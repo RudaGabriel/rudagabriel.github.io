@@ -1,7 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js";
 import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
 
-// Configuração do Firebase
 const firebaseConfig = {
   apiKey: localStorage.getItem("chave-fire") || "",
   authDomain: localStorage.getItem("dominio-fire") || "",
@@ -20,28 +19,34 @@ if (Object.values(firebaseConfig).some(valor => !valor)) {
   console.log("✅ Firebase inicializado com sucesso!", firebaseConfig);
 }
 
-// Salvar LocalStorage no Firestore
+const docRef = db ? doc(db, "dados", "sync") : null;
+
+// 🔹 Salvar LocalStorage no Firestore
 export async function salvarLocalStorageOnline() {
-  if (!db) return console.error("❌ Firebase não inicializado corretamente.");
+  if (!db) return console.error("❌ Firebase não inicializado.");
   let todosDados = {};
   Object.keys(localStorage).forEach(chave => todosDados[chave] = localStorage.getItem(chave));
   try {
-    await setDoc(doc(db, "dados", "sync"), { dados: todosDados });
+    await setDoc(docRef, { dados: todosDados }, { merge: true });
     console.log("✅ Dados salvos no Firebase!");
   } catch (error) {
     console.error("❌ Erro ao salvar dados:", error);
   }
 }
 
-// Carregar LocalStorage do Firestore
+// 🔹 Carregar LocalStorage do Firestore
 export async function carregarLocalStorageOnline() {
-  if (!db) return console.error("❌ Firebase não inicializado corretamente.");
+  if (!db) return console.error("❌ Firebase não inicializado.");
   try {
-    const docSnap = await getDoc(doc(db, "dados", "sync"));
+    const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
-      Object.entries(docSnap.data().dados).forEach(([chave, valor]) => localStorage.setItem(chave, valor));
+      Object.entries(docSnap.data().dados).forEach(([chave, valor]) => {
+        if (localStorage.getItem(chave) !== valor) {
+          localStorage.setItem(chave, valor);
+        }
+      });
       console.log("✅ Dados carregados do Firebase!");
-	  atualizarLista();
+      atualizarLista();
     } else {
       console.log("⚠️ Nenhum dado encontrado no Firestore.");
     }
@@ -50,38 +55,52 @@ export async function carregarLocalStorageOnline() {
   }
 }
 
-// ✅ Interceptar mudanças no localStorage
+// 🔹 Interceptar mudanças no localStorage e salvar no Firestore
 const originalSetItem = localStorage.setItem;
 localStorage.setItem = function (chave, valor) {
-  originalSetItem.apply(this, arguments);
-  console.log("📥 LocalStorage modificado:", chave, valor);
-  atualizarLista();
-  salvarLocalStorageOnline();
+  if (localStorage.getItem(chave) !== valor) {
+    originalSetItem.apply(this, arguments);
+    console.log("📥 LocalStorage modificado:", chave, valor);
+    atualizarLista();
+    salvarLocalStorageOnline();
+  }
 };
 
-// ✅ Interceptar remoção de itens do localStorage
+// 🔹 Interceptar remoção de itens do localStorage
 const originalRemoveItem = localStorage.removeItem;
 localStorage.removeItem = function (chave) {
-  originalRemoveItem.apply(this, arguments);
-  console.log("🗑 LocalStorage item removido:", chave);
-  atualizarLista();
-  salvarLocalStorageOnline();
+  if (localStorage.getItem(chave) !== null) {
+    originalRemoveItem.apply(this, arguments);
+    console.log("🗑 LocalStorage item removido:", chave);
+    atualizarLista();
+    salvarLocalStorageOnline();
+  }
 };
 
-// Observador de mudanças no Firestore
+// 🔹 Observador de mudanças no Firestore → Atualiza o LocalStorage
 if (db) {
-  onSnapshot(doc(db, "dados", "sync"), snapshot => {
+  onSnapshot(docRef, snapshot => {
     if (snapshot.exists()) {
-      Object.entries(snapshot.data().dados).forEach(([chave, valor]) => {
+      const firebaseData = snapshot.data().dados || {};
+      Object.entries(firebaseData).forEach(([chave, valor]) => {
         if (localStorage.getItem(chave) !== valor) {
           localStorage.setItem(chave, valor);
           console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
-		  atualizarLista();
         }
       });
+
+     /* // 🔹 Remover chaves locais que não existem mais no Firestore
+      Object.keys(localStorage).forEach(chave => {
+        if (!(chave in firebaseData)) {
+          localStorage.removeItem(chave);
+          console.log("🗑 Removido LocalStorage → Firestore:", chave);
+        }
+      });
+
+      atualizarLista();*/
     }
   });
 }
 
-// Carregar os dados ao iniciar
+// 🔹 Carregar dados ao iniciar
 carregarLocalStorageOnline();
