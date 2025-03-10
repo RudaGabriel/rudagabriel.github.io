@@ -12,8 +12,8 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const userId = localStorage.getItem("user-id") || "defaultUser";
-const docRef = doc(db, "usuarios", userId);
+const configId = btoa(firebaseConfig.apiKey + firebaseConfig.projectId); // Identificador único baseado na API Key
+const docRef = doc(db, "configuracoes", configId);
 
 // 🔹 Obtém dados do localStorage como objeto
 const getLocalStorageData = () => Object.keys(localStorage).reduce((acc, key) => {
