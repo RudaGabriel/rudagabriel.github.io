@@ -442,7 +442,7 @@ sincronizar.addEventListener("click", () => {
 		dadosfirediv.style.display = "flex";
 	} else {
 		confirmar.textContent = "Sim";
-		cancelar.style.display = "Não";
+		cancelar.textContent = "Não";
 		modalBody.innerHTML = "Deixar de sincronizar?";
 		modal.style.display = "flex";
 		confirmar.onclick = () => {
