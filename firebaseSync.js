@@ -49,7 +49,7 @@ export async function salvarLocalStorageOnline() {
 		}, {
 			merge: true
 		});
-		console.log("✅ Dados salvos no Firebase!", todosDados);
+		console.log("✅ Dados salvos no Firebase!");
 	} catch (error) {
 		console.error("❌ Erro ao salvar dados:", error);
 	}
