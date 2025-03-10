@@ -243,22 +243,35 @@ function importarLista(event) {
 	if (!file) return;
 	let reader = new FileReader();
 	reader.onload = () => {
-		let dados = JSON.parse(reader.result);
-		produtos = dados.produtos || [];
-		if (dados.configAlerta) localStorage.setItem("configAlerta", JSON.stringify(dados.configAlerta));
-		if (dados.firebaseConfig) {
-			Object.entries(dados.firebaseConfig).forEach(([key, value]) => {
-				localStorage.setItem(key.replace(/[A-Z]/g, "-$&").toLowerCase(), value);
-			});
+		try {
+			let dados = JSON.parse(reader.result);
+			if (!dados || typeof dados !== "object") throw new Error("Arquivo inválido");
+
+			if (Array.isArray(dados.produtos)) produtos = dados.produtos;
+			else console.warn("⚠️ Dados de produtos inválidos ou ausentes.");
+
+			if (dados.configAlerta) localStorage.setItem("configAlerta", JSON.stringify(dados.configAlerta));
+
+			if (dados.firebaseConfig && typeof dados.firebaseConfig === "object") {
+				Object.entries(dados.firebaseConfig).forEach(([key, value]) => {
+					if (typeof value === "string") localStorage.setItem(key.replace(/[A-Z]/g, "-$&").toLowerCase(), value);
+				});
+			}
+
+			atualizarLista();
+			salvarProdutos();
+			carregarConfiguracaoAlerta();
+
+			setTimeout(() => {
+				if (dados.firebaseConfig) window.location.reload();
+			}, 200);
+		} catch (error) {
+			console.error("❌ Erro ao importar lista:", error);
+			alert("Erro ao importar o arquivo. Verifique se o formato está correto.");
 		}
-		atualizarLista();
-		salvarProdutos();
-		carregarConfiguracaoAlerta();
-		setTimeout(()=> window.location.reload(), 200);
 	};
 	reader.readAsText(file);
 }
-
 
 function salvarConfiguracaoAlerta() {
 	const alertarValor = document.getElementById("nAlertar").value;
