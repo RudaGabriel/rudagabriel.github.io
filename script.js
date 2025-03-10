@@ -211,17 +211,17 @@ function toggleVencidos() {
 }
 
 function exportarLista() {
-	let configAlerta = JSON.parse(localStorage.getItem("configAlerta")) || {
-		alertarValor: 60,
-		unidade: "meses"
+	let configAlerta = JSON.parse(localStorage.getItem("configAlerta")) || { alertarValor: 60, unidade: "meses" };
+	let firebaseConfig = {
+		apiKey: localStorage.getItem("chave-fire") || "",
+		authDomain: localStorage.getItem("dominio-fire") || "",
+		projectId: localStorage.getItem("projeto-fire") || "",
+		storageBucket: localStorage.getItem("bucket-fire") || "",
+		messagingSenderId: localStorage.getItem("id-fire") || "",
+		appId: localStorage.getItem("appid-fire") || ""
 	};
-	let dados = {
-		produtos,
-		configAlerta
-	};
-	let blob = new Blob([JSON.stringify(dados, null, 2)], {
-		type: "application/json"
-	});
+	let dados = { produtos, configAlerta, firebaseConfig };
+	let blob = new Blob([JSON.stringify(dados, null, 2)], { type: "application/json" });
 	let a = document.createElement("a");
 	a.href = URL.createObjectURL(blob);
 	a.download = "estoque.json";
@@ -247,6 +247,11 @@ function importarLista(event) {
 		let dados = JSON.parse(reader.result);
 		produtos = dados.produtos || [];
 		if (dados.configAlerta) localStorage.setItem("configAlerta", JSON.stringify(dados.configAlerta));
+		if (dados.firebaseConfig) {
+			Object.entries(dados.firebaseConfig).forEach(([key, value]) => {
+				localStorage.setItem(key.replace(/[A-Z]/g, "-$&").toLowerCase(), value);
+			});
+		}
 		salvarProdutos();
 		atualizarLista();
 		carregarConfiguracaoAlerta();
