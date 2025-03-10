@@ -35,7 +35,16 @@ const docRef = db ? doc(db, "dados", "sync") : null;
 
 // 🔹 Salvar LocalStorage no Firestore
 export async function salvarLocalStorageOnline() {
-	if (!db) return console.error("❌ Firebase não inicializado.");
+	if (!db) {
+		confirmar.textContent = "Sim";
+		cancelar.removeAttribute("style");
+		cancelar.textContent = "Não";
+		modalBody.innerHTML = "❌ Firebase não foi inicializado, deseja recarregar a página?";
+		modal.style.display = "flex";
+		confirmar.onclick = () => window.location.reload();
+		cancelar.onclick = () => modal.style.display = "none";
+		return console.error("❌ Firebase não inicializado.");
+	}
 	let todosDados = {};
 	Object.keys(localStorage).forEach(chave => todosDados[chave] = localStorage.getItem(chave));
 	try {
