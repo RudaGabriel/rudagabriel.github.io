@@ -254,7 +254,7 @@ function importarLista(event) {
 		atualizarLista();
 		salvarProdutos();
 		carregarConfiguracaoAlerta();
-		setTimeout(()=> window.location.reload(), 500);
+		setTimeout(()=> window.location.reload(), 200);
 	};
 	reader.readAsText(file);
 }
