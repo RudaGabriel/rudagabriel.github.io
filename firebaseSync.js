@@ -68,6 +68,7 @@ async function compararEPrivilegiarDados() {
 	} else if (firebaseSize > localSize) {
 		console.log("📥 Firebase tem mais dados, será priorizado para importação.");
 		await carregarLocalStorageOnline();
+		atualizarLista();
 	} else {
 		let conflito = false;
 		for (let chave in localData) {
@@ -80,6 +81,7 @@ async function compararEPrivilegiarDados() {
 			console.log("🛑 Existem diferenças entre LocalStorage e Firebase. Defina uma política de resolução.");
 		} else {
 			console.log("✅ Os dados estão sincronizados.");
+			atualizarLista();
 		}
 	}
 }
