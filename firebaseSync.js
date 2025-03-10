@@ -1,13 +1,5 @@
-import {
-	initializeApp
-} from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
-import {
-	getFirestore,
-	doc,
-	setDoc,
-	getDoc,
-	onSnapshot
-} from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
+import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
 
 const firebaseConfig = {
 	apiKey: localStorage.getItem("chave-fire") || "",
@@ -25,53 +17,30 @@ if (Object.values(firebaseConfig).some(valor => !valor)) {
 	const appfire = initializeApp(firebaseConfig);
 	db = getFirestore(appfire);
 	console.log("✅ Firebase inicializado com sucesso!");
-	// 🔹 Carregar dados ao iniciar
-	carregarLocalStorageOnline();
+	compararEPrivilegiarDados();
 }
 
 const docRef = db ? doc(db, "dados", "sync") : null;
 
-// 🔹 Salvar LocalStorage no Firestore
-export async function salvarLocalStorageOnline() {
-	if (!db) {
-		confirmar.textContent = "OK";
-		cancelar.style.display = "none";
-		modalBody.innerHTML = "❌ Firebase não foi inicializado.<br>Clique no botão sincronizar para verificar!";
-		modal.style.display = "flex";
-		confirmar.onclick = () => modal.style.display = "none";
-		return console.error("❌ Firebase não inicializado.");
-	}
+async function salvarLocalStorageOnline() {
+	if (!db) return console.error("❌ Firebase não inicializado.");
 	let todosDados = {};
 	Object.keys(localStorage).forEach(chave => todosDados[chave] = localStorage.getItem(chave));
 	try {
-		await setDoc(docRef, {
-			dados: todosDados
-		}, {
-			merge: true
-		});
+		await setDoc(docRef, { dados: todosDados }, { merge: true });
 		console.log("✅ Dados salvos no Firebase!");
 	} catch (error) {
 		console.error("❌ Erro ao salvar dados:", error);
 	}
 }
 
-// 🔹 Carregar LocalStorage do Firestore
-export async function carregarLocalStorageOnline() {
-	if (!db) {
-		confirmar.textContent = "OK";
-		cancelar.style.display = "none";
-		modalBody.innerHTML = "❌ Firebase não foi inicializado.<br>Clique no botão sincronizar para verificar!";
-		modal.style.display = "flex";
-		confirmar.onclick = () => modal.style.display = "none";
-		return console.error("❌ Firebase não inicializado.");
-	}
+async function carregarLocalStorageOnline() {
+	if (!db) return console.error("❌ Firebase não inicializado.");
 	try {
 		const docSnap = await getDoc(docRef);
 		if (docSnap.exists()) {
 			Object.entries(docSnap.data().dados).forEach(([chave, valor]) => {
-				if (localStorage.getItem(chave) !== valor) {
-					localStorage.setItem(chave, valor);
-				}
+				if (localStorage.getItem(chave) !== valor) localStorage.setItem(chave, valor);
 			});
 			console.log("✅ Dados carregados do Firebase!");
 			atualizarLista();
@@ -83,7 +52,38 @@ export async function carregarLocalStorageOnline() {
 	}
 }
 
-// 🔹 Interceptar mudanças no localStorage e salvar no Firestore
+async function compararEPrivilegiarDados() {
+	if (!db) return console.error("❌ Firebase não inicializado.");
+	const docSnap = await getDoc(docRef);
+	const firebaseData = docSnap.exists() ? docSnap.data().dados || {} : {};
+	const localData = {};
+	Object.keys(localStorage).forEach(chave => localData[chave] = localStorage.getItem(chave));
+
+	const localSize = Object.keys(localData).length;
+	const firebaseSize = Object.keys(firebaseData).length;
+
+	if (localSize > firebaseSize) {
+		console.log("📤 LocalStorage tem mais dados, será priorizado para exportação.");
+		await salvarLocalStorageOnline();
+	} else if (firebaseSize > localSize) {
+		console.log("📥 Firebase tem mais dados, será priorizado para importação.");
+		await carregarLocalStorageOnline();
+	} else {
+		let conflito = false;
+		for (let chave in localData) {
+			if (firebaseData[chave] !== localData[chave]) {
+				conflito = true;
+				console.log(`⚠️ Conflito detectado na chave "${chave}".`);
+			}
+		}
+		if (conflito) {
+			console.log("🛑 Existem diferenças entre LocalStorage e Firebase. Defina uma política de resolução.");
+		} else {
+			console.log("✅ Os dados estão sincronizados.");
+		}
+	}
+}
+
 const originalSetItem = localStorage.setItem;
 localStorage.setItem = function(chave, valor) {
 	if (localStorage.getItem(chave) !== valor) {
@@ -94,7 +94,6 @@ localStorage.setItem = function(chave, valor) {
 	}
 };
 
-// 🔹 Interceptar remoção de itens do localStorage
 const originalRemoveItem = localStorage.removeItem;
 localStorage.removeItem = function(chave) {
 	if (localStorage.getItem(chave) !== null) {
@@ -105,7 +104,6 @@ localStorage.removeItem = function(chave) {
 	}
 };
 
-// 🔹 Observador de mudanças no Firestore → Atualiza o LocalStorage
 if (db) {
 	onSnapshot(docRef, snapshot => {
 		if (snapshot.exists()) {
@@ -117,10 +115,6 @@ if (db) {
 					atualizarLista();
 				}
 			});
-
-			/*  // 🔹 Remover chaves locais que não existem mais no Firestore
-				Object.keys(localStorage).forEach((e=>{e in firebaseData||confirm(`O seguinte item não existe mais:${e} | Deseja remover?`)&&(localStorage.removeItem(e),console.log("🗑 Removido LocalStorage → Firestore:",e),atualizarLista())}));
-			*/
 		}
 	});
 }
