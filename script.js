@@ -251,8 +251,8 @@ function importarLista(event) {
 				localStorage.setItem(key.replace(/[A-Z]/g, "-$&").toLowerCase(), value);
 			});
 		}
-		salvarProdutos();
 		atualizarLista();
+		salvarProdutos();
 		carregarConfiguracaoAlerta();
 	};
 	reader.readAsText(file);
