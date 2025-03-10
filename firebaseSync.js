@@ -20,7 +20,7 @@ const firebaseConfig = {
 
 let db;
 if (Object.values(firebaseConfig).some(valor => !valor)) {
-	return console.error("⚠️ Configuração do Firebase está vazia.");
+	console.error("⚠️ Configuração do Firebase está vazia.");
 } else {
 	const appfire = initializeApp(firebaseConfig);
 	db = getFirestore(appfire);
