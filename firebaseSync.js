@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
+import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: localStorage.getItem("chave-fire") || "",
@@ -10,77 +10,69 @@ const firebaseConfig = {
   appId: localStorage.getItem("appid-fire") || ""
 };
 
-let db;
-if (Object.values(firebaseConfig).some(valor => !valor)) {
-  console.error("⚠️ Configuração do Firebase está vazia!");
-} else {
-  const appfire = initializeApp(firebaseConfig);
-  db = getFirestore(appfire);
-  console.log("✅ Firebase inicializado com sucesso!", firebaseConfig);
-}
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const userId = localStorage.getItem("user-id") || "defaultUser"; 
+const dbRef = ref(db, `usuarios/${userId}/localStorage`);
 
-async function sincronizarLocalStorageComFirestore() {
-  if (!db) return console.error("❌ Firebase não inicializado corretamente.");
-  
-  try {
-    const docSnap = await getDoc(doc(db, "dados", "sync"));
-    const dadosFirebase = docSnap.exists() ? docSnap.data().dados : {};
-    const dadosLocal = Object.fromEntries(Object.entries(localStorage));
+// 🔹 Função para obter dados do localStorage como objeto
+const getLocalStorageData = () => Object.keys(localStorage).reduce((acc, key) => {
+  acc[key] = localStorage.getItem(key);
+  return acc;
+}, {});
 
-    let atualizado = false;
-    
-    for (const [chave, valor] of Object.entries(dadosLocal)) {
-      if (!(chave in dadosFirebase) || dadosFirebase[chave] !== valor) {
-        dadosFirebase[chave] = valor;
-        atualizado = true;
-      }
-    }
-
-    for (const [chave, valor] of Object.entries(dadosFirebase)) {
-      if (!(chave in dadosLocal)) {
-        localStorage.setItem(chave, valor);
-        console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
-      }
-    }
-
-    if (atualizado) {
-      await setDoc(doc(db, "dados", "sync"), { dados: dadosFirebase });
-      console.log("✅ Firebase atualizado com novos dados.");
-    }
-  } catch (error) {
-    console.error("❌ Erro na sincronização:", error);
-  }
-}
-
-const originalSetItem = localStorage.setItem;
-localStorage.setItem = function (chave, valor) {
-  originalSetItem.apply(this, arguments);
-  console.log("📥 LocalStorage modificado:", chave, valor);
-  atualizarLista();
-  sincronizarLocalStorageComFirestore();
+// 🔹 Sincroniza mudanças do Firebase para o localStorage
+const syncFromFirebase = (firebaseData) => {
+  if (!firebaseData) return;
+  Object.entries(firebaseData).forEach(([key, value]) => {
+    if (localStorage.getItem(key) !== value) localStorage.setItem(key, value);
+  });
 };
 
-const originalRemoveItem = localStorage.removeItem;
-localStorage.removeItem = function (chave) {
-  originalRemoveItem.apply(this, arguments);
-  console.log("🗑 LocalStorage item removido:", chave);
-  atualizarLista();
-  sincronizarLocalStorageComFirestore();
-};
+// 🔹 Sincroniza mudanças do localStorage para o Firebase
+const syncToFirebase = async () => {
+  const snapshot = await get(dbRef);
+  const firebaseData = snapshot.val() || {};
+  const localData = getLocalStorageData();
 
-if (db) {
-  onSnapshot(doc(db, "dados", "sync"), snapshot => {
-    if (snapshot.exists()) {
-      const dadosFirebase = snapshot.data().dados;
-      Object.entries(dadosFirebase).forEach(([chave, valor]) => {
-        if (localStorage.getItem(chave) !== valor) {
-          localStorage.setItem(chave, valor);
-          console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
-          atualizarLista();
-        }
-      });
+  let updatedData = {};
+  let hasChanges = false;
+
+  Object.entries(localData).forEach(([key, value]) => {
+    if (firebaseData[key] !== value) {
+      updatedData[key] = value;
+      hasChanges = true;
     }
   });
-}
 
-sincronizarLocalStorageComFirestore();
+  if (hasChanges) await set(dbRef, { ...firebaseData, ...updatedData });
+};
+
+// 🔹 Monitora mudanças no localStorage e atualiza o Firebase
+const observeLocalStorage = () => {
+  const originalSetItem = localStorage.setItem;
+  localStorage.setItem = function (key, value) {
+    if (localStorage.getItem(key) !== value) {
+      originalSetItem.apply(this, arguments);
+      syncToFirebase();
+    }
+  };
+};
+
+// 🔹 Monitora mudanças no Firebase e atualiza o localStorage
+onValue(dbRef, (snapshot) => syncFromFirebase(snapshot.val()));
+
+// 🔹 Executa a sincronização inicial
+(async () => {
+  const snapshot = await get(dbRef);
+  const firebaseData = snapshot.val();
+  const localData = getLocalStorageData();
+
+  let hasLocalChanges = Object.keys(localData).some(key => firebaseData?.[key] !== localData[key]);
+  let hasFirebaseChanges = Object.keys(firebaseData || {}).some(key => localData[key] !== firebaseData[key]);
+
+  if (hasLocalChanges) await syncToFirebase();
+  if (hasFirebaseChanges) syncFromFirebase(firebaseData);
+
+  observeLocalStorage();
+})();
