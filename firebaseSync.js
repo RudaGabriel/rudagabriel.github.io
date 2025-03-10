@@ -10,8 +10,7 @@ const firebaseConfig = {
 	appId: localStorage.getItem("appid-fire") || ""
 };
 
-let db;
-let docRef = db ? doc(db, "dados", "sync") : null;
+let db, docRef;
 if (Object.values(firebaseConfig).some(valor => !valor)) {
 	console.error("⚠️ Configuração do Firebase está vazia.");
 } else {
