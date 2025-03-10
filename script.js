@@ -439,16 +439,42 @@ sincronizar.addEventListener("click", () => {
 		appId: localStorage.getItem("appid-fire") || ""
 	};
 	if (Object.values(firebaseConfig).every(valor => valor === "")) {
+		// Exibe a div de dados quando todos os valores estão vazios
 		dadosfirediv.style.display = "flex";
 	} else {
-		confirmar.textContent = "Sim";
-		cancelar.textContent = "Não";
-		modalBody.innerHTML = "Deixar de sincronizar?";
-		modal.style.display = "flex";
-		confirmar.onclick = () => {
-			["chave-fire", "dominio-fire", "projeto-fire", "bucket-fire", "id-fire", "appid-fire"].forEach(key => localStorage.setItem(key, ""));
-			window.location.reload();
-		};
-		cancelar.onclick = () => modal.style.display = "none";
+		// Verifica se todos os valores estão preenchidos no localStorage
+		const chaveValue = localStorage.getItem("chave-fire");
+		const dominioValue = localStorage.getItem("dominio-fire");
+		const projetoValue = localStorage.getItem("projeto-fire");
+		const bucketValue = localStorage.getItem("bucket-fire");
+		const idValue = localStorage.getItem("id-fire");
+		const appIdValue = localStorage.getItem("appid-fire");
+
+		// Se todos os valores estiverem preenchidos, mostra o modal
+		if (chaveValue && dominioValue && projetoValue && bucketValue && idValue && appIdValue) {
+			confirmar.textContent = "Sim";
+			cancelar.textContent = "Não";
+			modalBody.innerHTML = "Deixar de sincronizar?";
+			modal.style.display = "flex";
+
+			confirmar.onclick = () => {
+				// Limpa os valores no localStorage
+				["chave-fire", "dominio-fire", "projeto-fire", "bucket-fire", "id-fire", "appid-fire"].forEach(key => localStorage.setItem(key, ""));
+				window.location.reload();
+			};
+
+			cancelar.onclick = () => modal.style.display = "none";
+		} else {
+			// Caso nem todos os valores estejam preenchidos, exibe os inputs
+			dadosfirediv.style.display = "flex";
+
+			// Preenche os inputs com os valores do localStorage, se existirem
+			if (chaveValue) document.getElementById("chave-input").value = chaveValue;
+			if (dominioValue) document.getElementById("dominio-input").value = dominioValue;
+			if (projetoValue) document.getElementById("projeto-input").value = projetoValue;
+			if (bucketValue) document.getElementById("bucket-input").value = bucketValue;
+			if (idValue) document.getElementById("id-input").value = idValue;
+			if (appIdValue) document.getElementById("appid-input").value = appIdValue;
+		}
 	}
 });
