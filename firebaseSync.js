@@ -16,6 +16,7 @@ if (Object.values(firebaseConfig).some(valor => !valor)) {
 } else {
 	const appfire = initializeApp(firebaseConfig);
 	db = getFirestore(appfire);
+	docRef = doc(db, "dados", "sync");
 	console.log("✅ Firebase inicializado com sucesso!");
 	compararEPrivilegiarDados();
 }
