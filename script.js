@@ -245,23 +245,28 @@ function importarLista(event) {
 	reader.onload = () => {
 		try {
 			let dados = JSON.parse(reader.result);
-			if (!dados || typeof dados !== "object") throw new Error("Arquivo inválido");
+			if (!dados || typeof dados !== "object") throw new Error("Arquivo inválido.");
 
-			if (Array.isArray(dados.produtos)) produtos = dados.produtos;
-			else console.warn("⚠️ Dados de produtos inválidos ou ausentes.");
+			if (Array.isArray(dados.produtos)) {
+				localStorage.setItem("produtos", JSON.stringify(dados.produtos));
+			} else {
+				console.warn("⚠️ Dados de produtos inválidos ou ausentes.");
+			}
 
-			if (dados.configAlerta) localStorage.setItem("configAlerta", JSON.stringify(dados.configAlerta));
+			if (dados.configAlerta && typeof dados.configAlerta === "object") {
+				localStorage.setItem("configAlerta", JSON.stringify(dados.configAlerta));
+			}
 
 			if (dados.firebaseConfig && typeof dados.firebaseConfig === "object") {
 				Object.entries(dados.firebaseConfig).forEach(([key, value]) => {
-					if (typeof value === "string") localStorage.setItem(key.replace(/[A-Z]/g, "-$&").toLowerCase(), value);
+					if (typeof value === "string") {
+						localStorage.setItem(key.replace(/[A-Z]/g, "-$&").toLowerCase(), value);
+					}
 				});
 			}
 
 			atualizarLista();
-			salvarProdutos();
 			carregarConfiguracaoAlerta();
-
 			setTimeout(() => {
 				if (dados.firebaseConfig) window.location.reload();
 			}, 200);
