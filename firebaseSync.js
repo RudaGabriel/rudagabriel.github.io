@@ -86,6 +86,7 @@ if (db) {
         if (localStorage.getItem(chave) !== valor) {
           localStorage.setItem(chave, valor);
           console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
+		  atualizarLista();
         }
       });
 
