@@ -37,12 +37,10 @@ const docRef = db ? doc(db, "dados", "sync") : null;
 export async function salvarLocalStorageOnline() {
 	if (!db) {
 		confirmar.textContent = "Sim";
-		cancelar.removeAttribute("style");
-		cancelar.textContent = "Não";
-		modalBody.innerHTML = "❌ Firebase não foi inicializado, deseja recarregar a página?";
+		cancelar.style.display = "none";
+		modalBody.innerHTML = "❌ Firebase não foi inicializado<br>Clique no botão sincronizar para verificar!";
 		modal.style.display = "flex";
-		confirmar.onclick = () => window.location.reload();
-		cancelar.onclick = () => modal.style.display = "none";
+		confirmar.onclick = () => modal.style.display = "none";
 		return console.error("❌ Firebase não inicializado.");
 	}
 	let todosDados = {};
@@ -63,12 +61,10 @@ export async function salvarLocalStorageOnline() {
 export async function carregarLocalStorageOnline() {
 	if (!db) {
 		confirmar.textContent = "Sim";
-		cancelar.removeAttribute("style");
-		cancelar.textContent = "Não";
-		modalBody.innerHTML = "❌ Firebase não foi inicializado, deseja recarregar a página?";
+		cancelar.style.display = "none";
+		modalBody.innerHTML = "❌ Firebase não foi inicializado<br>Clique no botão sincronizar para verificar!";
 		modal.style.display = "flex";
-		confirmar.onclick = () => window.location.reload();
-		cancelar.onclick = () => modal.style.display = "none";
+		confirmar.onclick = () => modal.style.display = "none";
 		return console.error("❌ Firebase não inicializado.");
 	}
 	try {
