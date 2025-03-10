@@ -64,12 +64,12 @@ async function compararEPrivilegiarDados() {
 
 	if (localSize > firebaseSize) {
 		console.log("📤 LocalStorage tem mais dados, será priorizado para exportação.");
-		await salvarLocalStorageOnline();
+		await salvarLocalStorageOnline(); // Prioriza o localStorage para exportação
 	} else if (firebaseSize > localSize) {
 		console.log("📥 Firebase tem mais dados, será priorizado para importação.");
-		await carregarLocalStorageOnline();
-		atualizarLista();
+		await carregarLocalStorageOnline(); // Prioriza o Firebase para importação
 	} else {
+		// Se os tamanhos forem iguais, verificamos a consistência dos dados
 		let conflito = false;
 		for (let chave in localData) {
 			if (firebaseData[chave] !== localData[chave]) {
