@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js";
-import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-database.js";
+import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: localStorage.getItem("chave-fire") || "",
@@ -11,28 +11,28 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const userId = localStorage.getItem("user-id") || "defaultUser"; 
-const dbRef = ref(db, `usuarios/${userId}/localStorage`);
+const db = getFirestore(app);
+const userId = localStorage.getItem("user-id") || "defaultUser";
+const docRef = doc(db, "usuarios", userId);
 
-// 🔹 Função para obter dados do localStorage como objeto
+// 🔹 Obtém dados do localStorage como objeto
 const getLocalStorageData = () => Object.keys(localStorage).reduce((acc, key) => {
   acc[key] = localStorage.getItem(key);
   return acc;
 }, {});
 
-// 🔹 Sincroniza mudanças do Firebase para o localStorage
-const syncFromFirebase = (firebaseData) => {
+// 🔹 Sincroniza mudanças do Firestore para o localStorage
+const syncFromFirestore = (firebaseData) => {
   if (!firebaseData) return;
   Object.entries(firebaseData).forEach(([key, value]) => {
     if (localStorage.getItem(key) !== value) localStorage.setItem(key, value);
   });
 };
 
-// 🔹 Sincroniza mudanças do localStorage para o Firebase
-const syncToFirebase = async () => {
-  const snapshot = await get(dbRef);
-  const firebaseData = snapshot.val() || {};
+// 🔹 Sincroniza mudanças do localStorage para o Firestore
+const syncToFirestore = async () => {
+  const docSnap = await getDoc(docRef);
+  const firebaseData = docSnap.exists() ? docSnap.data() : {};
   const localData = getLocalStorageData();
 
   let updatedData = {};
@@ -45,34 +45,36 @@ const syncToFirebase = async () => {
     }
   });
 
-  if (hasChanges) await set(dbRef, { ...firebaseData, ...updatedData });
+  if (hasChanges) await setDoc(docRef, { ...firebaseData, ...updatedData }, { merge: true });
 };
 
-// 🔹 Monitora mudanças no localStorage e atualiza o Firebase
+// 🔹 Monitora mudanças no localStorage e atualiza o Firestore
 const observeLocalStorage = () => {
   const originalSetItem = localStorage.setItem;
   localStorage.setItem = function (key, value) {
     if (localStorage.getItem(key) !== value) {
       originalSetItem.apply(this, arguments);
-      syncToFirebase();
+      syncToFirestore();
     }
   };
 };
 
-// 🔹 Monitora mudanças no Firebase e atualiza o localStorage
-onValue(dbRef, (snapshot) => syncFromFirebase(snapshot.val()));
+// 🔹 Monitora mudanças no Firestore e atualiza o localStorage
+onSnapshot(docRef, (docSnap) => {
+  if (docSnap.exists()) syncFromFirestore(docSnap.data());
+});
 
 // 🔹 Executa a sincronização inicial
 (async () => {
-  const snapshot = await get(dbRef);
-  const firebaseData = snapshot.val();
+  const docSnap = await getDoc(docRef);
+  const firebaseData = docSnap.exists() ? docSnap.data() : {};
   const localData = getLocalStorageData();
 
   let hasLocalChanges = Object.keys(localData).some(key => firebaseData?.[key] !== localData[key]);
-  let hasFirebaseChanges = Object.keys(firebaseData || {}).some(key => localData[key] !== firebaseData[key]);
+  let hasFirestoreChanges = Object.keys(firebaseData || {}).some(key => localData[key] !== firebaseData[key]);
 
-  if (hasLocalChanges) await syncToFirebase();
-  if (hasFirebaseChanges) syncFromFirebase(firebaseData);
+  if (hasLocalChanges) await syncToFirestore();
+  if (hasFirestoreChanges) syncFromFirestore(firebaseData);
 
   observeLocalStorage();
 })();
