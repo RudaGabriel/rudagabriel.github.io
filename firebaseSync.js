@@ -29,6 +29,7 @@ export async function salvarLocalStorageOnline() {
   try {
     await setDoc(docRef, { dados: todosDados }, { merge: true });
     console.log("✅ Dados salvos no Firebase!");
+	console.log(todosDados);
   } catch (error) {
     console.error("❌ Erro ao salvar dados:", error);
   }
