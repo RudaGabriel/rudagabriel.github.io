@@ -20,11 +20,7 @@ const firebaseConfig = {
 
 let db;
 if (Object.values(firebaseConfig).some(valor => !valor)) {
-	confirmar.textContent = "OK";
-	cancelar.style.display = "none";
-	modalBody.innerHTML = "⚠️ Configuração do Firebase está vazia!<br>Clique no botão sincronizar para verificar!";
-	modal.style.display = "flex";
-	confirmar.onclick = () => modal.style.display = "none";
+	return console.error("⚠️ Configuração do Firebase está vazia!");
 } else {
 	const appfire = initializeApp(firebaseConfig);
 	db = getFirestore(appfire);
