@@ -73,8 +73,8 @@ localStorage.setItem = function(chave, valor) {
 	if (localStorage.getItem(chave) !== valor) {
 		originalSetItem.apply(this, arguments);
 		console.log("📥 LocalStorage modificado:", chave, valor);
-		atualizarLista();
 		salvarLocalStorageOnline();
+		atualizarLista();
 	}
 };
 
@@ -84,8 +84,8 @@ localStorage.removeItem = function(chave) {
 	if (localStorage.getItem(chave) !== null) {
 		originalRemoveItem.apply(this, arguments);
 		console.log("🗑 LocalStorage item removido:", chave);
-		atualizarLista();
 		salvarLocalStorageOnline();
+		atualizarLista();
 	}
 };
 
