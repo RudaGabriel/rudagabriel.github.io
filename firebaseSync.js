@@ -54,6 +54,7 @@ export async function salvarLocalStorageOnline() {
 export async function carregarLocalStorageOnline() {
 	if (!db) {
 		confirmar.textContent = "Sim";
+		cancelar.removeAttribute("style");
 		cancelar.textContent = "Não";
 		modalBody.innerHTML = "❌ Firebase não foi inicializado, deseja recarregar a página?";
 		modal.style.display = "flex";
