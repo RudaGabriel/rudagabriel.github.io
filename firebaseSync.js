@@ -11,6 +11,7 @@ const firebaseConfig = {
 };
 
 let db;
+let docRef;
 if (Object.values(firebaseConfig).some(valor => !valor)) {
 	console.error("⚠️ Configuração do Firebase está vazia.");
 } else {
