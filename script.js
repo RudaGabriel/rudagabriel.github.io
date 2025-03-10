@@ -453,6 +453,7 @@ sincronizar.addEventListener("click", () => {
 		// Se todos os valores estiverem preenchidos, mostra o modal
 		if (chaveValue && dominioValue && projetoValue && bucketValue && idValue && appIdValue) {
 			confirmar.textContent = "Sim";
+			cancelar.removeAttribute("style");
 			cancelar.textContent = "Não";
 			modalBody.innerHTML = "Deixar de sincronizar?";
 			modal.style.display = "flex";
