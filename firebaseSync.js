@@ -48,7 +48,15 @@ export async function salvarLocalStorageOnline() {
 
 // 🔹 Carregar LocalStorage do Firestore
 export async function carregarLocalStorageOnline() {
-	if (!db) return console.error("❌ Firebase não inicializado.");
+	if (!db) {
+		confirmar.textContent = "Sim";
+		cancelar.textContent = "Não";
+		modalBody.innerHTML = "Firebase não foi inicializado, deseja recarregar a página?";
+		modal.style.display = "flex";
+		confirmar.onclick = () => window.location.reload();
+		cancelar.onclick = () => modal.style.display = "none";
+		return console.error("❌ Firebase não inicializado.");
+	}
 	try {
 		const docSnap = await getDoc(docRef);
 		if (docSnap.exists()) {
