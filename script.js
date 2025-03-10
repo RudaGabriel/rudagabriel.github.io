@@ -441,9 +441,14 @@ sincronizar.addEventListener("click", () => {
 	if (Object.values(firebaseConfig).every(valor => valor === "")) {
 		dadosfirediv.style.display = "flex";
 	} else {
-		if (confirm("Deixar de sincronizar?")) {
+		confirmar.textContent = "Sim";
+		cancelar.style.display = "Não";
+		modalBody.innerHTML = "Deixar de sincronizar?";
+		modal.style.display = "flex";
+		confirmar.onclick = () => {
 			["chave-fire", "dominio-fire", "projeto-fire", "bucket-fire", "id-fire", "appid-fire"].forEach(key => localStorage.setItem(key, ""));
 			window.location.reload();
-		}
+		};
+		cancelar.onclick = () => modal.style.display = "none";
 	}
 });
