@@ -36,7 +36,7 @@ const docRef = db ? doc(db, "dados", "sync") : null;
 // 🔹 Salvar LocalStorage no Firestore
 export async function salvarLocalStorageOnline() {
 	if (!db) {
-		confirmar.textContent = "Sim";
+		confirmar.textContent = "OK";
 		cancelar.style.display = "none";
 		modalBody.innerHTML = "❌ Firebase não foi inicializado<br>Clique no botão sincronizar para verificar!";
 		modal.style.display = "flex";
@@ -60,7 +60,7 @@ export async function salvarLocalStorageOnline() {
 // 🔹 Carregar LocalStorage do Firestore
 export async function carregarLocalStorageOnline() {
 	if (!db) {
-		confirmar.textContent = "Sim";
+		confirmar.textContent = "OK";
 		cancelar.style.display = "none";
 		modalBody.innerHTML = "❌ Firebase não foi inicializado<br>Clique no botão sincronizar para verificar!";
 		modal.style.display = "flex";
