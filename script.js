@@ -223,12 +223,12 @@ carregarConfiguracaoAlerta();
 function exportarLista() {
 	let configAlerta = JSON.parse(localStorage.getItem("configAlerta")) || { alertarValor: 60, unidade: "meses" };
 	let firebaseConfig = {
-		chave-fire: localStorage.getItem("chave-fire") || "",
-		dominio-fire: localStorage.getItem("dominio-fire") || "",
-		projeto-fire: localStorage.getItem("projeto-fire") || "",
-		bucket-fire: localStorage.getItem("bucket-fire") || "",
-		id-fire: localStorage.getItem("id-fire") || "",
-		appid-fire: localStorage.getItem("appid-fire") || ""
+		chavefire: localStorage.getItem("chave-fire") || "",
+		dominiofire: localStorage.getItem("dominio-fire") || "",
+		projetofire: localStorage.getItem("projeto-fire") || "",
+		bucketfire: localStorage.getItem("bucket-fire") || "",
+		idfire: localStorage.getItem("id-fire") || "",
+		appidfire: localStorage.getItem("appid-fire") || ""
 	};
 	let dados = { produtos, configAlerta, firebaseConfig };
 	let blob = new Blob([JSON.stringify(dados, null, 2)], { type: "application/json" });
