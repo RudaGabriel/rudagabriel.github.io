@@ -462,6 +462,27 @@ ConfirmarDadosFire.addEventListener("click", () => {
 	}
 });
 
+const clearButton = document.createElement('span');
+clearButton.innerHTML = '×';
+clearButton.style.cursor = 'pointer';
+clearButton.style.display = 'none';
+
+filtroInput.parentElement.appendChild(clearButton);
+
+filtroInput.addEventListener('input', () => {
+  if (filtroInput.value.length > 0) {
+    clearButton.style.display = 'inline';
+  } else {
+    clearButton.style.display = 'none';
+  }
+});
+
+clearButton.addEventListener('click', () => {
+  filtroInput.value = '';
+  clearButton.style.display = 'none';
+});
+
+
 sincronizar.addEventListener("click", () => {
 	const firebaseConfig = {
 		apiKey: localStorage.getItem("chave-fire") || "",
