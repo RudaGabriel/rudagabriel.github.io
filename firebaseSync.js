@@ -43,16 +43,18 @@ async function salvarLocalStorageOnline() {
         valorFirebase = JSON.stringify(valorFirebase);
       }
 
+      // Verificando diferença real entre valor local e o valor do Firebase
       if (valor !== valorFirebase) {
         diferenca[chave] = { antes: valorFirebase, depois: valor };
       }
     });
 
+    // Exibe a diferença apenas se houver alterações reais
     if (Object.keys(diferenca).length > 0) {
       await setDoc(docRef, { dados: todosDados }, { merge: true });
       console.log("✅ Dados modificados e salvos no Firebase:", diferenca);
     }
-	
+
   } catch (error) {
     console.error("❌ Erro ao salvar dados:", error);
   }
@@ -126,12 +128,17 @@ localStorage.setItem = function(chave, valor) {
     }
   }
 
+  // Verificando se houve alteração no valor
   if (valorAntigo !== valor) {
     originalSetItem.apply(this, arguments);
 
-    // Comparando os valores, verificando se são objetos ou arrays
-    const diferenca = { antes: valorAntigo ? JSON.parse(valorAntigo) : "N/A", depois: JSON.parse(valor) };
-    console.log(`📥 ${chave} modificado:`, diferenca);
+    // Comparando os valores e verificando se são objetos ou arrays
+    let diferenca = { antes: valorAntigo ? JSON.parse(valorAntigo) : "N/A", depois: JSON.parse(valor) };
+
+    // Exibe apenas se houver diferença real
+    if (JSON.stringify(diferenca.antes) !== JSON.stringify(diferenca.depois)) {
+      console.log(`📥 ${chave} modificado:`, diferenca);
+    }
 
     salvarLocalStorageOnline();
     atualizarLista();
@@ -185,6 +192,7 @@ if (db) {
         }
       });
 
+      // Exibe apenas se houver modificações
       if (Object.keys(diferencas).length > 0) {
         console.log("🔄 Sincronizado Firestore → LocalStorage:", diferencas);
         atualizarLista();
