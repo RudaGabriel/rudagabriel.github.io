@@ -473,7 +473,8 @@ clearButton.style.fontSize = '16px';
 clearButton.style.color = '#999';
 clearButton.style.display = 'none';
 
-filtroInput.style.position = 'relative'; // Para que o X seja posicionado dentro do input
+filtroInput.style.position = 'relative'; // Garantindo que o input tenha position relative
+filtroInput.style.paddingRight = '30px'; // Garantindo o espaço necessário para o "X"
 filtroInput.parentElement.appendChild(clearButton);
 
 filtroInput.addEventListener('input', () => {
