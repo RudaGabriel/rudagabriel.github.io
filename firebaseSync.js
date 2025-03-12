@@ -31,9 +31,9 @@ async function salvarLocalStorageOnline() {
 		const firebaseData = docSnap.exists() ? docSnap.data().dados || {} : {};
 
 		let diferenca = {};
-		["nome", "quantidade", "codigoBarras", "vencimento"].forEach(chave => {
-			if (firebaseData[chave] !== todosDados[chave]) {
-				diferenca[chave] = { antes: firebaseData[chave] || "N/A", depois: todosDados[chave] };
+		Object.entries(todosDados).forEach(([chave, valor]) => {
+			if (firebaseData[chave] !== valor) {
+				diferenca[chave] = { antes: firebaseData[chave] || "N/A", depois: valor };
 			}
 		});
 
@@ -109,9 +109,8 @@ localStorage.setItem = function(chave, valor) {
 	if (valorAntigo !== valor) {
 		originalSetItem.apply(this, arguments);
 
-		if (["nome", "quantidade", "vencimento", "codigoBarras"].includes(chave)) {
-			console.log(`📥 ${chave} modificado:`, { antes: valorAntigo, depois: valor });
-		}
+		const diferenca = { antes: valorAntigo, depois: valor };
+		console.log(`📥 ${chave} modificado:`, diferenca);
 
 		salvarLocalStorageOnline();
 		atualizarLista();
@@ -138,10 +137,11 @@ if (db) {
 			const firebaseData = snapshot.data().dados || {};
 			let diferencas = {};
 
-			["nome", "quantidade", "vencimento", "codigoBarras"].forEach(chave => {
-				if (firebaseData[chave] !== localStorage.getItem(chave)) {
-					diferencas[chave] = { antes: localStorage.getItem(chave) || "N/A", depois: firebaseData[chave] };
-					localStorage.setItem(chave, firebaseData[chave]);
+			Object.entries(firebaseData).forEach(([chave, valor]) => {
+				const valorLocalStorage = localStorage.getItem(chave);
+				if (valor !== valorLocalStorage) {
+					diferencas[chave] = { antes: valorLocalStorage, depois: valor };
+					localStorage.setItem(chave, valor);
 				}
 			});
 
