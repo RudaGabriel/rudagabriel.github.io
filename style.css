@@ -228,6 +228,7 @@
 #filtro {
   padding-right: 25px; /* Espaço à direita para o X */
   position: relative;
+  font-size: 14px; /* Ajuste de tamanho de fonte para manter a uniformidade */
 }
 
 #filtro + span {
@@ -239,4 +240,14 @@
   color: #999;
   cursor: pointer;
   display: none; /* Inicialmente oculto */
+}
+
+@media (max-width: 768px) {
+  #filtro {
+    padding-right: 35px; /* Ajusta o padding para o X em dispositivos pequenos */
+  }
+
+  #filtro + span {
+    font-size: 14px; /* Reduz o tamanho do X em telas menores */
+  }
 }
