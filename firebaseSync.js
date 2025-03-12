@@ -43,8 +43,22 @@ async function salvarLocalStorageOnline() {
         valorFirebase = JSON.stringify(valorFirebase);
       }
 
-      // Verificando diferença real entre valor local e o valor do Firebase
-      if (valor !== valorFirebase) {
+      // Comparação entre listas ou objetos
+      if (chave === 'superfavorites') {
+        const objetosAntes = valor.split(",").map(item => item.trim());
+        const objetosDepois = valorFirebase.split(",").map(item => item.trim());
+
+        if (objetosAntes.join(",") !== objetosDepois.join(",")) {
+          diferenca[chave] = {
+            antes: objetosAntes.join(","),
+            depois: objetosDepois.join(",")
+          };
+          // Atualiza o valor no localStorage com a lista unificada e sem duplicatas
+          const listaUnificada = [...new Set([...objetosAntes, ...objetosDepois])];
+          localStorage.setItem(chave, listaUnificada.join(","));
+        }
+      } else if (valor !== valorFirebase) {
+        // Comparando valores simples
         diferenca[chave] = { antes: valorFirebase, depois: valor };
       }
     });
@@ -132,11 +146,32 @@ localStorage.setItem = function(chave, valor) {
   if (valorAntigo !== valor) {
     originalSetItem.apply(this, arguments);
 
-    // Comparando os valores e verificando se são objetos ou arrays
     let diferenca = { antes: valorAntigo ? JSON.parse(valorAntigo) : "N/A", depois: JSON.parse(valor) };
 
-    // Exibe apenas se houver diferença real
-    if (JSON.stringify(diferenca.antes) !== JSON.stringify(diferenca.depois)) {
+    // Verificando se o valor é um objeto (ou array) e se houve diferença
+    if (typeof diferenca.antes === 'object' && typeof diferenca.depois === 'object') {
+      // Caso sejam arrays
+      if (Array.isArray(diferenca.antes) && Array.isArray(diferenca.depois)) {
+        const antesArray = diferenca.antes.map(item => item.trim());
+        const depoisArray = diferenca.depois.map(item => item.trim());
+        const resultadoModificado = [...new Set([...antesArray, ...depoisArray])].join(",");
+        
+        diferenca.superfavorites = resultadoModificado;
+        console.log(`📥 ${chave} modificado:`, diferenca);
+      }
+      // Caso sejam objetos
+      else {
+        // Adicionando lógica de comparação para objetos
+        let antesObj = JSON.stringify(diferenca.antes);
+        let depoisObj = JSON.stringify(diferenca.depois);
+
+        if (antesObj !== depoisObj) {
+          diferenca = { antes: diferenca.antes, depois: diferenca.depois };
+          console.log(`📥 ${chave} modificado:`, diferenca);
+        }
+      }
+    } else if (JSON.stringify(diferenca.antes) !== JSON.stringify(diferenca.depois)) {
+      // Para valores simples ou quando não forem objetos
       console.log(`📥 ${chave} modificado:`, diferenca);
     }
 
@@ -172,17 +207,25 @@ if (db) {
         if (typeof valor === 'object' && valor !== null) {
           if (Array.isArray(valor)) {
             // Se for um array, compara os elementos
-            const localStorageArray = JSON.parse(valorLocalStorage || '[]');
-            if (JSON.stringify(valor) !== JSON.stringify(localStorageArray)) {
-              diferencas[chave] = { antes: localStorageArray, depois: valor };
-              localStorage.setItem(chave, JSON.stringify(valor));
+            const listaAntes = (valorLocalStorage ? JSON.parse(valorLocalStorage) : []);
+            const listaDepois = valor;
+
+            // Comparando as listas de forma a manter elementos únicos
+            const listaCombinada = [...new Set([...listaAntes, ...listaDepois])];
+            if (JSON.stringify(listaCombinada) !== JSON.stringify(listaDepois)) {
+              diferencas[chave] = { antes: listaAntes, depois: listaCombinada };
+              localStorage.setItem(chave, JSON.stringify(listaCombinada));
             }
           } else {
             // Se for um objeto, compara as propriedades
-            const localStorageObject = JSON.parse(valorLocalStorage || '{}');
-            if (JSON.stringify(valor) !== JSON.stringify(localStorageObject)) {
-              diferencas[chave] = { antes: localStorageObject, depois: valor };
-              localStorage.setItem(chave, JSON.stringify(valor));
+            const objetoAntes = valorLocalStorage ? JSON.parse(valorLocalStorage) : {};
+            const objetoDepois = valor;
+
+            // Comparando as chaves e valores de objetos
+            const diferencasObjetos = { ...objetoAntes, ...objetoDepois };
+            if (JSON.stringify(objetoAntes) !== JSON.stringify(objetoDepois)) {
+              diferencas[chave] = { antes: objetoAntes, depois: diferencasObjetos };
+              localStorage.setItem(chave, JSON.stringify(diferencasObjetos));
             }
           }
         } else if (valor !== valorLocalStorage) {
