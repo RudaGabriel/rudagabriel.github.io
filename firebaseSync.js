@@ -26,8 +26,20 @@ async function salvarLocalStorageOnline() {
 	let todosDados = {};
 	Object.keys(localStorage).forEach(chave => todosDados[chave] = localStorage.getItem(chave));
 	try {
-		await setDoc(docRef, { dados: todosDados }, { merge: true });
-		console.log("✅ Dados salvos no Firebase!");
+		const docSnap = await getDoc(docRef);
+		const firebaseData = docSnap.exists() ? docSnap.data().dados || {} : {};
+
+		let diferenca = {};
+		Object.entries(todosDados).forEach(([chave, valor]) => {
+			if (firebaseData[chave] !== valor) diferenca[chave] = valor;
+		});
+
+		if (Object.keys(diferenca).length > 0) {
+			await setDoc(docRef, { dados: todosDados }, { merge: true });
+			console.log("✅ Dados salvos no Firebase:", diferenca);
+		} else {
+			console.log("⚠️ Nenhuma diferença detectada, nada foi salvo.");
+		}
 	} catch (error) {
 		console.error("❌ Erro ao salvar dados:", error);
 	}
