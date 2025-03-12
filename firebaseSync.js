@@ -19,6 +19,7 @@ if (Object.values(firebaseConfig).some(valor => !valor)) {
 	docRef = doc(db, "dados", "sync");
 	console.log("✅ Firebase inicializado com sucesso!");
 	compararEPrivilegiarDados();
+	limparChavesNaoPermitidas(); // Limpa as chaves não permitidas
 }
 
 async function salvarLocalStorageOnline() {
@@ -67,6 +68,16 @@ async function carregarLocalStorageOnline() {
 	} catch (error) {
 		console.error("❌ Erro ao carregar dados:", error);
 	}
+}
+
+function limparChavesNaoPermitidas() {
+  const chavesPermitidas = ["-fire", "produtos", "configAlerta", "ignorados"];
+  Object.keys(localStorage).forEach(chave => {
+    if (!chavesPermitidas.some(term => chave.includes(term))) {
+      console.log(`🗑 Removendo chave não permitida do localStorage: ${chave}`);
+      localStorage.removeItem(chave);
+    }
+  });
 }
 
 async function compararEPrivilegiarDados() {
