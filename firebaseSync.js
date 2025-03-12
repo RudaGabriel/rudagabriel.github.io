@@ -23,6 +23,7 @@ if (Object.values(firebaseConfig).some(valor => !valor)) {
 
 async function salvarLocalStorageOnline() {
   if (!db) return console.error("❌ Firebase não inicializado.");
+  
   let todosDados = {};
   Object.keys(localStorage).forEach(chave => todosDados[chave] = localStorage.getItem(chave));
 
@@ -33,6 +34,15 @@ async function salvarLocalStorageOnline() {
     let diferenca = {};
     Object.entries(todosDados).forEach(([chave, valor]) => {
       const valorFirebase = firebaseData[chave] || "N/A";
+
+      // Verificando se o valor é um objeto ou array antes de compará-lo
+      if (typeof valor === 'object' && valor !== null) {
+        valor = JSON.stringify(valor);
+      }
+      if (typeof valorFirebase === 'object' && valorFirebase !== null) {
+        valorFirebase = JSON.stringify(valorFirebase);
+      }
+
       if (valor !== valorFirebase) {
         diferenca[chave] = { antes: valorFirebase, depois: valor };
       }
@@ -41,9 +51,8 @@ async function salvarLocalStorageOnline() {
     if (Object.keys(diferenca).length > 0) {
       await setDoc(docRef, { dados: todosDados }, { merge: true });
       console.log("✅ Dados modificados e salvos no Firebase:", diferenca);
-    } else {
-      console.log("⚠️ Nenhuma diferença detectada, nada foi salvo.");
     }
+	
   } catch (error) {
     console.error("❌ Erro ao salvar dados:", error);
   }
@@ -107,10 +116,21 @@ async function compararEPrivilegiarDados() {
 const originalSetItem = localStorage.setItem;
 localStorage.setItem = function(chave, valor) {
   let valorAntigo = localStorage.getItem(chave);
+
+  // Verificando se o valor é um objeto ou um array
+  if (typeof valor === 'object' && valor !== null) {
+    if (Array.isArray(valor)) {
+      valor = JSON.stringify(valor);
+    } else {
+      valor = JSON.stringify(valor);
+    }
+  }
+
   if (valorAntigo !== valor) {
     originalSetItem.apply(this, arguments);
 
-    const diferenca = { antes: valorAntigo || "N/A", depois: valor };
+    // Comparando os valores, verificando se são objetos ou arrays
+    const diferenca = { antes: valorAntigo ? JSON.parse(valorAntigo) : "N/A", depois: JSON.parse(valor) };
     console.log(`📥 ${chave} modificado:`, diferenca);
 
     salvarLocalStorageOnline();
@@ -140,7 +160,26 @@ if (db) {
 
       Object.entries(firebaseData).forEach(([chave, valor]) => {
         const valorLocalStorage = localStorage.getItem(chave);
-        if (valor !== valorLocalStorage) {
+
+        // Verificando se o valor é um objeto ou um array
+        if (typeof valor === 'object' && valor !== null) {
+          if (Array.isArray(valor)) {
+            // Se for um array, compara os elementos
+            const localStorageArray = JSON.parse(valorLocalStorage || '[]');
+            if (JSON.stringify(valor) !== JSON.stringify(localStorageArray)) {
+              diferencas[chave] = { antes: localStorageArray, depois: valor };
+              localStorage.setItem(chave, JSON.stringify(valor));
+            }
+          } else {
+            // Se for um objeto, compara as propriedades
+            const localStorageObject = JSON.parse(valorLocalStorage || '{}');
+            if (JSON.stringify(valor) !== JSON.stringify(localStorageObject)) {
+              diferencas[chave] = { antes: localStorageObject, depois: valor };
+              localStorage.setItem(chave, JSON.stringify(valor));
+            }
+          }
+        } else if (valor !== valorLocalStorage) {
+          // Caso seja um valor primitivo, compara diretamente
           diferencas[chave] = { antes: valorLocalStorage, depois: valor };
           localStorage.setItem(chave, valor);
         }
