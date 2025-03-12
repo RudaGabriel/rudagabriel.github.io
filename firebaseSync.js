@@ -41,8 +41,10 @@ async function salvarLocalStorageOnline() {
 			if (firebaseData[chave] !== valor) diferenca[chave] = valor;
 		});
 
-		await setDoc(docRef, { dados: todosDados }, { merge: true });
-		console.log("✅ Dados salvos no Firebase:", diferenca);
+		if (Object.keys(diferenca).length > 0) {
+			await setDoc(docRef, { dados: todosDados }, { merge: true });
+			console.log("✅ Dados salvos no Firebase:", diferenca);
+		}
 		
 	} catch (error) {
 		console.error("❌ Erro ao salvar dados:", error);
