@@ -226,28 +226,28 @@
 }
 
 #filtro {
-  padding-right: 25px; /* Espaço à direita para o X */
-  position: relative;
-  font-size: 14px; /* Ajuste de tamanho de fonte para manter a uniformidade */
+  padding-right: 30px; /* Espaço para o "X" */
+  position: relative; /* Essencial para posicionar o "X" corretamente dentro do input */
+  font-size: 14px;
 }
 
 #filtro + span {
   position: absolute;
-  right: 10px;
+  right: 10px; /* Ajusta a posição do "X" para a direita */
   top: 50%;
   transform: translateY(-50%);
   font-size: 16px;
   color: #999;
   cursor: pointer;
-  display: none; /* Inicialmente oculto */
+  display: none;
 }
 
 @media (max-width: 768px) {
   #filtro {
-    padding-right: 35px; /* Ajusta o padding para o X em dispositivos pequenos */
+    padding-right: 35px; /* Ajusta o padding para telas pequenas */
   }
 
   #filtro + span {
-    font-size: 14px; /* Reduz o tamanho do X em telas menores */
+    font-size: 14px; /* Ajusta o tamanho do "X" em telas menores */
   }
 }
