@@ -125,7 +125,7 @@ if (db) {
 		if (snapshot.exists()) {
 			if (bloqueioSincronizacao) return;
 			bloqueioSincronizacao = true;
-			setTimeout(() => bloqueioSincronizacao = false, 2000);
+			setTimeout(() => bloqueioSincronizacao = false, 1000);
 
 			const firebaseData = snapshot.data().dados || {};
 			Object.entries(firebaseData).forEach(([chave, valor]) => {
