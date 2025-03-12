@@ -70,14 +70,39 @@ async function carregarLocalStorageOnline() {
 	}
 }
 
-function limparChavesNaoPermitidas() {
+async function limparChavesNaoPermitidas() {
   const chavesPermitidas = ["-fire", "produtos", "configAlerta", "ignorados"];
+
+  // Limpar no localStorage
   Object.keys(localStorage).forEach(chave => {
     if (!chavesPermitidas.some(term => chave.includes(term))) {
       console.log(`🗑 Removendo chave não permitida do localStorage: ${chave}`);
       localStorage.removeItem(chave);
     }
   });
+
+  // Limpar no Firebase
+  try {
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      const firebaseData = docSnap.data().dados || {};
+      let dadosAtualizados = { ...firebaseData };
+
+      Object.keys(firebaseData).forEach(chave => {
+        if (!chavesPermitidas.some(term => chave.includes(term))) {
+          console.log(`🗑 Removendo chave não permitida do Firebase: ${chave}`);
+          delete dadosAtualizados[chave];
+        }
+      });
+
+      if (Object.keys(dadosAtualizados).length !== Object.keys(firebaseData).length) {
+        await setDoc(docRef, { dados: dadosAtualizados }, { merge: true });
+        console.log("✅ Dados atualizados no Firebase após remoção de chaves inválidas.");
+      }
+    }
+  } catch (error) {
+    console.error("❌ Erro ao limpar dados no Firebase:", error);
+  }
 }
 
 async function compararEPrivilegiarDados() {
