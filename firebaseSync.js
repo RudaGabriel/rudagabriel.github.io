@@ -24,7 +24,14 @@ if (Object.values(firebaseConfig).some(valor => !valor)) {
 async function salvarLocalStorageOnline() {
 	if (!db) return console.error("❌ Firebase não inicializado.");
 	let todosDados = {};
-	Object.keys(localStorage).forEach(chave => todosDados[chave] = localStorage.getItem(chave));
+	const chavesPermitidas = ["-fire", "produtos", "configAlerta", "ignorados"];
+
+	Object.keys(localStorage).forEach(chave => {
+		if (chavesPermitidas.some(term => chave.includes(term))) {
+			todosDados[chave] = localStorage.getItem(chave);
+		}
+	});
+
 	try {
 		const docSnap = await getDoc(docRef);
 		const firebaseData = docSnap.exists() ? docSnap.data().dados || {} : {};
