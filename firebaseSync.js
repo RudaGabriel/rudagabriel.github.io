@@ -79,7 +79,7 @@ async function compararEPrivilegiarDados() {
 	const firebaseSize = Object.keys(firebaseData).length;
 
 	if (localSize > firebaseSize) {
-		console.log("📤 LocalStorage tem mais dados, será priorizado para exportação.");
+		console.log("📤 LocalStorage atual tem mais dados, será priorizado para exportação.");
 		await salvarLocalStorageOnline();
 	} else if (firebaseSize > localSize) {
 		console.log("📥 Firebase tem mais dados, será priorizado para importação.");
