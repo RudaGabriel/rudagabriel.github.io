@@ -21,34 +21,37 @@ if (Object.values(firebaseConfig).some(valor => !valor)) {
 	compararEPrivilegiarDados();
 }
 
-async function salvarLocalStorageOnline() {
-	if (!db) return console.error("❌ Firebase não inicializado.");
-	let todosDados = {};
-	const chavesPermitidas = ["-fire", "produtos", "configAlerta", "ignorados"];
+async function compararEPrivilegiarDados() {
+  if (!db || !docRef) return console.error("❌ Firebase não inicializado.");
+  if (bloqueioExecucao) return;
 
-	Object.keys(localStorage).forEach(chave => {
-		if (chavesPermitidas.some(term => chave.includes(term))) {
-			todosDados[chave] = localStorage.getItem(chave);
-		}
-	});
+  bloqueioExecucao = true;
+  setTimeout(() => bloqueioExecucao = false, 1000);
 
-	try {
-		const docSnap = await getDoc(docRef);
-		const firebaseData = docSnap.exists() ? docSnap.data().dados || {} : {};
+  const docSnap = await getDoc(docRef);
+  const firebaseData = docSnap.exists() ? docSnap.data().dados || {} : {};
 
-		let diferenca = {};
-		Object.entries(todosDados).forEach(([chave, valor]) => {
-			if (firebaseData[chave] !== valor) diferenca[chave] = valor;
-		});
+  const chavesPermitidas = ["-fire", "produtos", "configAlerta", "ignorados"];
+  const localData = {};
+  
+  Object.keys(localStorage).forEach(chave => {
+    if (chavesPermitidas.some(termo => chave.includes(termo))) {
+      localData[chave] = localStorage.getItem(chave);
+    }
+  });
 
-		if (Object.keys(diferenca).length > 0) {
-			await setDoc(docRef, { dados: todosDados }, { merge: true });
-			console.log("✅ Dados salvos no Firebase:", diferenca);
-		}
-		
-	} catch (error) {
-		console.error("❌ Erro ao salvar dados:", error);
-	}
+  const localSize = Object.keys(localData).length;
+  const firebaseSize = Object.keys(firebaseData).length;
+
+  if (localSize > firebaseSize) {
+    console.log("📤 LocalStorage atual tem mais dados, será priorizado para exportação.");
+    await salvarLocalStorageOnline();
+  } else if (firebaseSize > localSize) {
+    console.log("📥 Firebase tem mais dados, será priorizado para importação.");
+    await carregarLocalStorageOnline();
+  } else {
+    console.log("✅ Os dados estão sincronizados.");
+  }
 }
 
 async function carregarLocalStorageOnline() {
