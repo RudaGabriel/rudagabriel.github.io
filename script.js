@@ -34,26 +34,26 @@ function adicionarProduto() {
 	if (!nome || !quantidade || !vencimento || !codigoBarras) return alert("Preencha todos os campos!");
 
 	if (produtoEditadoIndex === -1 && adicionarBtn.textContent !== "Atualizar") {
-		if (produtos.some(p => p.codigoBarras === codigoBarras && p.nome === nome && formatarData(p.vencimento) === formatarData(vencimento))) {
-			confirmar.textContent = "OK";
-			cancelar.style.display = "none";
+		let produtoExistente = produtos.find(p => p.codigoBarras === codigoBarras && p.nome === nome && formatarData(p.vencimento) === formatarData(vencimento));
+		if (produtoExistente) {
+			modalBody.innerHTML = "Produto já adicionado com o mesmo código de barras, nome e data de vencimento! Deseja atualizar esse produto?";
+			confirmar.textContent = "Sim";
+			cancelar.removeAttribute("style");
+			cancelar.textContent = "Não";
 			modal.style.display = "flex";
-			confirmar.onclick = () => modal.style.display = "none";
-			return modalBody.innerHTML = "Produto já adicionado com o mesmo código de barras, nome e data de vencimento!";
+			
+			confirmar.onclick = () => {
+				Object.assign(produtoExistente, { nome, quantidade, vencimento, codigoBarras });
+				modal.style.display = "none";
+				salvarProdutos();
+				atualizarLista();
+			};
+			cancelar.onclick = () => modal.style.display = "none";
+			return;
 		}
-		produtos.push({
-			nome,
-			quantidade,
-			vencimento,
-			codigoBarras
-		});
+		produtos.push({ nome, quantidade, vencimento, codigoBarras });
 	} else {
-		Object.assign(produtos[produtoEditadoIndex], {
-			nome,
-			quantidade,
-			vencimento,
-			codigoBarras
-		});
+		Object.assign(produtos[produtoEditadoIndex], { nome, quantidade, vencimento, codigoBarras });
 		produtoEditadoIndex = -1;
 		adicionarBtn.textContent = "Adicionar";
 		if (botaodesabilitado) botaodesabilitado.disabled = false;
