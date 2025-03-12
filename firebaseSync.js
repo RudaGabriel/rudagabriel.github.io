@@ -43,11 +43,15 @@ async function compararEPrivilegiarDados() {
   const localSize = Object.keys(localData).length;
   const firebaseSize = Object.keys(firebaseData).length;
 
-  if (localSize > firebaseSize) {
-    console.log("📤 LocalStorage atual tem mais dados, será priorizado para exportação.");
+  // Comparando o comprimento da chave 'produtos'
+  const produtosLocal = Array.isArray(localData.produtos) ? localData.produtos.length : 0;
+  const produtosFirebase = Array.isArray(firebaseData.produtos) ? firebaseData.produtos.length : 0;
+
+  if (produtosLocal > produtosFirebase) {
+    console.log("📤 LocalStorage tem mais itens em 'produtos', será priorizado para exportação.");
     await salvarLocalStorageOnline();
-  } else if (firebaseSize > localSize) {
-    console.log("📥 Firebase tem mais dados, será priorizado para importação.");
+  } else if (produtosFirebase > produtosLocal) {
+    console.log("📥 Firebase tem mais itens em 'produtos', será priorizado para importação.");
     await carregarLocalStorageOnline();
   } else {
     console.log("✅ Os dados estão sincronizados.");
