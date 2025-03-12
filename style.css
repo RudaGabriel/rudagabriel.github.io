@@ -226,7 +226,8 @@
 }
 
 #filtro {
-  padding-right: 25px; /* Dá espaço para o X no campo */
+  padding-right: 25px; /* Espaço à direita para o X */
+  position: relative;
 }
 
 #filtro + span {
@@ -236,4 +237,6 @@
   transform: translateY(-50%);
   font-size: 16px;
   color: #999;
+  cursor: pointer;
+  display: none; /* Inicialmente oculto */
 }
