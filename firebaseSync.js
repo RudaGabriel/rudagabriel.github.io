@@ -10,7 +10,7 @@ const firebaseConfig = {
 	appId: localStorage.getItem("appid-fire") || ""
 };
 
-let db, docRef, bloqueioExecucao = false;
+let db, docRef, bloqueioExecucao = false, bloqueioSincronizacao = false;
 if (Object.values(firebaseConfig).some(valor => !valor)) {
 	console.error("⚠️ Configuração do Firebase está vazia.");
 } else {
@@ -123,6 +123,10 @@ localStorage.removeItem = function(chave) {
 if (db) {
 	onSnapshot(docRef, snapshot => {
 		if (snapshot.exists()) {
+			if (bloqueioSincronizacao) return;
+			bloqueioSincronizacao = true;
+			setTimeout(() => bloqueioSincronizacao = false, 2000);
+
 			const firebaseData = snapshot.data().dados || {};
 			Object.entries(firebaseData).forEach(([chave, valor]) => {
 				if (localStorage.getItem(chave) !== valor) {
