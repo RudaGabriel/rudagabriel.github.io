@@ -22,30 +22,31 @@ if (Object.values(firebaseConfig).some(valor => !valor)) {
 }
 
 async function salvarLocalStorageOnline() {
-	if (!db) return console.error("❌ Firebase não inicializado.");
-	let todosDados = {};
-	Object.keys(localStorage).forEach(chave => todosDados[chave] = localStorage.getItem(chave));
+  if (!db) return console.error("❌ Firebase não inicializado.");
+  let todosDados = {};
+  Object.keys(localStorage).forEach(chave => todosDados[chave] = localStorage.getItem(chave));
 
-	try {
-		const docSnap = await getDoc(docRef);
-		const firebaseData = docSnap.exists() ? docSnap.data().dados || {} : {};
+  try {
+    const docSnap = await getDoc(docRef);
+    const firebaseData = docSnap.exists() ? docSnap.data().dados || {} : {};
 
-		let diferenca = {};
-		Object.entries(todosDados).forEach(([chave, valor]) => {
-			if (firebaseData[chave] !== valor) {
-				diferenca[chave] = { antes: firebaseData[chave] || "N/A", depois: valor };
-			}
-		});
+    let diferenca = {};
+    Object.entries(todosDados).forEach(([chave, valor]) => {
+      const valorFirebase = firebaseData[chave] || "N/A";
+      if (valor !== valorFirebase) {
+        diferenca[chave] = { antes: valorFirebase, depois: valor };
+      }
+    });
 
-		if (Object.keys(diferenca).length > 0) {
-			await setDoc(docRef, { dados: todosDados }, { merge: true });
-			console.log("✅ Dados modificados e salvos no Firebase:", diferenca);
-		} else {
-			console.log("⚠️ Nenhuma diferença detectada, nada foi salvo.");
-		}
-	} catch (error) {
-		console.error("❌ Erro ao salvar dados:", error);
-	}
+    if (Object.keys(diferenca).length > 0) {
+      await setDoc(docRef, { dados: todosDados }, { merge: true });
+      console.log("✅ Dados modificados e salvos no Firebase:", diferenca);
+    } else {
+      console.log("⚠️ Nenhuma diferença detectada, nada foi salvo.");
+    }
+  } catch (error) {
+    console.error("❌ Erro ao salvar dados:", error);
+  }
 }
 
 async function carregarLocalStorageOnline() {
@@ -105,16 +106,16 @@ async function compararEPrivilegiarDados() {
 
 const originalSetItem = localStorage.setItem;
 localStorage.setItem = function(chave, valor) {
-	let valorAntigo = localStorage.getItem(chave);
-	if (valorAntigo !== valor) {
-		originalSetItem.apply(this, arguments);
+  let valorAntigo = localStorage.getItem(chave);
+  if (valorAntigo !== valor) {
+    originalSetItem.apply(this, arguments);
 
-		const diferenca = { antes: valorAntigo, depois: valor };
-		console.log(`📥 ${chave} modificado:`, diferenca);
+    const diferenca = { antes: valorAntigo || "N/A", depois: valor };
+    console.log(`📥 ${chave} modificado:`, diferenca);
 
-		salvarLocalStorageOnline();
-		atualizarLista();
-	}
+    salvarLocalStorageOnline();
+    atualizarLista();
+  }
 };
 
 const originalRemoveItem = localStorage.removeItem;
@@ -128,27 +129,27 @@ localStorage.removeItem = function(chave) {
 };
 
 if (db) {
-	onSnapshot(docRef, snapshot => {
-		if (snapshot.exists()) {
-			if (bloqueioSincronizacao) return;
-			bloqueioSincronizacao = true;
-			setTimeout(() => bloqueioSincronizacao = false, 1000);
+  onSnapshot(docRef, snapshot => {
+    if (snapshot.exists()) {
+      if (bloqueioSincronizacao) return;
+      bloqueioSincronizacao = true;
+      setTimeout(() => bloqueioSincronizacao = false, 1000);
 
-			const firebaseData = snapshot.data().dados || {};
-			let diferencas = {};
+      const firebaseData = snapshot.data().dados || {};
+      let diferencas = {};
 
-			Object.entries(firebaseData).forEach(([chave, valor]) => {
-				const valorLocalStorage = localStorage.getItem(chave);
-				if (valor !== valorLocalStorage) {
-					diferencas[chave] = { antes: valorLocalStorage, depois: valor };
-					localStorage.setItem(chave, valor);
-				}
-			});
+      Object.entries(firebaseData).forEach(([chave, valor]) => {
+        const valorLocalStorage = localStorage.getItem(chave);
+        if (valor !== valorLocalStorage) {
+          diferencas[chave] = { antes: valorLocalStorage, depois: valor };
+          localStorage.setItem(chave, valor);
+        }
+      });
 
-			if (Object.keys(diferencas).length > 0) {
-				console.log("🔄 Sincronizado Firestore → LocalStorage:", diferencas);
-				atualizarLista();
-			}
-		}
-	});
+      if (Object.keys(diferencas).length > 0) {
+        console.log("🔄 Sincronizado Firestore → LocalStorage:", diferencas);
+        atualizarLista();
+      }
+    }
+  });
 }
