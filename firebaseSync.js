@@ -136,13 +136,19 @@ if (db) {
 			setTimeout(() => bloqueioSincronizacao = false, 1000);
 
 			const firebaseData = snapshot.data().dados || {};
-			Object.entries(firebaseData).forEach(([chave, valor]) => {
-				if (localStorage.getItem(chave) !== valor) {
-					localStorage.setItem(chave, valor);
-					console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
-					atualizarLista();
+			let diferencas = {};
+
+			["nome", "quantidade", "vencimento", "codigoBarras"].forEach(chave => {
+				if (firebaseData[chave] !== localStorage.getItem(chave)) {
+					diferencas[chave] = { antes: localStorage.getItem(chave) || "N/A", depois: firebaseData[chave] };
+					localStorage.setItem(chave, firebaseData[chave]);
 				}
 			});
+
+			if (Object.keys(diferencas).length > 0) {
+				console.log("🔄 Sincronizado Firestore → LocalStorage:", diferencas);
+				atualizarLista();
+			}
 		}
 	});
 }
