@@ -68,7 +68,7 @@ async function compararEPrivilegiarDados() {
 	if (bloqueioExecucao) return;
 
 	bloqueioExecucao = true;
-	setTimeout(() => bloqueioExecucao = false, 3000);
+	setTimeout(() => bloqueioExecucao = false, 1000);
 
 	const docSnap = await getDoc(docRef);
 	const firebaseData = docSnap.exists() ? docSnap.data().dados || {} : {};
