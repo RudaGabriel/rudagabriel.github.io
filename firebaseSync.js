@@ -70,40 +70,29 @@ async function carregarLocalStorageOnline() {
 }
 
 async function compararEPrivilegiarDados() {
-	if (!db || !docRef) return console.error("❌ Firebase não inicializado.");
-	if (bloqueioExecucao) return;
+  if (!db || !docRef) return console.error("❌ Firebase não inicializado.");
+  if (bloqueioExecucao) return;
 
-	bloqueioExecucao = true;
-	setTimeout(() => bloqueioExecucao = false, 1000);
+  bloqueioExecucao = true;
+  setTimeout(() => bloqueioExecucao = false, 1000);
 
-	const docSnap = await getDoc(docRef);
-	const firebaseData = docSnap.exists() ? docSnap.data().dados || {} : {};
-	const localData = {};
-	Object.keys(localStorage).forEach(chave => localData[chave] = localStorage.getItem(chave));
+  const docSnap = await getDoc(docRef);
+  const firebaseData = docSnap.exists() ? docSnap.data().dados || {} : {};
+  const localData = {};
+  Object.keys(localStorage).forEach(chave => localData[chave] = localStorage.getItem(chave));
 
-	const localSize = Object.keys(localData).length;
-	const firebaseSize = Object.keys(firebaseData).length;
+  const localSize = Object.keys(localData).length;
+  const firebaseSize = Object.keys(firebaseData).length;
 
-	if (localSize > firebaseSize) {
-		console.log("📤 LocalStorage atual tem mais dados, será priorizado para exportação.");
-		await salvarLocalStorageOnline();
-	} else if (firebaseSize > localSize) {
-		console.log("📥 Firebase tem mais dados, será priorizado para importação.");
-		await carregarLocalStorageOnline();
-	} else {
-		let conflito = false;
-		for (let chave in localData) {
-			if (firebaseData[chave] !== localData[chave]) {
-				conflito = true;
-				console.log(`⚠️ Conflito detectado na chave "${chave}".`);
-			}
-		}
-		if (conflito) {
-			console.log("🛑 Existem diferenças entre LocalStorage e Firebase. Defina uma política de resolução.");
-		} else {
-			console.log("✅ Os dados estão sincronizados.");
-		}
-	}
+  if (localSize > firebaseSize) {
+    console.log("📤 LocalStorage atual tem mais dados, será priorizado para exportação.");
+    await salvarLocalStorageOnline();
+  } else if (firebaseSize > localSize) {
+    console.log("📥 Firebase tem mais dados, será priorizado para importação.");
+    await carregarLocalStorageOnline();
+  } else {
+    console.log("✅ Os dados estão sincronizados.");
+  }
 }
 
 const originalSetItem = localStorage.setItem;
