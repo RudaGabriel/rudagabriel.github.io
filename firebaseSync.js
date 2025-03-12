@@ -51,8 +51,15 @@ async function carregarLocalStorageOnline() {
 	}
 }
 
+let bloqueioExecucao = false;
+
 async function compararEPrivilegiarDados() {
 	if (!db || !docRef) return console.error("❌ Firebase não inicializado.");
+	if (bloqueioExecucao) return;
+
+	bloqueioExecucao = true;
+	setTimeout(() => bloqueioExecucao = false, 3000);
+
 	const docSnap = await getDoc(docRef);
 	const firebaseData = docSnap.exists() ? docSnap.data().dados || {} : {};
 	const localData = {};
@@ -62,15 +69,12 @@ async function compararEPrivilegiarDados() {
 	const firebaseSize = Object.keys(firebaseData).length;
 
 	if (localSize > firebaseSize) {
-		// Se o localStorage tem mais dados, priorizamos ele
 		console.log("📤 LocalStorage tem mais dados, será priorizado para exportação.");
-		await salvarLocalStorageOnline(); // Prioriza o localStorage para exportação
+		await salvarLocalStorageOnline();
 	} else if (firebaseSize > localSize) {
-		// Se o Firebase tem mais dados, priorizamos ele
 		console.log("📥 Firebase tem mais dados, será priorizado para importação.");
-		await carregarLocalStorageOnline(); // Prioriza o Firebase para importação
+		await carregarLocalStorageOnline();
 	} else {
-		// Se o número de dados é igual, verificamos se há diferenças nos valores das chaves
 		let conflito = false;
 		for (let chave in localData) {
 			if (firebaseData[chave] !== localData[chave]) {
@@ -79,12 +83,9 @@ async function compararEPrivilegiarDados() {
 			}
 		}
 		if (conflito) {
-			// Se houver conflito, reporta
 			console.log("🛑 Existem diferenças entre LocalStorage e Firebase. Defina uma política de resolução.");
 		} else {
-			// Se não houver conflito, considera como sincronizado
 			console.log("✅ Os dados estão sincronizados.");
-			atualizarLista();
 		}
 	}
 }
