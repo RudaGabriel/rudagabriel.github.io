@@ -10,7 +10,7 @@ const firebaseConfig = {
 	appId: localStorage.getItem("appid-fire") || ""
 };
 
-let db, docRef;
+let db, docRef, bloqueioExecucao = false;
 if (Object.values(firebaseConfig).some(valor => !valor)) {
 	console.error("⚠️ Configuração do Firebase está vazia.");
 } else {
@@ -50,8 +50,6 @@ async function carregarLocalStorageOnline() {
 		console.error("❌ Erro ao carregar dados:", error);
 	}
 }
-
-let bloqueioExecucao = false;
 
 async function compararEPrivilegiarDados() {
 	if (!db || !docRef) return console.error("❌ Firebase não inicializado.");
