@@ -36,7 +36,7 @@ function adicionarProduto() {
 	if (produtoEditadoIndex === -1 && adicionarBtn.textContent !== "Atualizar") {
 		let produtoExistente = produtos.find(p => p.codigoBarras === codigoBarras && p.nome === nome && formatarData(p.vencimento) === formatarData(vencimento));
 		if (produtoExistente) {
-			modalBody.innerHTML = "Produto já adicionado com o mesmo código de barras, nome e data de vencimento! Deseja atualizar esse produto?";
+			modalBody.innerHTML = "Produto já adicionado<br>Com o mesmo código de barras, nome e data de vencimento!<br>Deseja atualizar esse produto?";
 			confirmar.textContent = "Sim";
 			cancelar.removeAttribute("style");
 			cancelar.textContent = "Não";
@@ -47,6 +47,7 @@ function adicionarProduto() {
 				modal.style.display = "none";
 				salvarProdutos();
 				atualizarLista();
+				produtoInput.value = quantidadeInput.value = vencimentoInput.value = codigoBarrasInput.value = "";
 			};
 			cancelar.onclick = () => modal.style.display = "none";
 			return;
