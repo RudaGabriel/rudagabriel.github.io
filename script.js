@@ -259,12 +259,12 @@ function importarLista(event) {
 
 			if (dados.firebaseConfig && typeof dados.firebaseConfig === "object") {
 				const mapeamentoFirebase = {
-					apiKey: "chave-fire",
-					authDomain: "dominio-fire",
-					projectId: "projeto-fire",
-					storageBucket: "bucket-fire",
-					messagingSenderId: "id-fire",
-					appId: "appid-fire"
+					chavefire: "chave-fire",
+					dominiofire: "dominio-fire",
+					projetofire: "projeto-fire",
+					bucketfire: "bucket-fire",
+					idfire: "id-fire",
+					appidfire: "appid-fire"
 				};
 				Object.entries(dados.firebaseConfig).forEach(([key, value]) => {
 					if (mapeamentoFirebase[key] && typeof value === "string") {
