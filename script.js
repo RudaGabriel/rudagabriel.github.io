@@ -116,6 +116,7 @@ function atualizarLista() {
 		if (vencido) produtosVencidos.push(tr);
 		else if (proximo) produtosProximos.push(tr);
 		else produtosRestantes.push(tr);
+		filtrarProdutos();
 	});
 
 	produtosProximos.sort((a, b) => {
@@ -185,6 +186,7 @@ function removerProduto(nome, vencimento) {
 		produtos = produtos.filter(prod => !(prod.nome === nome && formatarData(prod.vencimento) === formatarData(vencimento)));
 		localStorage.setItem("produtos", JSON.stringify(produtos));
 		modal.style.display = "none";
+		filtrarProdutos();
 	}
 	modalBody.innerHTML = `Tem certeza que deseja remover o item<br><b>${nome}</b><br>com vencimento em <b>${vencimento}</b> ?`;
 	confirmar.textContent = "Sim";
