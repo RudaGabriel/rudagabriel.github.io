@@ -224,3 +224,16 @@
      justify-content: space-around;
      margin-top: 10px;
 }
+
+#filtro {
+  padding-right: 25px; /* Dá espaço para o X no campo */
+}
+
+#filtro + span {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+  color: #999;
+}
