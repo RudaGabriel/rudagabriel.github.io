@@ -462,37 +462,6 @@ ConfirmarDadosFire.addEventListener("click", () => {
 	}
 });
 
-const clearButton = document.createElement('span');
-clearButton.innerHTML = '×';
-clearButton.style.cursor = 'pointer';
-clearButton.style.position = 'absolute';
-clearButton.style.right = '10px'; // Ajuste a posição conforme necessário
-clearButton.style.top = '50%';
-clearButton.style.transform = 'translateY(-50%)';
-clearButton.style.fontSize = '16px';
-clearButton.style.color = 'rgb(153, 153, 153)';
-clearButton.style.display = 'none';
-clearButton.style.left = '-20px';
-clearButton.style.top = '9px';
-clearButton.style.marginRight = '-10px';
-
-filtroInput.style.position = 'relative'; // Garantindo que o input tenha position relative
-filtroInput.style.paddingRight = '30px'; // Garantindo o espaço necessário para o "X"
-filtroInput.parentElement.appendChild(clearButton);
-
-filtroInput.addEventListener('input', () => {
-  if (filtroInput.value.length > 0) {
-    clearButton.style.display = 'inline';
-  } else {
-    clearButton.style.display = 'none';
-  }
-});
-
-clearButton.addEventListener('click', () => {
-  filtroInput.value = '';
-  clearButton.style.display = 'none';
-});
-
 sincronizar.addEventListener("click", () => {
 	const firebaseConfig = {
 		apiKey: localStorage.getItem("chave-fire") || "",
