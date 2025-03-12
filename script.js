@@ -465,8 +465,15 @@ ConfirmarDadosFire.addEventListener("click", () => {
 const clearButton = document.createElement('span');
 clearButton.innerHTML = '×';
 clearButton.style.cursor = 'pointer';
+clearButton.style.position = 'absolute';
+clearButton.style.right = '10px'; // Ajuste a posição conforme necessário
+clearButton.style.top = '50%';
+clearButton.style.transform = 'translateY(-50%)';
+clearButton.style.fontSize = '16px';
+clearButton.style.color = '#999';
 clearButton.style.display = 'none';
 
+filtroInput.style.position = 'relative'; // Para que o X seja posicionado dentro do input
 filtroInput.parentElement.appendChild(clearButton);
 
 filtroInput.addEventListener('input', () => {
@@ -481,7 +488,6 @@ clearButton.addEventListener('click', () => {
   filtroInput.value = '';
   clearButton.style.display = 'none';
 });
-
 
 sincronizar.addEventListener("click", () => {
 	const firebaseConfig = {
