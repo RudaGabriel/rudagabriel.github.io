@@ -35,30 +35,30 @@ async function salvarLocalStorageOnline() {
     Object.entries(todosDados).forEach(([chave, valor]) => {
       const valorFirebase = firebaseData[chave] || "N/A";
 
-      // Verificando se o valor é um objeto ou array antes de compará-lo
-      if (typeof valor === 'object' && valor !== null) {
+      // Se o valor for uma string que pode representar uma lista, faça a comparação
+      if (typeof valor === 'string' && valor.includes(',')) {
+        const listaLocal = valor.split(",").map(item => item.trim());
+        const listaFirebase = valorFirebase.split(",").map(item => item.trim());
+
+        if (JSON.stringify(listaLocal) !== JSON.stringify(listaFirebase)) {
+          diferenca[chave] = {
+            antes: listaFirebase.join(","),
+            depois: [...new Set([...listaLocal, ...listaFirebase])].join(","),
+          };
+        }
+      }
+
+      // Se for um objeto, faça a comparação considerando o JSON.stringify
+      else if (typeof valor === 'object' && valor !== null) {
         valor = JSON.stringify(valor);
       }
+
       if (typeof valorFirebase === 'object' && valorFirebase !== null) {
         valorFirebase = JSON.stringify(valorFirebase);
       }
 
-      // Comparação entre listas ou objetos
-      if (chave === 'superfavorites') {
-        const objetosAntes = valor.split(",").map(item => item.trim());
-        const objetosDepois = valorFirebase.split(",").map(item => item.trim());
-
-        if (objetosAntes.join(",") !== objetosDepois.join(",")) {
-          diferenca[chave] = {
-            antes: objetosAntes.join(","),
-            depois: objetosDepois.join(",")
-          };
-          // Atualiza o valor no localStorage com a lista unificada e sem duplicatas
-          const listaUnificada = [...new Set([...objetosAntes, ...objetosDepois])];
-          localStorage.setItem(chave, listaUnificada.join(","));
-        }
-      } else if (valor !== valorFirebase) {
-        // Comparando valores simples
+      // Verificando a diferença real entre os valores
+      if (valor !== valorFirebase) {
         diferenca[chave] = { antes: valorFirebase, depois: valor };
       }
     });
@@ -156,12 +156,12 @@ localStorage.setItem = function(chave, valor) {
         const depoisArray = diferenca.depois.map(item => item.trim());
         const resultadoModificado = [...new Set([...antesArray, ...depoisArray])].join(",");
         
-        diferenca.superfavorites = resultadoModificado;
+        diferenca.modificado = resultadoModificado;
         console.log(`📥 ${chave} modificado:`, diferenca);
       }
       // Caso sejam objetos
       else {
-        // Adicionando lógica de comparação para objetos
+        // Comparação para objetos
         let antesObj = JSON.stringify(diferenca.antes);
         let depoisObj = JSON.stringify(diferenca.depois);
 
@@ -221,11 +221,26 @@ if (db) {
             const objetoAntes = valorLocalStorage ? JSON.parse(valorLocalStorage) : {};
             const objetoDepois = valor;
 
-            // Comparando as chaves e valores de objetos
-            const diferencasObjetos = { ...objetoAntes, ...objetoDepois };
-            if (JSON.stringify(objetoAntes) !== JSON.stringify(objetoDepois)) {
-              diferencas[chave] = { antes: objetoAntes, depois: diferencasObjetos };
-              localStorage.setItem(chave, JSON.stringify(diferencasObjetos));
+            let resultadoModificados = {};
+
+            // Comparando as chaves e valores de objetos, ajustando para as mudanças
+            Object.entries(objetoAntes).forEach(([prop, valorAntes]) => {
+              const valorDepois = objetoDepois[prop];
+
+              if (valorAntes !== valorDepois) {
+                resultadoModificados[prop] = { antes: valorAntes, depois: valorDepois };
+              }
+            });
+
+            Object.entries(objetoDepois).forEach(([prop, valorDepois]) => {
+              if (!objetoAntes.hasOwnProperty(prop)) {
+                resultadoModificados[prop] = { antes: "N/A", depois: valorDepois };
+              }
+            });
+
+            if (Object.keys(resultadoModificados).length > 0) {
+              diferencas[chave] = { antes: objetoAntes, depois: objetoDepois };
+              localStorage.setItem(chave, JSON.stringify(objetoDepois));
             }
           }
         } else if (valor !== valorLocalStorage) {
