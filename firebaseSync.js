@@ -199,7 +199,7 @@ async function limparChavesNaoPermitidas() {
   const chavesPermitidas = ["-fire", "produtos", "configAlerta", "ignorados", "syncenviar"];
 
   Object.keys(localStorage).forEach(chave => {
-    if (!chavesPermitidas.some(term => chave === term)) {
+    if (!chavesPermitidas.some(term => chave.includes(term))) {
       console.log(`🗑 Removendo chave não permitida do localStorage: ${chave}`);
       localStorage.removeItem(chave);
     }
@@ -212,7 +212,7 @@ async function limparChavesNaoPermitidas() {
       let dadosAtualizados = { ...firebaseData };
 
       Object.keys(firebaseData).forEach(chave => {
-        if (!chavesPermitidas.some(term => chave === term)) {
+        if (!chavesPermitidas.some(term => chave.includes(term))) {
           console.log(`🗑 Removendo chave não permitida do Firebase: ${chave}`);
           delete dadosAtualizados[chave];
         }
