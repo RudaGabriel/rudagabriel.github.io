@@ -30,8 +30,12 @@ function adicionarProduto() {
 		quantidade = quantidadeInput.value.trim(),
 		vencimento = vencimentoInput.value.trim(),
 		codigoBarras = codigoBarrasInput.value.trim();
+		modalBody.innerHTML = "Preencha todos os campos!";
+		confirmar.textContent = "OK";
+		cancelar.style.display = "none";
+		confirmarBtn.onclick = () => modal.style.display = "none";
 
-	if (!nome || !quantidade || !vencimento || !codigoBarras) return alert("Preencha todos os campos!");
+	if (!nome || !quantidade || !vencimento || !codigoBarras) return modal.style.display = "flex";
 
 	if (produtoEditadoIndex === -1 && adicionarBtn.textContent !== "Atualizar") {
 		let produtoExistente = produtos.find(p => p.codigoBarras === codigoBarras && p.nome === nome && formatarData(p.vencimento) === formatarData(vencimento));
