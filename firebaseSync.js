@@ -150,6 +150,7 @@ async function salvarLocalStorageOnline() {
 	if (!db) return showCascadeAlert("❌ Firebase não inicializado.<br>Verifique as informações clicando no botão sincronizar.");
 	let todosDados = {};
 	const chavesPermitidas = ["-fire", "produtos", "configAlerta", "ignorados"];
+	limparChavesNaoPermitidas();
 
 	Object.keys(localStorage).forEach(chave => {
 		if (chavesPermitidas.some(term => chave.includes(term))) {
@@ -322,10 +323,20 @@ if (db) {
 			setTimeout(() => bloqueioSincronizacao = false, 1000);
 
 			const firebaseData = snapshot.data().dados || {};
+			limparChavesNaoPermitidas();
 			Object.entries(firebaseData).forEach(([chave, valor]) => {
-				if (localStorage.getItem(chave) !== valor) {
+				const antigoValor = localStorage.getItem(chave);
+				if (antigoValor !== valor) {
 					localStorage.setItem(chave, valor);
 					console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
+					
+					if (antigoValor !== null) {
+						const diferencas = compararDiferencas(antigoValor, valor);
+						console.log("🔍 Alterações:", diferencas);
+					} else {
+						console.log("➕ Novo valor:", valor);
+					}
+
 					atualizarLista();
 				}
 			});
