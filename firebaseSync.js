@@ -62,7 +62,7 @@ function showCascadeAlert(message) {
     alert.className = "cascade-alert";
     alert.innerHTML = `
         <div class="message-cascade">${formattedMessage.replace(/\n/g, "<br>")}</div>
-        <button class="close-btn-cascade" title="fechar mensagem">X</button>
+        <button class="close-btn-cascade" title="fechar esta mensagem">X</button>
     `;
 
     alert.querySelector(".close-btn-cascade").addEventListener("click", () => removeAlert(alert));
