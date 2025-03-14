@@ -3,7 +3,7 @@
  <br>
  Sincronização automática: localStorage <> Firebase
  <br>
- digite no input de filtro: autorizarsyncenviar para: ✅ Este usuário foi autorizado a enviar dados ao firebase!
+ digite no input de filtro: <b>autorizarsyncenviar<b/> para: ✅ Este usuário foi autorizado a enviar dados ao firebase!
  <br>
-  digite no input de filtro: naoautorizarsyncenviar para: ❌ Este usuário foi desautorizado a enviar dados ao firebase!
+  digite no input de filtro: <b>naoautorizarsyncenviar<b/> para: ❌ Este usuário foi desautorizado a enviar dados ao firebase!
 # https://rudagabriel.github.io/
