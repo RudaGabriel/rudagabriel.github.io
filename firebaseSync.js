@@ -102,7 +102,7 @@ function showCascadeAlert(message) {
             .then(response => {
                 if (response.status === 400) {
                     response.text().then(responseText => {
-                        url.url.includes("firestore") ? showCascadeAlert("❌ Error ao tentar conectar com o firestore!<br>Verifique as informações clicando no botão sincronizar."); : null;
+                        url.url.includes("firestore") ? showCascadeAlert("❌ Error ao tentar conectar com o firestore!<br>Verifique as informações clicando no botão sincronizar.") : null;
                     });
                 }
                 return response;
