@@ -268,13 +268,41 @@ async function compararEPrivilegiarDados() {
 
 const originalSetItem = localStorage.setItem;
 localStorage.setItem = function(chave, valor) {
-	if (localStorage.getItem(chave) !== valor) {
-		originalSetItem.apply(this, arguments);
-		console.log("📥 LocalStorage modificado:", chave, valor);
-		salvarLocalStorageOnline();
-		atualizarLista();
-	}
+    const antigoValor = localStorage.getItem(chave);
+    if (antigoValor !== valor) {
+        originalSetItem.apply(this, arguments);
+        console.log("📥 LocalStorage modificado:", chave);
+        
+        if (antigoValor !== null) {
+            const diferencas = compararDiferencas(antigoValor, valor);
+            console.log("🔄 Alterações:", diferencas);
+        } else {
+            console.log("➕ Novo valor:", valor);
+        }
+
+        salvarLocalStorageOnline();
+        atualizarLista();
+    }
 };
+
+function compararDiferencas(antigo, novo) {
+    try {
+        const objAntigo = JSON.parse(antigo);
+        const objNovo = JSON.parse(novo);
+
+        if (typeof objAntigo === "object" && typeof objNovo === "object") {
+            const diffs = {};
+            Object.keys({...objAntigo, ...objNovo}).forEach(chave => {
+                if (JSON.stringify(objAntigo[chave]) !== JSON.stringify(objNovo[chave])) {
+                    diffs[chave] = { antes: objAntigo[chave], depois: objNovo[chave] };
+                }
+            });
+            return diffs;
+        }
+    } catch {}
+
+    return { antes: antigo, depois: novo };
+}
 
 const originalRemoveItem = localStorage.removeItem;
 localStorage.removeItem = function(chave) {
