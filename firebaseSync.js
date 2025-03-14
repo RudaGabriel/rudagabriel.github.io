@@ -120,7 +120,7 @@ async function salvarLocalStorageOnline() {
 		}
 		
 	} catch (error) {
-		console.error("❌ Erro ao salvar dados:", error);
+		showCascadeAlert(`❌ Erro ao salvar dados: ${error}<br>Verifique as informações clicando no botão sincronizar`);
 	}
 }
 
@@ -138,7 +138,7 @@ async function carregarLocalStorageOnline() {
 			console.log("⚠️ Nenhum dado encontrado no Firestore.");
 		}
 	} catch (error) {
-		console.error("❌ Erro ao carregar dados:", error);
+		showCascadeAlert(`❌ Erro ao carregar dados: ${error}<br>Verifique as informações clicando no botão sincronizar`);
 	}
 }
 
@@ -173,15 +173,12 @@ async function limparChavesNaoPermitidas() {
       }
     }
   } catch (error) {
-    console.error("❌ Erro ao limpar dados no Firebase:", error);
+	showCascadeAlert(`❌ Erro ao limpar dados no Firebase: ${error}<br>Verifique as informações clicando no botão sincronizar`);
   }
 }
 
 async function compararEPrivilegiarDados() {
-  if (!db || !docRef) {
-	  
-	  showCascadeAlert.error("❌ Firebase não inicializado.");
-  }
+  if (!db || !docRef) return showCascadeAlert("❌ Firebase não inicializado.<br>Verifique as informações clicando no botão sincronizar");
   if (bloqueioExecucao) return;
 
   bloqueioExecucao = true;
