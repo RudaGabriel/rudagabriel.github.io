@@ -47,12 +47,12 @@ function showCascadeAlert(message) {
         });
         document.body.appendChild(clearButton);
     }
-    if ([...document.querySelectorAll(".cascade-alert .message-cascade")].some(el => el.innerText === message)) return;
+    const formattedMessage = message.replace(/https?:\/\/[^\s]+/g, (url) =>
+        `<a href="${url}" target="_blank" style="color: #0ff; text-decoration: underline;">${url}</a>`
+    ).replace(/<br\s*\/?>/g, " ").trim();
+    if ([...document.querySelectorAll(".cascade-alert .message-cascade")].some(el => el.innerText.replace(/\s+/g, " ").trim() === formattedMessage)) return;
     const alert = document.createElement("div");
     alert.className = "cascade-alert";
-    const formattedMessage = message.replace(/https?:\/\/[^\s]+/g, (url) =>
-                                             `<a href="${url}" target="_blank" style="color: #0ff; text-decoration: underline;">${url}</a>`
-    );
     alert.innerHTML = `
         <div class="message-cascade">${formattedMessage}</div>
         <button class="close-btn-cascade">X</button>
