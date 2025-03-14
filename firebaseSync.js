@@ -42,7 +42,8 @@ function showCascadeAlert(message) {
     if (!document.querySelector(".cascade-clear-btn")) {
         const clearButton = document.createElement("button");
         clearButton.className = "cascade-clear-btn";
-        clearButton.textContent = "Limpar alertas";
+		clearButton.title = "Limpar todas as mensagens de informações exibidas"; 
+        clearButton.textContent = "Limpar todas as mensagens de informações";
         clearButton.addEventListener("click", () => {
             document.querySelectorAll(".cascade-alert").forEach((el) => removeAlert(el));
         });
@@ -61,7 +62,7 @@ function showCascadeAlert(message) {
     alert.className = "cascade-alert";
     alert.innerHTML = `
         <div class="message-cascade">${formattedMessage.replace(/\n/g, "<br>")}</div>
-        <button class="close-btn-cascade">X</button>
+        <button class="close-btn-cascade" title="fechar mensagem">X</button>
     `;
 
     alert.querySelector(".close-btn-cascade").addEventListener("click", () => removeAlert(alert));
