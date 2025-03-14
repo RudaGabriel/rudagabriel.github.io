@@ -38,6 +38,7 @@ function showCascadeAlert(message) {
         `;
         document.head.appendChild(style);
     }
+
     if (!document.querySelector(".cascade-clear-btn")) {
         const clearButton = document.createElement("button");
         clearButton.className = "cascade-clear-btn";
@@ -47,23 +48,25 @@ function showCascadeAlert(message) {
         });
         document.body.appendChild(clearButton);
     }
+
     const formattedMessage = message.replace(/https?:\/\/[^\s]+/g, (url) =>
-		`<a href="${url}" target="_blank" style="color: #0ff; text-decoration: underline;">${url}</a>`
-	).replace(/<br\s*\/?>/g, "\n").trim();
+        `<a href="${url}" target="_blank" style="color: #0ff; text-decoration: underline;">${url}</a>`
+    ).replace(/<br\s*\/?>/g, "\n").trim();
 
-	if ([...document.querySelectorAll(".cascade-alert .message-cascade")].some(el =>
-		el.innerHTML.replace(/<br\s*\/?>/g, "\n").replace(/\s+/g, " ").trim() === formattedMessage
-	)) return;
+    if ([...document.querySelectorAll(".cascade-alert .message-cascade")].some(el =>
+        el.innerText.replace(/\s+/g, " ").trim() === formattedMessage.replace(/\s+/g, " ")
+    )) return;
 
-	const alert = document.createElement("div");
-
+    const alert = document.createElement("div");
     alert.className = "cascade-alert";
     alert.innerHTML = `
-        <div class="message-cascade">${formattedMessage}</div>
+        <div class="message-cascade">${formattedMessage.replace(/\n/g, "<br>")}</div>
         <button class="close-btn-cascade">X</button>
     `;
+
     alert.querySelector(".close-btn-cascade").addEventListener("click", () => removeAlert(alert));
     document.body.appendChild(alert);
+
     const removeAlert = (el) => {
         el.classList.add("removing");
         setTimeout(() => {
@@ -72,6 +75,7 @@ function showCascadeAlert(message) {
             toggleClearButton();
         }, 400);
     };
+
     const positionAlerts = () => {
         let offset = 20;
         document.querySelectorAll(".cascade-alert").forEach((el) => {
@@ -79,10 +83,12 @@ function showCascadeAlert(message) {
             offset += el.offsetHeight + 15;
         });
     };
+
     const toggleClearButton = () => {
         const clearButton = document.querySelector(".cascade-clear-btn");
         clearButton.style.display = document.querySelectorAll(".cascade-alert").length > 0 ? "block" : "none";
     };
+
     positionAlerts();
     toggleClearButton();
 }
