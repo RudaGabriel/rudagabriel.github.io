@@ -271,6 +271,7 @@ localStorage.setItem = function(chave, valor) {
     if (antigoValor !== valor) {
         originalSetItem.apply(this, arguments);
         console.log("📥 LocalStorage modificado:", chave);
+		limparChavesNaoPermitidas();
         
         if (antigoValor !== null) {
             const diferencas = compararDiferencas(antigoValor, valor);
