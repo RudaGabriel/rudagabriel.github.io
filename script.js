@@ -171,12 +171,21 @@ function selectTudo(elemento) {
             filtroInput.value = "";
 			modal.style.display = "flex";
 			modalBody.innerHTML = "✅ Este usuário foi autorizado a enviar dados ao firebase!";
-        } else if (filtroInput.value.toLowerCase() === "naoautorizarsyncenviar" && syncenviar === "true") {
+        }else{
+			filtroInput.value = "";
+			modal.style.display = "flex";
+			modalBody.innerHTML = "✅ Este usuário já foi autorizado a enviar dados ao firebase!";
+		}
+		if (filtroInput.value.toLowerCase() === "naoautorizarsyncenviar" && syncenviar === "true") {
             localStorage.setItem("syncenviar", "false");
             filtroInput.value = "";
 			modal.style.display = "flex";
 			modalBody.innerHTML = "❌ Este usuário foi desautorizado a enviar dados ao firebase!";
-        }
+        }else{
+			filtroInput.value = "";
+			modal.style.display = "flex";
+			modalBody.innerHTML = "❌ Este usuário já foi desautorizado a enviar dados ao firebase!";
+		}
     });
 });
 	
