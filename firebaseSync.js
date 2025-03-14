@@ -292,13 +292,18 @@ function compararDiferencas(antigo, novo) {
         if (typeof objAntigo === "object" && typeof objNovo === "object") {
             const diffs = {};
             Object.keys({...objAntigo, ...objNovo}).forEach(chave => {
-                if (JSON.stringify(objAntigo[chave]) !== JSON.stringify(objNovo[chave])) {
-                    diffs[chave] = { antes: objAntigo[chave], depois: objNovo[chave] };
+                const valorAntigo = objAntigo.hasOwnProperty(chave) ? objAntigo[chave] : undefined;
+                const valorNovo = objNovo.hasOwnProperty(chave) ? objNovo[chave] : undefined;
+
+                if (JSON.stringify(valorAntigo) !== JSON.stringify(valorNovo)) {
+                    diffs[chave] = { antes: valorAntigo, depois: valorNovo };
                 }
             });
             return diffs;
         }
-    } catch {}
+    } catch (error) {
+        console.error("Erro ao comparar diferenças:", error);
+    }
 
     return { antes: antigo, depois: novo };
 }
