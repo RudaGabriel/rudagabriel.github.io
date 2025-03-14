@@ -108,9 +108,7 @@ function showCascadeAlert(message) {
     XMLHttpRequest.prototype.send = function(...args) {
         this.addEventListener("load", function() {
             if (this.status === 400) {
-                if (this._url.includes("firestore")) {
-                    showCascadeAlert("❌ Error ao tentar conectar com o firestore!<br>Verifique as informações clicando no botão sincronizar.");
-                }
+                showCascadeAlert("❌ Error ao tentar conectar com o firestore!<br>Verifique as informações clicando no botão sincronizar.");
             }
         });
         return originalXHRSend.apply(this, args);
@@ -123,9 +121,7 @@ function showCascadeAlert(message) {
         return originalFetch(url, options)
             .then(response => {
                 if (response.status === 400) {
-                    if (url.url.includes("firestore")) {
-                        showCascadeAlert("❌ Error ao tentar conectar com o firestore!<br>Verifique as informações clicando no botão sincronizar.");
-                    }
+                    showCascadeAlert("❌ Error ao tentar conectar com o firestore!<br>Verifique as informações clicando no botão sincronizar.");
                 }
                 return response;
             })
