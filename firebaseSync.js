@@ -20,7 +20,7 @@ function showCascadeAlert(message) {
                 box-shadow: 0 0 10px #0ff, 0 0 20px #0ff; padding: 12px 10px; text-align: left;
                 border-radius: 8px; font-family: Arial, sans-serif; color: #fff; z-index: 10000;
                 display: flex; flex-direction: row; justify-content: space-between;
-                align-items: center; word-wrap: break-word; max-width: 50%; transition: opacity 0.4s, transform 0.4s;
+                align-items: center; word-wrap: break-word; max-width: 35%; transition: opacity 0.4s, transform 0.4s;
             }
             .cascade-alert.removing {
                 opacity: 0; transform: translateX(-100%);
