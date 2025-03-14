@@ -10,129 +10,6 @@ const firebaseConfig = {
 	appId: localStorage.getItem("appid-fire") || ""
 };
 
-function showCascadeAlert(message) {
-    if (!document.querySelector("#cascade-alert-style")) {
-        const style = document.createElement("style");
-        style.id = "cascade-alert-style";
-        style.innerHTML = `
-            .cascade-alert {
-                position: fixed; left: 20px; background: #222; border: 2px solid #0ff;
-                box-shadow: 0 0 10px #0ff, 0 0 20px #0ff; padding: 12px 10px; text-align: left;
-                border-radius: 8px; font-family: Arial, sans-serif; color: #fff; z-index: 10000;
-                display: flex; flex-direction: row; justify-content: space-between;
-                align-items: center; word-wrap: break-word; max-width: 35%; transition: opacity 0.4s, transform 0.4s;
-            }
-            .cascade-alert.removing {
-                opacity: 0; transform: translateX(-100%);
-            }
-            .cascade-alert .message-cascade { flex-grow: 1; }
-            .cascade-alert .close-btn-cascade { font-size: 16px; color: #fff; background: transparent; border: none; cursor: pointer; padding: 0; margin-left: 12px; }
-            .cascade-alert .close-btn-cascade:hover { color: #0cc; }
-            .cascade-clear-btn {
-                position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
-                background: #0ff; color: #000; border: 2px solid #000; padding: 10px 20px;
-                font-weight: bold; cursor: pointer; z-index: 10001; border-radius: 5px;
-                box-shadow: 0 0 20px #0ff, 0 0 40px #0ff;
-            }
-            .cascade-clear-btn:hover { background: #0cc; }
-        `;
-        document.head.appendChild(style);
-    }
-
-    if (!document.querySelector(".cascade-clear-btn")) {
-        const clearButton = document.createElement("button");
-        clearButton.className = "cascade-clear-btn";
-		clearButton.title = "Limpar todas as mensagens de informações exibidas a esquerda"; 
-        clearButton.textContent = "<< Limpar todos estes alertas";
-        clearButton.addEventListener("click", () => {
-            document.querySelectorAll(".cascade-alert").forEach((el) => removeAlert(el));
-        });
-        document.body.appendChild(clearButton);
-    }
-
-    const formattedMessage = message.replace(/https?:\/\/[^\s]+/g, (url) =>
-        `<a href="${url}" target="_blank" style="color: #0ff; text-decoration: underline;">${url}</a>`
-    ).replace(/<br\s*\/?>/g, "\n").trim();
-
-    if ([...document.querySelectorAll(".cascade-alert .message-cascade")].some(el =>
-        el.innerText.replace(/\s+/g, " ").trim() === formattedMessage.replace(/\s+/g, " ")
-    )) return;
-
-    const alert = document.createElement("div");
-    alert.className = "cascade-alert";
-    alert.innerHTML = `
-        <div class="message-cascade">${formattedMessage.replace(/\n/g, "<br>")}</div>
-        <button class="close-btn-cascade" title="fechar esta mensagem">X</button>
-    `;
-
-    alert.querySelector(".close-btn-cascade").addEventListener("click", () => removeAlert(alert));
-    document.body.appendChild(alert);
-
-    const removeAlert = (el) => {
-        el.classList.add("removing");
-        setTimeout(() => {
-            el.remove();
-            positionAlerts();
-            toggleClearButton();
-        }, 400);
-    };
-
-    const positionAlerts = () => {
-        let offset = 20;
-        document.querySelectorAll(".cascade-alert").forEach((el) => {
-            el.style.top = `${offset}px`;
-            offset += el.offsetHeight + 15;
-        });
-    };
-
-    const toggleClearButton = () => {
-        const clearButton = document.querySelector(".cascade-clear-btn");
-        clearButton.style.display = document.querySelectorAll(".cascade-alert").length > 0 ? "block" : "none";
-    };
-
-    positionAlerts();
-    toggleClearButton();
-}
-
-(function() {
-    // Interceptando XMLHttpRequest
-    const originalXHR = XMLHttpRequest.prototype.open;
-    const originalXHRSend = XMLHttpRequest.prototype.send;
-
-    XMLHttpRequest.prototype.open = function(method, url, ...rest) {
-        this._url = url;
-        this._method = method;
-        return originalXHR.apply(this, [method, url, ...rest]);
-    };
-
-    XMLHttpRequest.prototype.send = function(...args) {
-        this.addEventListener("load", function() {
-            if (this.status === 400) {
-                showCascadeAlert("❌ Error ao tentar conectar com o firestore!<br>Verifique as informações clicando no botão sincronizar.");
-            }
-        });
-        return originalXHRSend.apply(this, args);
-    };
-
-    // Interceptando fetch
-    const originalFetch = window.fetch;
-
-    window.fetch = function(url, options) {
-        return originalFetch(url, options)
-            .then(response => {
-                if (response.status === 400) {
-                    if (url.url.includes("firestore")) {
-                        showCascadeAlert("❌ Error ao tentar conectar com o firestore!<br>Verifique as informações clicando no botão sincronizar.");
-                    }
-                }
-                return response;
-            })
-            .catch(error => {
-                console.error("Erro na requisição", error);
-            });
-    };
-})();
-
 let db, docRef, bloqueioExecucao = false, bloqueioSincronizacao = false;
 if (Object.values(firebaseConfig).some(valor => !valor)) {
 	showCascadeAlert("⚠️ Configuração do Firebase está vazia.");
@@ -142,11 +19,13 @@ if (Object.values(firebaseConfig).some(valor => !valor)) {
 	docRef = doc(db, "dados", "sync");
 	showCascadeAlert("✅ Firebase inicializado com sucesso!");
 	compararEPrivilegiarDados();
-	limparChavesNaoPermitidas(); // Limpa as chaves não permitidas
+	limparChavesNaoPermitidas();
 }
 
 async function salvarLocalStorageOnline() {
 	if (!db) return showCascadeAlert("❌ Firebase não inicializado.<br>Verifique as informações clicando no botão sincronizar.");
+	if (localStorage.getItem("syncenviar") !== "true") return;
+
 	let todosDados = {};
 	const chavesPermitidas = ["-fire", "produtos", "configAlerta", "ignorados"];
 
@@ -194,9 +73,8 @@ async function carregarLocalStorageOnline() {
 }
 
 async function limparChavesNaoPermitidas() {
-  const chavesPermitidas = ["-fire", "produtos", "configAlerta", "ignorados"];
+  const chavesPermitidas = ["-fire", "produtos", "configAlerta", "ignorados", "syncenviar"];
 
-  // Limpar no localStorage
   Object.keys(localStorage).forEach(chave => {
     if (!chavesPermitidas.some(term => chave.includes(term))) {
       console.log(`🗑 Removendo chave não permitida do localStorage: ${chave}`);
@@ -204,7 +82,6 @@ async function limparChavesNaoPermitidas() {
     }
   });
 
-  // Limpar no Firebase
   try {
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
@@ -224,7 +101,7 @@ async function limparChavesNaoPermitidas() {
       }
     }
   } catch (error) {
-	showCascadeAlert(`❌ Erro ao limpar dados no Firebase:<br>${error}<br>Verifique as informações clicando no botão sincronizar.`);
+    showCascadeAlert(`❌ Erro ao limpar dados no Firebase:<br>${error}<br>Verifique as informações clicando no botão sincronizar.`);
   }
 }
 
@@ -247,10 +124,6 @@ async function compararEPrivilegiarDados() {
     }
   });
 
-  const localSize = Object.keys(localData).length;
-  const firebaseSize = Object.keys(firebaseData).length;
-
-  // Comparando o comprimento da chave 'produtos'
   const produtosLocal = Array.isArray(localData.produtos) ? localData.produtos.length : 0;
   const produtosFirebase = Array.isArray(firebaseData.produtos) ? firebaseData.produtos.length : 0;
 
@@ -267,12 +140,13 @@ async function compararEPrivilegiarDados() {
 
 const originalSetItem = localStorage.setItem;
 localStorage.setItem = function(chave, valor) {
-	if (localStorage.getItem(chave) !== valor) {
-		originalSetItem.apply(this, arguments);
-		console.log("📥 LocalStorage modificado:", chave, valor);
-		salvarLocalStorageOnline();
-		atualizarLista();
-	}
+    const valorAntigo = localStorage.getItem(chave);
+    if (valorAntigo !== valor) {
+        originalSetItem.apply(this, arguments);
+        console.log(`📥 LocalStorage modificado: ${chave} | Antigo: ${valorAntigo} | Novo: ${valor}`);
+        if (localStorage.getItem("syncenviar") === "true") salvarLocalStorageOnline();
+        atualizarLista();
+    }
 };
 
 const originalRemoveItem = localStorage.removeItem;
@@ -280,7 +154,7 @@ localStorage.removeItem = function(chave) {
 	if (localStorage.getItem(chave) !== null) {
 		originalRemoveItem.apply(this, arguments);
 		console.log("🗑 LocalStorage item removido:", chave);
-		salvarLocalStorageOnline();
+		if (localStorage.getItem("syncenviar") === "true") salvarLocalStorageOnline();
 		atualizarLista();
 	}
 };
