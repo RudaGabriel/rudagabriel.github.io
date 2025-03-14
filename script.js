@@ -160,20 +160,23 @@ function selectTudo(elemento) {
 	selection.addRange(range)
 }
 
+filtroInput.addEventListener('keydown', () => {
+	if (filtroInput.value === "autorizarsyncenviar" && localStorage.getItem("syncenviar") !== "true") {
+		localStorage.setItem("syncenviar", "true");
+		filtroInput.value = "";
+		showCascadeAlert("✅ Este usuário foi autorizado a enviar dados ao firebase!");
+	}
+	if (filtroInput.value === "naoautorizarsyncenviar" && localStorage.getItem("syncenviar") === "true") {
+		localStorage.setItem("syncenviar", "false");
+		filtroInput.value = "";
+		showCascadeAlert("❌ Este usuário foi desautorizado a enviar dados ao firebase!");
+	}
+});
+	
 function filtrarProdutos() {
 	filtroVencidosBtn.textContent = "Mostrar produtos vencidos";
 	ocultarVencidos = false;
 	let filtro = filtroInput.value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-	if(filtro.value == "autorizarsyncenviar" && localStorage.getItem("syncenviar") !== "true"){
-		localStorage.setItem("syncenviar", true);
-		filtro.value = "";
-		showCascadeAlert("✅ Este usuário foi autorizado a enviar dados ao firebase!");
-	}
-	if(filtro.value == "naoautorizarsyncenviar" && localStorage.getItem("syncenviar") == "true"){
-		localStorage.setItem("syncenviar", false);
-		filtro.value = "";
-		showCascadeAlert("❌ Este usuário foi desautorizado a enviar dados ao firebase!");
-	}
 	document.querySelectorAll("#lista tr").forEach(row => {
 		let [codigo, nome] = row.children;
 		let nomeNormalizado = nome.textContent.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
