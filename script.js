@@ -163,14 +163,19 @@ function selectTudo(elemento) {
 ["keydown", "keyup"].forEach(qual => {
     filtroInput.addEventListener(qual, () => {
         const syncenviar = localStorage.getItem("syncenviar");
+		confirmar.textContent = "OK";
+		if(document.activeElement === document.querySelector("#filtro")) cancelar.style.display = "none";
+		confirmar.onclick = () => modal.style.display = "none";
         if (filtroInput.value === "autorizarsyncenviar" && syncenviar !== "true") {
             localStorage.setItem("syncenviar", "true");
             filtroInput.value = "";
-            showCascadeAlert("✅ Este usuário foi autorizado a enviar dados ao firebase!");
+			modal.style.display = "flex";
+			modalBody.innerHTML = "✅ Este usuário foi autorizado a enviar dados ao firebase!";
         } else if (filtroInput.value === "naoautorizarsyncenviar" && syncenviar === "true") {
             localStorage.setItem("syncenviar", "false");
             filtroInput.value = "";
-            showCascadeAlert("❌ Este usuário foi desautorizado a enviar dados ao firebase!");
+			modal.style.display = "flex";
+			modalBody.innerHTML = "❌ Este usuário foi desautorizado a enviar dados ao firebase!";
         }
     });
 });
