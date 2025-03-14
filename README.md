@@ -4,6 +4,7 @@
  Sincronização automática: localStorage <> Firebase:
  <br>
  Crie um banco de dados na aba Firestore Database:
+ <br>
  const firebaseConfig = {
 	apiKey: SUA_CHAVE,
 	authDomain: SEU_DOMINIO,
@@ -14,6 +15,7 @@
 };
 <br>
 ainda na aba Firestore Database, mude as regras conforme:
+<br>
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
