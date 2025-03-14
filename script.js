@@ -171,7 +171,7 @@ function selectTudo(elemento) {
             filtroInput.value = "";
 			modal.style.display = "flex";
 			modalBody.innerHTML = "✅ Este usuário foi autorizado a enviar dados ao firebase!";
-        }else{
+        }else if(filtroInput.value.toLowerCase() === "autorizarsyncenviar" || filtroInput.value.toLowerCase() === "/ase" && syncenviar !== "true"){
 			filtroInput.value = "";
 			modal.style.display = "flex";
 			modalBody.innerHTML = "✅ Este usuário já foi autorizado a enviar dados ao firebase!";
@@ -181,7 +181,7 @@ function selectTudo(elemento) {
             filtroInput.value = "";
 			modal.style.display = "flex";
 			modalBody.innerHTML = "❌ Este usuário foi desautorizado a enviar dados ao firebase!";
-        }else{
+        }else if(filtroInput.value.toLowerCase() === "naoautorizarsyncenviar" || filtroInput.value.toLowerCase() === "/dse" && syncenviar === "true"){
 			filtroInput.value = "";
 			modal.style.display = "flex";
 			modalBody.innerHTML = "❌ Este usuário já foi desautorizado a enviar dados ao firebase!";
