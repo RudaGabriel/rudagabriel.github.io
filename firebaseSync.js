@@ -95,15 +95,37 @@ function showCascadeAlert(message) {
 }
 
 (function() {
+    // Interceptando XMLHttpRequest
+    const originalXHR = XMLHttpRequest.prototype.open;
+    const originalXHRSend = XMLHttpRequest.prototype.send;
+
+    XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+        this._url = url;
+        this._method = method;
+        return originalXHR.apply(this, [method, url, ...rest]);
+    };
+
+    XMLHttpRequest.prototype.send = function(...args) {
+        this.addEventListener("load", function() {
+            if (this.status === 400) {
+                if (this._url.includes("firestore")) {
+                    showCascadeAlert("❌ Error ao tentar conectar com o firestore!<br>Verifique as informações clicando no botão sincronizar.");
+                }
+            }
+        });
+        return originalXHRSend.apply(this, args);
+    };
+
+    // Interceptando fetch
     const originalFetch = window.fetch;
 
     window.fetch = function(url, options) {
         return originalFetch(url, options)
             .then(response => {
                 if (response.status === 400) {
-                    response.text().then(responseText => {
-                        url.url.includes("firestore") ? showCascadeAlert("❌ Error ao tentar conectar com o firestore!<br>Verifique as informações clicando no botão sincronizar.") : null;
-                    });
+                    if (url.includes("firestore")) {
+                        showCascadeAlert("❌ Error ao tentar conectar com o firestore!<br>Verifique as informações clicando no botão sincronizar.");
+                    }
                 }
                 return response;
             })
@@ -112,7 +134,6 @@ function showCascadeAlert(message) {
             });
     };
 })();
-
 
 let db, docRef, bloqueioExecucao = false, bloqueioSincronizacao = false;
 if (Object.values(firebaseConfig).some(valor => !valor)) {
