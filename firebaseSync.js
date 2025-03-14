@@ -48,10 +48,15 @@ function showCascadeAlert(message) {
         document.body.appendChild(clearButton);
     }
     const formattedMessage = message.replace(/https?:\/\/[^\s]+/g, (url) =>
-        `<a href="${url}" target="_blank" style="color: #0ff; text-decoration: underline;">${url}</a>`
-    ).replace(/<br\s*\/?>/g, " ").trim();
-    if ([...document.querySelectorAll(".cascade-alert .message-cascade")].some(el => el.innerText.replace(/\s+/g, " ").trim() === formattedMessage)) return;
-    const alert = document.createElement("div");
+		`<a href="${url}" target="_blank" style="color: #0ff; text-decoration: underline;">${url}</a>`
+	).replace(/<br\s*\/?>/g, "\n").trim();
+
+	if ([...document.querySelectorAll(".cascade-alert .message-cascade")].some(el =>
+		el.innerHTML.replace(/<br\s*\/?>/g, "\n").replace(/\s+/g, " ").trim() === formattedMessage
+	)) return;
+
+	const alert = document.createElement("div");
+
     alert.className = "cascade-alert";
     alert.innerHTML = `
         <div class="message-cascade">${formattedMessage}</div>
