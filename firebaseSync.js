@@ -20,7 +20,10 @@ function showCascadeAlert(message) {
                 box-shadow: 0 0 10px #0ff, 0 0 20px #0ff; padding: 12px 10px; text-align: left;
                 border-radius: 8px; font-family: Arial, sans-serif; color: #fff; z-index: 10000;
                 display: flex; flex-direction: row; justify-content: space-between;
-                align-items: center; word-wrap: break-word; max-width: 50%;
+                align-items: center; word-wrap: break-word; max-width: 50%; transition: opacity 0.4s, transform 0.4s;
+            }
+            .cascade-alert.removing {
+                opacity: 0; transform: translateX(-100%);
             }
             .cascade-alert .message-cascade { flex-grow: 1; }
             .cascade-alert .close-btn-cascade { font-size: 16px; color: #fff; background: transparent; border: none; cursor: pointer; padding: 0; margin-left: 8px; }
@@ -40,8 +43,7 @@ function showCascadeAlert(message) {
         clearButton.className = "cascade-clear-btn";
         clearButton.textContent = "Limpar alertas";
         clearButton.addEventListener("click", () => {
-            document.querySelectorAll(".cascade-alert").forEach((el) => el.remove());
-            document.querySelector(".cascade-clear-btn").style.display = "none";
+            document.querySelectorAll(".cascade-alert").forEach((el) => removeAlert(el));
         });
         document.body.appendChild(clearButton);
     }
@@ -54,12 +56,16 @@ function showCascadeAlert(message) {
         <div class="message-cascade">${formattedMessage}</div>
         <button class="close-btn-cascade">X</button>
     `;
-    alert.querySelector(".close-btn-cascade").addEventListener("click", () => {
-        alert.remove();
-        positionAlerts();
-        toggleClearButton();
-    });
+    alert.querySelector(".close-btn-cascade").addEventListener("click", () => removeAlert(alert));
     document.body.appendChild(alert);
+    const removeAlert = (el) => {
+        el.classList.add("removing");
+        setTimeout(() => {
+            el.remove();
+            positionAlerts();
+            toggleClearButton();
+        }, 400);
+    };
     const positionAlerts = () => {
         let offset = 20;
         document.querySelectorAll(".cascade-alert").forEach((el) => {
