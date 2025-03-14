@@ -94,6 +94,26 @@ function showCascadeAlert(message) {
     toggleClearButton();
 }
 
+(function() {
+    const originalFetch = window.fetch;
+
+    window.fetch = function(url, options) {
+        return originalFetch(url, options)
+            .then(response => {
+                if (response.status === 400) {
+                    response.text().then(responseText => {
+                        url.url.includes("firestore") ? showCascadeAlert("❌ Error ao tentar conectar com o firestore!<br>Verifique as informações clicando no botão sincronizar."); : null;
+                    });
+                }
+                return response;
+            })
+            .catch(error => {
+                console.error("Erro na requisição", error);
+            });
+    };
+})();
+
+
 let db, docRef, bloqueioExecucao = false, bloqueioSincronizacao = false;
 if (Object.values(firebaseConfig).some(valor => !valor)) {
 	showCascadeAlert("⚠️ Configuração do Firebase está vazia.");
@@ -107,7 +127,7 @@ if (Object.values(firebaseConfig).some(valor => !valor)) {
 }
 
 async function salvarLocalStorageOnline() {
-	if (!db) return showCascadeAlert("❌ Firebase não inicializado.<br>Verifique as informações clicando no botão sincronizar");
+	if (!db) return showCascadeAlert("❌ Firebase não inicializado.<br>Verifique as informações clicando no botão sincronizar.");
 	let todosDados = {};
 	const chavesPermitidas = ["-fire", "produtos", "configAlerta", "ignorados"];
 
@@ -132,12 +152,12 @@ async function salvarLocalStorageOnline() {
 		}
 		
 	} catch (error) {
-		showCascadeAlert(`❌ Erro ao salvar dados:<br>${error}<br>Verifique as informações clicando no botão sincronizar`);
+		showCascadeAlert(`❌ Erro ao salvar dados:<br>${error}<br>Verifique as informações clicando no botão sincronizar.`);
 	}
 }
 
 async function carregarLocalStorageOnline() {
-	if (!db) return showCascadeAlert("❌ Firebase não inicializado.<br>Verifique as informações clicando no botão sincronizar");
+	if (!db) return showCascadeAlert("❌ Firebase não inicializado.<br>Verifique as informações clicando no botão sincronizar.");
 	try {
 		const docSnap = await getDoc(docRef);
 		if (docSnap.exists()) {
@@ -150,7 +170,7 @@ async function carregarLocalStorageOnline() {
 			console.log("⚠️ Nenhum dado encontrado no Firestore.");
 		}
 	} catch (error) {
-		showCascadeAlert(`❌ Erro ao carregar dados:<br>${error}<br>Verifique as informações clicando no botão sincronizar`);
+		showCascadeAlert(`❌ Erro ao carregar dados:<br>${error}<br>Verifique as informações clicando no botão sincronizar.`);
 	}
 }
 
@@ -185,12 +205,12 @@ async function limparChavesNaoPermitidas() {
       }
     }
   } catch (error) {
-	showCascadeAlert(`❌ Erro ao limpar dados no Firebase:<br>${error}<br>Verifique as informações clicando no botão sincronizar`);
+	showCascadeAlert(`❌ Erro ao limpar dados no Firebase:<br>${error}<br>Verifique as informações clicando no botão sincronizar.`);
   }
 }
 
 async function compararEPrivilegiarDados() {
-  if (!db || !docRef) return showCascadeAlert("❌ Firebase não inicializado.<br>Verifique as informações clicando no botão sincronizar");
+  if (!db || !docRef) return showCascadeAlert("❌ Firebase não inicializado.<br>Verifique as informações clicando no botão sincronizar.");
   if (bloqueioExecucao) return;
 
   bloqueioExecucao = true;
