@@ -166,7 +166,7 @@ function selectTudo(elemento) {
 		if(document.activeElement === document.querySelector("#filtro")) confirmar.textContent = "OK";
 		if(document.activeElement === document.querySelector("#filtro")) cancelar.style.display = "none";
 		if(document.activeElement === document.querySelector("#filtro")) confirmar.onclick = () => modal.style.display = "none";
-        if (filtroInput.value.toLowerCase() === "autorizarsyncenviar" && syncenviar !== "true") {
+        if (filtroInput.value.toLowerCase() === "autorizarsyncenviar" || filtroInput.value.toLowerCase() === "/ase" && syncenviar !== "true") {
             localStorage.setItem("syncenviar", "true");
             filtroInput.value = "";
 			modal.style.display = "flex";
@@ -176,7 +176,7 @@ function selectTudo(elemento) {
 			modal.style.display = "flex";
 			modalBody.innerHTML = "✅ Este usuário já foi autorizado a enviar dados ao firebase!";
 		}
-		if (filtroInput.value.toLowerCase() === "naoautorizarsyncenviar" && syncenviar === "true") {
+		if (filtroInput.value.toLowerCase() === "naoautorizarsyncenviar" || filtroInput.value.toLowerCase() === "/dse" && syncenviar === "true") {
             localStorage.setItem("syncenviar", "false");
             filtroInput.value = "";
 			modal.style.display = "flex";
