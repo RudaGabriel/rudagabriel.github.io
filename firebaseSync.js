@@ -10,20 +10,85 @@ const firebaseConfig = {
 	appId: localStorage.getItem("appid-fire") || ""
 };
 
+function showCascadeAlert(message) {
+    if (!document.querySelector("#cascade-alert-style")) {
+        const style = document.createElement("style");
+        style.id = "cascade-alert-style";
+        style.innerHTML = `
+            .cascade-alert {
+                position: fixed; left: 20px; background: #222; border: 2px solid #0ff;
+                box-shadow: 0 0 10px #0ff, 0 0 20px #0ff; padding: 12px 10px; text-align: left;
+                border-radius: 8px; font-family: Arial, sans-serif; color: #fff; z-index: 10000;
+                display: flex; flex-direction: row; justify-content: space-between;
+                align-items: center; word-wrap: break-word; max-width: 50%;
+            }
+            .cascade-alert .message-cascade { flex-grow: 1; }
+            .cascade-alert .close-btn-cascade { font-size: 16px; color: #fff; background: transparent; border: none; cursor: pointer; padding: 0; margin-left: 8px; }
+            .cascade-alert .close-btn-cascade:hover { color: #0cc; }
+            .cascade-clear-btn {
+                position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+                background: #0ff; color: #000; border: 2px solid #000; padding: 10px 20px;
+                font-weight: bold; cursor: pointer; z-index: 10001; border-radius: 5px;
+                box-shadow: 0 0 20px #0ff, 0 0 40px #0ff;
+            }
+            .cascade-clear-btn:hover { background: #0cc; }
+        `;
+        document.head.appendChild(style);
+    }
+    if (!document.querySelector(".cascade-clear-btn")) {
+        const clearButton = document.createElement("button");
+        clearButton.className = "cascade-clear-btn";
+        clearButton.textContent = "Limpar alertas";
+        clearButton.addEventListener("click", () => {
+            document.querySelectorAll(".cascade-alert").forEach((el) => el.remove());
+            document.querySelector(".cascade-clear-btn").style.display = "none";
+        });
+        document.body.appendChild(clearButton);
+    }
+    const alert = document.createElement("div");
+    alert.className = "cascade-alert";
+    const formattedMessage = message.replace(/https?:\/\/[^\s]+/g, (url) =>
+                                             `<a href="${url}" target="_blank" style="color: #0ff; text-decoration: underline;">${url}</a>`
+    );
+    alert.innerHTML = `
+        <div class="message-cascade">${formattedMessage}</div>
+        <button class="close-btn-cascade">X</button>
+    `;
+    alert.querySelector(".close-btn-cascade").addEventListener("click", () => {
+        alert.remove();
+        positionAlerts();
+        toggleClearButton();
+    });
+    document.body.appendChild(alert);
+    const positionAlerts = () => {
+        let offset = 20;
+        document.querySelectorAll(".cascade-alert").forEach((el) => {
+            el.style.top = `${offset}px`;
+            offset += el.offsetHeight + 15;
+        });
+    };
+    const toggleClearButton = () => {
+        const clearButton = document.querySelector(".cascade-clear-btn");
+        clearButton.style.display = document.querySelectorAll(".cascade-alert").length > 0 ? "block" : "none";
+    };
+    positionAlerts();
+    toggleClearButton();
+}
+
 let db, docRef, bloqueioExecucao = false, bloqueioSincronizacao = false;
 if (Object.values(firebaseConfig).some(valor => !valor)) {
-	console.error("⚠️ Configuração do Firebase está vazia.");
+	showCascadeAlert("⚠️ Configuração do Firebase está vazia.");
 } else {
 	const appfire = initializeApp(firebaseConfig);
 	db = getFirestore(appfire);
 	docRef = doc(db, "dados", "sync");
-	console.log("✅ Firebase inicializado com sucesso!");
+	showCascadeAlert("✅ Firebase inicializado com sucesso!");
 	compararEPrivilegiarDados();
 	limparChavesNaoPermitidas(); // Limpa as chaves não permitidas
 }
 
 async function salvarLocalStorageOnline() {
-	if (!db) return console.error("❌ Firebase não inicializado.");
+	if (!db) return showCascadeAlert("❌ Firebase não inicializado.<br>Verifique as informações clicando no botão sincronizar");
 	let todosDados = {};
 	const chavesPermitidas = ["-fire", "produtos", "configAlerta", "ignorados"];
 
@@ -53,14 +118,14 @@ async function salvarLocalStorageOnline() {
 }
 
 async function carregarLocalStorageOnline() {
-	if (!db) return console.error("❌ Firebase não inicializado.");
+	if (!db) return showCascadeAlert("❌ Firebase não inicializado.<br>Verifique as informações clicando no botão sincronizar");
 	try {
 		const docSnap = await getDoc(docRef);
 		if (docSnap.exists()) {
 			Object.entries(docSnap.data().dados).forEach(([chave, valor]) => {
 				if (localStorage.getItem(chave) !== valor) localStorage.setItem(chave, valor);
 			});
-			console.log("✅ Dados carregados do Firebase!");
+			showCascadeAlert("✅ Dados carregados do Firebase!");
 			atualizarLista();
 		} else {
 			console.log("⚠️ Nenhum dado encontrado no Firestore.");
@@ -97,7 +162,7 @@ async function limparChavesNaoPermitidas() {
 
       if (Object.keys(dadosAtualizados).length !== Object.keys(firebaseData).length) {
         await setDoc(docRef, { dados: dadosAtualizados }, { merge: true });
-        console.log("✅ Dados atualizados no Firebase após remoção de chaves inválidas.");
+        showCascadeAlert("✅ Dados atualizados no Firebase após remoção de chaves inválidas.");
       }
     }
   } catch (error) {
@@ -106,7 +171,10 @@ async function limparChavesNaoPermitidas() {
 }
 
 async function compararEPrivilegiarDados() {
-  if (!db || !docRef) return console.error("❌ Firebase não inicializado.");
+  if (!db || !docRef) {
+	  
+	  showCascadeAlert.error("❌ Firebase não inicializado.");
+  }
   if (bloqueioExecucao) return;
 
   bloqueioExecucao = true;
@@ -132,13 +200,13 @@ async function compararEPrivilegiarDados() {
   const produtosFirebase = Array.isArray(firebaseData.produtos) ? firebaseData.produtos.length : 0;
 
   if (produtosLocal > produtosFirebase) {
-    console.log("📤 LocalStorage tem mais itens em 'produtos', será priorizado para exportação.");
+    showCascadeAlert("📤 LocalStorage tem mais itens em 'produtos', será priorizado para exportação.");
     await salvarLocalStorageOnline();
   } else if (produtosFirebase > produtosLocal) {
-    console.log("📥 Firebase tem mais itens em 'produtos', será priorizado para importação.");
+    showCascadeAlert("📥 Firebase tem mais itens em 'produtos', será priorizado para importação.");
     await carregarLocalStorageOnline();
   } else {
-    console.log("✅ Os dados estão sincronizados.");
+    showCascadeAlert("✅ Os dados estão sincronizados.");
   }
 }
 
