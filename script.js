@@ -167,7 +167,7 @@ function filtrarProdutos() {
 	if(filtro.value == "autorizarsyncenviar" && localStorage.getItem("syncenviar") !== "true"){
 		localStorage.setItem("syncenviar", true);
 		filtro.value = "";
-		showCascadeAlert("✅ Este usuário autorizado a enviar dados ao firebase!");
+		showCascadeAlert("✅ Este usuário foi autorizado a enviar dados ao firebase!");
 	}
 	if(filtro.value == "naoautorizarsyncenviar" && localStorage.getItem("syncenviar") == "true"){
 		localStorage.setItem("syncenviar", false);
