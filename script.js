@@ -166,12 +166,12 @@ function selectTudo(elemento) {
 		if(document.activeElement === document.querySelector("#filtro")) confirmar.textContent = "OK";
 		if(document.activeElement === document.querySelector("#filtro")) cancelar.style.display = "none";
 		if(document.activeElement === document.querySelector("#filtro")) confirmar.onclick = () => modal.style.display = "none";
-        if (filtroInput.value === "autorizarsyncenviar" && syncenviar !== "true") {
+        if (filtroInput.value.toLowerCase() === "autorizarsyncenviar" && syncenviar !== "true") {
             localStorage.setItem("syncenviar", "true");
             filtroInput.value = "";
 			modal.style.display = "flex";
 			modalBody.innerHTML = "✅ Este usuário foi autorizado a enviar dados ao firebase!";
-        } else if (filtroInput.value === "naoautorizarsyncenviar" && syncenviar === "true") {
+        } else if (filtroInput.value.toLowerCase() === "naoautorizarsyncenviar" && syncenviar === "true") {
             localStorage.setItem("syncenviar", "false");
             filtroInput.value = "";
 			modal.style.display = "flex";
