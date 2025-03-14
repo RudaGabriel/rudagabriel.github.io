@@ -160,17 +160,19 @@ function selectTudo(elemento) {
 	selection.addRange(range)
 }
 
-filtroInput.addEventListener('keydown', () => {
-	if (filtroInput.value === "autorizarsyncenviar" && localStorage.getItem("syncenviar") !== "true") {
-		localStorage.setItem("syncenviar", "true");
-		filtroInput.value = "";
-		showCascadeAlert("✅ Este usuário foi autorizado a enviar dados ao firebase!");
-	}
-	if (filtroInput.value === "naoautorizarsyncenviar" && localStorage.getItem("syncenviar") === "true") {
-		localStorage.setItem("syncenviar", "false");
-		filtroInput.value = "";
-		showCascadeAlert("❌ Este usuário foi desautorizado a enviar dados ao firebase!");
-	}
+["keydown", "keyup"].forEach(qual => {
+    filtroInput.addEventListener(qual, () => {
+        const syncenviar = localStorage.getItem("syncenviar");
+        if (filtroInput.value === "autorizarsyncenviar" && syncenviar !== "true") {
+            localStorage.setItem("syncenviar", "true");
+            filtroInput.value = "";
+            showCascadeAlert("✅ Este usuário foi autorizado a enviar dados ao firebase!");
+        } else if (filtroInput.value === "naoautorizarsyncenviar" && syncenviar === "true") {
+            localStorage.setItem("syncenviar", "false");
+            filtroInput.value = "";
+            showCascadeAlert("❌ Este usuário foi desautorizado a enviar dados ao firebase!");
+        }
+    });
 });
 	
 function filtrarProdutos() {
