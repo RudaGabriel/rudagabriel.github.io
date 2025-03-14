@@ -47,6 +47,7 @@ function showCascadeAlert(message) {
         });
         document.body.appendChild(clearButton);
     }
+    if ([...document.querySelectorAll(".cascade-alert .message-cascade")].some(el => el.innerText === message)) return;
     const alert = document.createElement("div");
     alert.className = "cascade-alert";
     const formattedMessage = message.replace(/https?:\/\/[^\s]+/g, (url) =>
