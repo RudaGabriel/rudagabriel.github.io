@@ -26,7 +26,7 @@ function showCascadeAlert(message) {
                 opacity: 0; transform: translateX(-100%);
             }
             .cascade-alert .message-cascade { flex-grow: 1; }
-            .cascade-alert .close-btn-cascade { font-size: 16px; color: #fff; background: transparent; border: none; cursor: pointer; padding: 0; margin-left: 8px; }
+            .cascade-alert .close-btn-cascade { font-size: 16px; color: #fff; background: transparent; border: none; cursor: pointer; padding: 0; margin-left: 12px; }
             .cascade-alert .close-btn-cascade:hover { color: #0cc; }
             .cascade-clear-btn {
                 position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
