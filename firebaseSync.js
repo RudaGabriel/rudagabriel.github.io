@@ -121,7 +121,9 @@ function showCascadeAlert(message) {
         return originalFetch(url, options)
             .then(response => {
                 if (response.status === 400) {
-                    showCascadeAlert("❌ Error ao tentar conectar com o firestore!<br>Verifique as informações clicando no botão sincronizar.");
+                    if (url.url.includes("firestore")) {
+                        showCascadeAlert("❌ Error ao tentar conectar com o firestore!<br>Verifique as informações clicando no botão sincronizar.");
+                    }
                 }
                 return response;
             })
