@@ -43,7 +43,7 @@ function showCascadeAlert(message) {
         const clearButton = document.createElement("button");
         clearButton.className = "cascade-clear-btn";
 		clearButton.title = "Limpar todas as mensagens de informações exibidas a esquerda"; 
-        clearButton.textContent = "<- Limpar todos estes alertas";
+        clearButton.textContent = "<< Limpar todos estes alertas";
         clearButton.addEventListener("click", () => {
             document.querySelectorAll(".cascade-alert").forEach((el) => removeAlert(el));
         });
