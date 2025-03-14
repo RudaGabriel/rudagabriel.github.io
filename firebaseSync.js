@@ -131,7 +131,7 @@ async function salvarLocalStorageOnline() {
 		}
 		
 	} catch (error) {
-		showCascadeAlert(`❌ Erro ao salvar dados: ${error}<br>Verifique as informações clicando no botão sincronizar`);
+		showCascadeAlert(`❌ Erro ao salvar dados:<br>${error}<br>Verifique as informações clicando no botão sincronizar`);
 	}
 }
 
@@ -149,7 +149,7 @@ async function carregarLocalStorageOnline() {
 			console.log("⚠️ Nenhum dado encontrado no Firestore.");
 		}
 	} catch (error) {
-		showCascadeAlert(`❌ Erro ao carregar dados: ${error}<br>Verifique as informações clicando no botão sincronizar`);
+		showCascadeAlert(`❌ Erro ao carregar dados:<br>${error}<br>Verifique as informações clicando no botão sincronizar`);
 	}
 }
 
@@ -184,7 +184,7 @@ async function limparChavesNaoPermitidas() {
       }
     }
   } catch (error) {
-	showCascadeAlert(`❌ Erro ao limpar dados no Firebase: ${error}<br>Verifique as informações clicando no botão sincronizar`);
+	showCascadeAlert(`❌ Erro ao limpar dados no Firebase:<br>${error}<br>Verifique as informações clicando no botão sincronizar`);
   }
 }
 
