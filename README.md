@@ -1,9 +1,9 @@
 # Controle de Vencimento
  Controle de vencimento com salvamento no localStorage e opção de importar e exportar
  <br>
- Sincronização automática: localStorage <> Firebase:
+ Sincronização automática: localStorage <> Firebase
  <br>
- Crie um banco de dados na aba Firestore Database:
+ # Crie um banco de dados na aba Firestore Database:
  <br>
  const firebaseConfig = {
 	apiKey: SUA_CHAVE,
@@ -14,7 +14,7 @@
 	appId: SUA_APP_ID
 };
 <br>
-ainda na aba Firestore Database, mude as regras conforme:
+# Ainda na aba Firestore Database, mude as regras conforme:
 <br>
 rules_version = '2';
 service cloud.firestore {
