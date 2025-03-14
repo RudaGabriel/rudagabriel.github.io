@@ -163,9 +163,9 @@ function selectTudo(elemento) {
 ["keydown", "keyup"].forEach(qual => {
     filtroInput.addEventListener(qual, () => {
         const syncenviar = localStorage.getItem("syncenviar");
-		confirmar.textContent = "OK";
+		if(document.activeElement === document.querySelector("#filtro")) confirmar.textContent = "OK";
 		if(document.activeElement === document.querySelector("#filtro")) cancelar.style.display = "none";
-		confirmar.onclick = () => modal.style.display = "none";
+		if(document.activeElement === document.querySelector("#filtro")) confirmar.onclick = () => modal.style.display = "none";
         if (filtroInput.value === "autorizarsyncenviar" && syncenviar !== "true") {
             localStorage.setItem("syncenviar", "true");
             filtroInput.value = "";
