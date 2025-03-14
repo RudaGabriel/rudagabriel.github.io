@@ -196,17 +196,15 @@ async function carregarLocalStorageOnline() {
 }
 
 async function limparChavesNaoPermitidas() {
-  const chavesPermitidas = ["-fire", "produtos", "configAlerta", "ignorados, syncenviar"];
+  const chavesPermitidas = ["-fire", "produtos", "configAlerta", "ignorados", "syncenviar"];
 
-  // Limpar no localStorage
   Object.keys(localStorage).forEach(chave => {
-    if (!chavesPermitidas.some(term => chave.includes(term))) {
+    if (!chavesPermitidas.some(term => chave === term)) {
       console.log(`🗑 Removendo chave não permitida do localStorage: ${chave}`);
       localStorage.removeItem(chave);
     }
   });
 
-  // Limpar no Firebase
   try {
     const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
@@ -214,7 +212,7 @@ async function limparChavesNaoPermitidas() {
       let dadosAtualizados = { ...firebaseData };
 
       Object.keys(firebaseData).forEach(chave => {
-        if (!chavesPermitidas.some(term => chave.includes(term))) {
+        if (!chavesPermitidas.some(term => chave === term)) {
           console.log(`🗑 Removendo chave não permitida do Firebase: ${chave}`);
           delete dadosAtualizados[chave];
         }
@@ -226,7 +224,7 @@ async function limparChavesNaoPermitidas() {
       }
     }
   } catch (error) {
-	showCascadeAlert(`❌ Erro ao limpar dados no Firebase:<br>${error}<br>Verifique as informações clicando no botão sincronizar.`);
+    showCascadeAlert(`❌ Erro ao limpar dados no Firebase:<br>${error}<br>Verifique as informações clicando no botão sincronizar.`);
   }
 }
 
