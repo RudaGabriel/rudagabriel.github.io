@@ -164,6 +164,16 @@ function filtrarProdutos() {
 	filtroVencidosBtn.textContent = "Mostrar produtos vencidos";
 	ocultarVencidos = false;
 	let filtro = filtroInput.value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+	if(filtro.value == "autorizarsyncenviar" && localStorage.getItem("syncenviar") !== "true"){
+		localStorage.setItem("syncenviar", true);
+		filtro.value = "";
+		showCascadeAlert("✅ Este usuário autorizado a enviar dados ao firebase!");
+	}
+	if(filtro.value == "naoautorizarsyncenviar" && localStorage.getItem("syncenviar") == "true"){
+		localStorage.setItem("syncenviar", false);
+		filtro.value = "";
+		showCascadeAlert("❌ Este usuário foi desautorizado a enviar dados ao firebase!");
+	}
 	document.querySelectorAll("#lista tr").forEach(row => {
 		let [codigo, nome] = row.children;
 		let nomeNormalizado = nome.textContent.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
