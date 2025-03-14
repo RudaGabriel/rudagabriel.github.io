@@ -25,7 +25,7 @@ service cloud.firestore {
   }
 }
  <br>
- digite no input de filtro: <b>autorizarsyncenviar<b/> para: ✅ Este usuário foi autorizado a enviar dados ao firebase!
+ digite no input de filtro:<br><b>autorizarsyncenviar<b/><br>para: ✅ Este usuário foi autorizado a enviar dados ao firebase!
  <br>
-  digite no input de filtro: <b>naoautorizarsyncenviar<b/> para: ❌ Este usuário foi desautorizado a enviar dados ao firebase!
+  digite no input de filtro:<br><b>naoautorizarsyncenviar<b/><br>para: ❌ Este usuário foi desautorizado a enviar dados ao firebase!
 # https://rudagabriel.github.io/
