@@ -200,7 +200,7 @@ async function limparChavesNaoPermitidas() {
 
   Object.keys(localStorage).forEach(chave => {
     if (!chavesPermitidas.some(term => chave.includes(term))) {
-      console.log(`🗑 Removendo chave não permitida do localStorage: ${chave}`);
+      /*console.log(`🗑 Removendo chave não permitida do localStorage: ${chave}`);*/
       localStorage.removeItem(chave);
     }
   });
@@ -273,7 +273,7 @@ localStorage.setItem = function(chave, valor) {
         console.log("📥 LocalStorage modificado:", chave);
 		limparChavesNaoPermitidas();
         
-        if (antigoValor !== null) {
+        if (antigoValor !== null || antigoValor !== undefined) {
             const diferencas = compararDiferencas(antigoValor, valor);
             console.log("🔄 Alterações:", diferencas);
         } else {
