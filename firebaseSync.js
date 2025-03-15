@@ -334,7 +334,7 @@ if (db) {
 					localStorage.setItem(chave, valor);
 					console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
 					
-					if (antigoValor !== null) {
+					if (antigoValor !== null || antigoValor !== undefined) {
 						const diferencas = compararDiferencas(antigoValor, valor);
 						console.log("🔍 Alterações:", diferencas);
 					} else {
