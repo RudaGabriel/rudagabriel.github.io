@@ -182,6 +182,7 @@ function selectTudo(elemento) {
                 modalBody.innerHTML = "✅ Este usuário já foi autorizado a enviar dados ao firebase!";
             }
             filtroInput.value = "";
+			filtrarProdutos();
         } else if (inputValue === "naoautorizarsyncenviar" || inputValue === "/dse") {
             if (syncenviar === "true") {
                 localStorage.setItem("syncenviar", "false");
@@ -192,6 +193,7 @@ function selectTudo(elemento) {
                 modalBody.innerHTML = "❌ Este usuário já foi desautorizado a enviar dados ao firebase!";
             }
             filtroInput.value = "";
+			filtrarProdutos();
         }
     });
 });
