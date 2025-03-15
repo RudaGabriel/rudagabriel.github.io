@@ -14,7 +14,7 @@ const firebaseConfig = {
 };
 </pre>
 ## Ainda na aba Firestore Database, mude as regras conforme
-<pre>
+```bash
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -23,9 +23,9 @@ service cloud.firestore {
     }
   }
 }
-</pre>
+```
 ## Novidades
 digite no input de filtro: **`autorizarsyncenviar`** ou **`/ase`** para: ✅ Este usuário foi autorizado a enviar dados ao firebase!
 <br>
 digite no input de filtro: **`naoautorizarsyncenviar`** ou **`/dse`** para: ❌ Este usuário foi desautorizado a enviar dados ao firebase!
-## Acesse o site: [Clique aqui](https://rudagabriel.github.io/) você será redirecionado!
+## Acesse o site [CLICANDO AQUI](https://rudagabriel.github.io/) você será redirecionado!
