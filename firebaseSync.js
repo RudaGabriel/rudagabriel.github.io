@@ -153,7 +153,7 @@ async function salvarLocalStorageOnline() {
 	limparChavesNaoPermitidas();
 
 	Object.keys(localStorage).forEach(chave => {
-		if (chavesPermitidas.some(term => chave.includes(term))) {
+		if (chavesPermitidas.some(term => chave.includes(term)) && !chave.includes("syncenviar")) {
 			todosDados[chave] = localStorage.getItem(chave);
 		}
 	});
