@@ -51,6 +51,7 @@ function adicionarProduto() {
 				modal.style.display = "none";
 				salvarProdutos();
 				atualizarLista();
+				filtrarProdutos();
 				produtoInput.value = quantidadeInput.value = vencimentoInput.value = codigoBarrasInput.value = "";
 			};
 			cancelar.onclick = () => modal.style.display = "none";
