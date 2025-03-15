@@ -134,6 +134,7 @@ function showCascadeAlert(message) {
 })();
 
 let db, docRef, bloqueioExecucao = false, bloqueioSincronizacao = false;
+const chavesPermitidas = ["-fire", "produtos", "configAlerta", "ignorados", "syncenviar"];
 if (Object.values(firebaseConfig).some(valor => !valor)) {
 	showCascadeAlert("⚠️ Configuração do Firebase está vazia.");
 } else {
@@ -149,7 +150,6 @@ async function salvarLocalStorageOnline() {
 	if(localStorage.getItem("syncenviar") !== "true") return;
 	if (!db) return showCascadeAlert("❌ Firebase não inicializado.<br>Verifique as informações clicando no botão sincronizar.");
 	let todosDados = {};
-	const chavesPermitidas = ["-fire", "produtos", "configAlerta", "ignorados"];
 	limparChavesNaoPermitidas();
 
 	Object.keys(localStorage).forEach(chave => {
@@ -196,8 +196,6 @@ async function carregarLocalStorageOnline() {
 }
 
 async function limparChavesNaoPermitidas() {
-  const chavesPermitidas = ["-fire", "produtos", "configAlerta", "ignorados", "syncenviar"];
-
   Object.keys(localStorage).forEach(chave => {
     if (!chavesPermitidas.some(term => chave.includes(term))) {
       /*console.log(`🗑 Removendo chave não permitida do localStorage: ${chave}`);*/
@@ -237,8 +235,6 @@ async function compararEPrivilegiarDados() {
 
   const docSnap = await getDoc(docRef);
   const firebaseData = docSnap.exists() ? docSnap.data().dados || {} : {};
-
-  const chavesPermitidas = ["-fire", "produtos", "configAlerta", "ignorados"];
   const localData = {};
   
   Object.keys(localStorage).forEach(chave => {
@@ -267,12 +263,14 @@ async function compararEPrivilegiarDados() {
 
 const originalSetItem = localStorage.setItem;
 localStorage.setItem = function(chave, valor) {
+    if (!chavesPermitidas.includes(chave)) return;
+
     const antigoValor = localStorage.getItem(chave);
     if (antigoValor !== valor) {
         originalSetItem.apply(this, arguments);
         console.log("📥 LocalStorage modificado:", chave);
-		limparChavesNaoPermitidas();
-        
+        limparChavesNaoPermitidas();
+
         if (antigoValor !== null || antigoValor !== undefined) {
             const diferencas = compararDiferencas(antigoValor, valor);
             console.log("🔄 Alterações:", diferencas);
