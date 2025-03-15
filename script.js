@@ -163,29 +163,36 @@ function selectTudo(elemento) {
 ["keydown", "keyup"].forEach(qual => {
     filtroInput.addEventListener(qual, () => {
         const syncenviar = localStorage.getItem("syncenviar");
-		if(document.activeElement === document.querySelector("#filtro")) confirmar.textContent = "OK";
-		if(document.activeElement === document.querySelector("#filtro")) cancelar.style.display = "none";
-		if(document.activeElement === document.querySelector("#filtro")) confirmar.onclick = () => modal.style.display = "none";
-        if (filtroInput.value.toLowerCase() === "autorizarsyncenviar" || filtroInput.value.toLowerCase() === "/ase" && syncenviar !== "true") {
-            localStorage.setItem("syncenviar", "true");
+        const isFiltroActive = document.activeElement === document.querySelector("#filtro");
+
+        if (isFiltroActive) {
+            confirmar.textContent = "OK";
+            cancelar.style.display = "none";
+            confirmar.onclick = () => modal.style.display = "none";
+        }
+
+        const inputValue = filtroInput.value.toLowerCase();
+        if (inputValue === "autorizarsyncenviar" || inputValue === "/ase") {
+            if (syncenviar !== "true") {
+                localStorage.setItem("syncenviar", "true");
+                modal.style.display = "flex";
+                modalBody.innerHTML = "✅ Este usuário foi autorizado a enviar dados ao firebase!";
+            } else {
+                modal.style.display = "flex";
+                modalBody.innerHTML = "✅ Este usuário já foi autorizado a enviar dados ao firebase!";
+            }
             filtroInput.value = "";
-			modal.style.display = "flex";
-			modalBody.innerHTML = "✅ Este usuário foi autorizado a enviar dados ao firebase!";
-        }else if(filtroInput.value.toLowerCase() === "autorizarsyncenviar" || filtroInput.value.toLowerCase() === "/ase" && syncenviar !== "true"){
-			filtroInput.value = "";
-			modal.style.display = "flex";
-			modalBody.innerHTML = "✅ Este usuário já foi autorizado a enviar dados ao firebase!";
-		}
-		if (filtroInput.value.toLowerCase() === "naoautorizarsyncenviar" || filtroInput.value.toLowerCase() === "/dse" && syncenviar === "true") {
-            localStorage.setItem("syncenviar", "false");
+        } else if (inputValue === "naoautorizarsyncenviar" || inputValue === "/dse") {
+            if (syncenviar === "true") {
+                localStorage.setItem("syncenviar", "false");
+                modal.style.display = "flex";
+                modalBody.innerHTML = "❌ Este usuário foi desautorizado a enviar dados ao firebase!";
+            } else {
+                modal.style.display = "flex";
+                modalBody.innerHTML = "❌ Este usuário já foi desautorizado a enviar dados ao firebase!";
+            }
             filtroInput.value = "";
-			modal.style.display = "flex";
-			modalBody.innerHTML = "❌ Este usuário foi desautorizado a enviar dados ao firebase!";
-        }else if(filtroInput.value.toLowerCase() === "naoautorizarsyncenviar" || filtroInput.value.toLowerCase() === "/dse" && syncenviar === "true"){
-			filtroInput.value = "";
-			modal.style.display = "flex";
-			modalBody.innerHTML = "❌ Este usuário já foi desautorizado a enviar dados ao firebase!";
-		}
+        }
     });
 });
 	
