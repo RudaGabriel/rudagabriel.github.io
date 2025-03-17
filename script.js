@@ -341,6 +341,22 @@ function salvarConfiguracaoAlerta() {
 document.getElementById("nAlertar").addEventListener("input", salvarConfiguracaoAlerta);
 document.getElementById("como").addEventListener("change", salvarConfiguracaoAlerta);
 
+function msg(confText, canctext, cancVis, mensagem, confOnclick, cancOnclick) {
+    confirmar.textContent = confText;
+    cancVis === true ? cancelar.style.display = "none" : cancelar.removeAttribute("style");
+    cancelar.textContent = canctext;
+    modalBody.innerHTML = mensagem;
+    modal.style.display = "flex";
+    confirmarBtn.onclick = () => {
+        confOnclick();
+        modal.style.display = "none";
+    };
+    cancelarBtn.onclick = () => {
+        cancOnclick();
+        modal.style.display = "none";
+    };
+}
+
 function alertarProdutosProximos() {
 	const alertarValor = parseInt(document.getElementById("nAlertar").value) || 60;
 	const unidade = document.getElementById("como").value;
