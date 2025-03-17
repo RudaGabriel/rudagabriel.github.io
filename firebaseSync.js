@@ -293,7 +293,7 @@ function compararDiferencas(antigo, novo) {
         console.error("Erro ao comparar diferenças:", error);
     }
 
-    return { antes: antigo, depois: novo };
+    return { antes: antigo, agora: novo };
 }
 
 const originalRemoveItem = localStorage.removeItem;
