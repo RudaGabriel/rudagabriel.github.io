@@ -341,19 +341,47 @@ function salvarConfiguracaoAlerta() {
 document.getElementById("nAlertar").addEventListener("input", salvarConfiguracaoAlerta);
 document.getElementById("como").addEventListener("change", salvarConfiguracaoAlerta);
 
+let modalAtivo = false;  // Controla se um modal está ativo
+let filaModais = []; // Fila que armazena os modais em espera
 function msg(confText, canctext, cancVis, mensagem, confOnclick, cancOnclick) {
+    // Se um modal estiver ativo, armazena os dados na fila
+    if (modalAtivo) {
+        filaModais.push({ confText, canctext, cancVis, mensagem, confOnclick, cancOnclick });
+        console.log("Modal em espera, aguardando o fechamento do modal atual.");
+        return; // Não exibe o modal agora, só o armazena
+    }
+
+    // Exibe o modal se não houver outro ativo
+    modalAtivo = true;
+
     confirmar.textContent = confText;
     cancVis === true ? cancelar.style.display = "none" : cancelar.removeAttribute("style");
     cancelar.textContent = canctext;
     modalBody.innerHTML = mensagem;
     modal.style.display = "flex";
+
     confirmarBtn.onclick = () => {
-        confOnclick();
-        modal.style.display = "none";
+        confOnclick();  // Executa a função de confirmação
+        modal.style.display = "none";  // Fecha o modal
+        modalAtivo = false;  // Marca o modal como fechado
+
+        // Verifica se há algum modal em espera
+        if (filaModais.length > 0) {
+            const proximoModal = filaModais.shift(); // Remove o próximo modal da fila
+            msg(proximoModal.confText, proximoModal.canctext, proximoModal.cancVis, proximoModal.mensagem, proximoModal.confOnclick, proximoModal.cancOnclick); // Chama o próximo modal
+        }
     };
+
     cancelarBtn.onclick = () => {
-        cancOnclick();
-        modal.style.display = "none";
+        cancOnclick();  // Executa a função de cancelamento
+        modal.style.display = "none";  // Fecha o modal
+        modalAtivo = false;  // Marca o modal como fechado
+
+        // Verifica se há algum modal em espera
+        if (filaModais.length > 0) {
+            const proximoModal = filaModais.shift(); // Remove o próximo modal da fila
+            msg(proximoModal.confText, proximoModal.canctext, proximoModal.cancVis, proximoModal.mensagem, proximoModal.confOnclick, proximoModal.cancOnclick); // Chama o próximo modal
+        }
     };
 }
 
