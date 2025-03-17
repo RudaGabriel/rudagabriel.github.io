@@ -321,6 +321,7 @@ if (db) {
 					console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
 					
 					if (chave === "configAlerta" && valor && typeof valor === "object") {
+						console.log(valor);
 						const hashnAlertar = document.querySelector("#nAlertar");
 						const hashcomo = document.querySelector("#como");
 
