@@ -319,7 +319,7 @@ if (db) {
 				if (antigoValor !== valor) {
 					localStorage.setItem(chave, valor);
 					console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
-					console.log(chave);
+					console.log(valor);
 					if (chave === "configAlerta" && typeof valor === "object" && valor !== null) {
 						const nAlertar = document.querySelector("#nAlertar");
 						const como = document.querySelector("#como");
