@@ -203,7 +203,7 @@ async function carregarLocalStorageOnline() {
 				}
 			});
 
-			showCascadeAlert("✅ Dados carregados do Firebase e mesclados!");
+			showCascadeAlert("✅ Dados carregados do Firebase!");
 			atualizarLista();
 		} else {
 			console.log("⚠️ Nenhum dado encontrado no Firestore.");
