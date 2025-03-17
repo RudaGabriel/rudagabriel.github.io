@@ -352,6 +352,30 @@ if (db) {
 								localStorage.setItem("produtos", JSON.stringify(produtosUnificados));
 								console.log("🔄 Sincronizado Firestore → LocalStorage: produtos");
 							}
+
+							// Verifica se há produtos no localStorage que não estão no Firebase
+							produtosLocal.forEach(produto => {
+								const existeProdutoNoFirebase = produtosFirebase.some(p => JSON.stringify(p) === JSON.stringify(produto));
+
+								if (!existeProdutoNoFirebase) {
+									// Pergunta ao usuário se deseja manter ou excluir o produto
+									confirmar.textContent = "SIM";
+									cancelar.removeAttribute("style");
+									cancelar.textContent = "NÃO";
+									modalBody.innerHTML = `O produto "${produto.nome}" não existe mais para sincronização.<br>Você deseja manter esse produto?<br>Clique em "SIM" para manter, ou "NÃO" para excluir.`;
+									modal.style.display = "flex";
+									confirmarBtn.onclick = () => modal.style.display = "none";
+
+									cancelarBtn.onclick = () => {
+										/ Remove o produto do localStorage se o usuário escolher excluir
+										const produtosAtualizados = produtosLocal.filter(p => JSON.stringify(p) !== JSON.stringify(produto));
+										localStorage.setItem("produtos", JSON.stringify(produtosAtualizados));
+										console.log(`❌ Produto "${produto.nome}" removido do localStorage.`);
+										atualizarLista();
+										modal.style.display = "none";
+									};
+								}
+							});
 						} else {
 							// Ignorar caso o valor seja um objeto ou array vazio
 							if (!(JSON.stringify(valor) === '{}' || JSON.stringify(valor) === '[]')) {
