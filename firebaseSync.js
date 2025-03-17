@@ -366,7 +366,7 @@ if (db) {
 									modal.style.display = "flex";
 									confirmarBtn.onclick = () => modal.style.display = "none";
 									cancelarBtn.onclick = () => {
-										/ Remove o produto do localStorage se o usuário escolher excluir
+										// Remove o produto do localStorage se o usuário escolher excluir
 										const produtosAtualizados = produtosLocal.filter(p => JSON.stringify(p) !== JSON.stringify(produto));
 										localStorage.setItem("produtos", JSON.stringify(produtosAtualizados));
 										console.log(`❌ Produto "${produto.nome}" removido do localStorage.`);
