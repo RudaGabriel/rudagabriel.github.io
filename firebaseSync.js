@@ -182,10 +182,34 @@ async function carregarLocalStorageOnline() {
 	try {
 		const docSnap = await getDoc(docRef);
 		if (docSnap.exists()) {
-			Object.entries(docSnap.data().dados).forEach(([chave, valor]) => {
-				if (localStorage.getItem(chave) !== valor) localStorage.setItem(chave, valor);
+			const firebaseData = docSnap.data().dados || {};
+
+			Object.entries(firebaseData).forEach(([chave, valor]) => {
+				const localValor = localStorage.getItem(chave);
+
+				if (localValor) {
+					try {
+						const localObj = JSON.parse(localValor);
+						const firebaseObj = JSON.parse(valor);
+
+						if (Array.isArray(localObj) && Array.isArray(firebaseObj)) {
+							const novoArray = [...new Set([...localObj, ...firebaseObj])];
+							localStorage.setItem(chave, JSON.stringify(novoArray));
+						} else if (typeof localObj === "object" && typeof firebaseObj === "object") {
+							const novoObjeto = { ...localObj, ...firebaseObj };
+							localStorage.setItem(chave, JSON.stringify(novoObjeto));
+						} else {
+							if (localValor !== valor) localStorage.setItem(chave, valor);
+						}
+					} catch {
+						if (localValor !== valor) localStorage.setItem(chave, valor);
+					}
+				} else {
+					localStorage.setItem(chave, valor);
+				}
 			});
-			showCascadeAlert("✅ Dados carregados do Firebase!");
+
+			showCascadeAlert("✅ Dados carregados do Firebase e mesclados!");
 			atualizarLista();
 		} else {
 			console.log("⚠️ Nenhum dado encontrado no Firestore.");
