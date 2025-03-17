@@ -2,6 +2,8 @@
 Controle de vencimento com salvamento no localStorage e opção de importar e exportar
 <br>
 Sincronização automática: localStorage <> Firebase
+<br>
+https://console.firebase.google.com/
 ## Crie um banco de dados na aba Firestore Database
 <pre>
 const firebaseConfig = {
