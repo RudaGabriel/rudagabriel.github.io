@@ -320,13 +320,14 @@ if (db) {
 					localStorage.setItem(chave, valor);
 					console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
 					console.log(valor);
-					if (chave === "configAlerta" && typeof valor === "object" && valor !== null) {
-						const nAlertar = document.querySelector("#nAlertar");
-						const como = document.querySelector("#como");
+					if (chave === "configAlerta" && valor && typeof valor === "object") {
+						const hashnAlertar = document.querySelector("#nAlertar");
+						const hashcomo = document.querySelector("#como");
 
-						if (nAlertar) nAlertar.value = valor.alertarValor ?? 60;
-						if (como) como.value = valor.unidade ?? "meses";
+						if (hashnAlertar) hashnAlertar.value = valor.alertarValor ?? 60;
+						if (hashcomo) hashcomo.value = valor.unidade ?? "meses";
 					}
+
 
 					if (antigoValor !== null) {
 						const diferencas = compararDiferencas(antigoValor, valor);
