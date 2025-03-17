@@ -474,6 +474,13 @@ ConfirmarDadosFire.addEventListener("click", () => {
 	const bucketValue = SEU_BUCKET?.value;
 	const idValue = SEU_ID?.value;
 	const appIdValue = SUA_APP_ID?.value;
+	// Salva os dados no localStorage
+	localStorage.setItem("chave-fire", chaveValue || "");
+	localStorage.setItem("dominio-fire", dominioValue || "");
+	localStorage.setItem("projeto-fire", projetoValue || "");
+	localStorage.setItem("bucket-fire", bucketValue || "");
+	localStorage.setItem("id-fire", idValue || "");
+	localStorage.setItem("appid-fire", appIdValue || "");
 
 	// Verifica se todos os campos estão preenchidos
 	const allFilled = chaveValue && dominioValue && projetoValue && bucketValue && idValue && appIdValue;
@@ -489,13 +496,6 @@ ConfirmarDadosFire.addEventListener("click", () => {
 		modal.style.display = "flex";
 		confirmar.onclick = () => modal.style.display = "none";
 	} else {
-		// Salva os dados no localStorage
-		localStorage.setItem("chave-fire", chaveValue || "");
-		localStorage.setItem("dominio-fire", dominioValue || "");
-		localStorage.setItem("projeto-fire", projetoValue || "");
-		localStorage.setItem("bucket-fire", bucketValue || "");
-		localStorage.setItem("id-fire", idValue || "");
-		localStorage.setItem("appid-fire", appIdValue || "");
 		dadosfirediv.style.display = "none";
 		confirmar.textContent = "OK";
 		cancelar.style.display = "none";
