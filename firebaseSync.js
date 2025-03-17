@@ -311,32 +311,49 @@ if (db) {
 			setTimeout(() => bloqueioSincronizacao = false, 1000);
 
 			const firebaseData = snapshot.data().dados || {};
-			const produtosFirebase = firebaseData.produtos || "[]";
-			const produtosLocal = localStorage.getItem("produtos") || "[]";
-
-			if (produtosLocal.length >= produtosFirebase.length) {
-				console.log("📤 LocalStorage tem mais itens em 'produtos', mantido.");
-				return;
-			}
-
 			Object.entries(firebaseData).forEach(([chave, valor]) => {
-				if (chave === "configAlerta") {
-						const valorparse = JSON.parse(valor);
-						const hashnAlertar = document.querySelector("#nAlertar");
-						const hashcomo = document.querySelector("#como");
-
-						if (hashnAlertar) hashnAlertar.value = valorparse.alertarValor ?? 60;
-						if (hashcomo) hashcomo.value = valorparse.unidade ?? "dias";
-					}
-				if (chave !== "produtos") return;
-
 				const antigoValor = localStorage.getItem(chave);
-				if (antigoValor !== valor) {
-					localStorage.setItem(chave, valor);
-					console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
-					atualizarLista();
+
+				if (chave === "produtos") {
+					const produtosFirebase = JSON.parse(valor || "[]");
+					const produtosLocal = JSON.parse(antigoValor || "[]");
+
+					if (Array.isArray(produtosFirebase) && produtosFirebase.length > 0) {
+						const produtosUnificados = [...produtosLocal];
+
+						produtosFirebase.forEach(produto => {
+							if (!produtosUnificados.some(p => p.id === produto.id)) {
+								produtosUnificados.push(produto);
+							}
+						});
+
+						localStorage.setItem("produtos", JSON.stringify(produtosUnificados));
+						console.log("🔄 Sincronizado Firestore → LocalStorage: produtos");
+					}
+				} else {
+					if (antigoValor !== valor) {
+						localStorage.setItem(chave, valor);
+						console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
+					}
+				}
+
+				if (chave === "configAlerta") {
+					const valorparse = JSON.parse(valor);
+					const hashnAlertar = document.querySelector("#nAlertar");
+					const hashcomo = document.querySelector("#como");
+
+					if (hashnAlertar) hashnAlertar.value = valorparse.alertarValor ?? 60;
+					if (hashcomo) hashcomo.value = valorparse.unidade ?? "dias";
+				}
+
+				if (antigoValor !== null) {
+					const diferencas = compararDiferencas(antigoValor, valor);
+					console.log("🔍 Alterações:", diferencas);
+				} else {
+					console.log("➕ Novo valor:", valor);
 				}
 			});
+			atualizarLista();
 		}
 	});
 }
