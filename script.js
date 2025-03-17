@@ -259,7 +259,7 @@ function toggleVencidos() {
 function carregarConfiguracaoAlerta() {
 	let config = JSON.parse(localStorage.getItem("configAlerta")) || {
 		alertarValor: 60,
-		unidade: "meses"
+		unidade: "dias"
 	};
 	document.getElementById("nAlertar").value = config.alertarValor;
 	document.getElementById("como").value = config.unidade;
@@ -267,7 +267,7 @@ function carregarConfiguracaoAlerta() {
 carregarConfiguracaoAlerta();
 
 function exportarLista() {
-	let configAlerta = JSON.parse(localStorage.getItem("configAlerta")) || { alertarValor: 60, unidade: "meses" };
+	let configAlerta = JSON.parse(localStorage.getItem("configAlerta")) || { alertarValor: 60, unidade: "dias" };
 	let firebaseConfig = {
 		chavefire: localStorage.getItem("chave-fire") || "",
 		dominiofire: localStorage.getItem("dominio-fire") || "",
@@ -276,7 +276,8 @@ function exportarLista() {
 		idfire: localStorage.getItem("id-fire") || "",
 		appidfire: localStorage.getItem("appid-fire") || ""
 	};
-	let dados = { produtos, configAlerta, firebaseConfig };
+	let ignorados = JSON.parse(localStorage.getItem("ignorados")) || [];
+	let dados = { produtos, configAlerta, firebaseConfig, ignorados };
 	let blob = new Blob([JSON.stringify(dados, null, 2)], { type: "application/json" });
 	let a = document.createElement("a");
 	a.href = URL.createObjectURL(blob);
@@ -293,15 +294,11 @@ function importarLista(event) {
 			let dados = JSON.parse(reader.result);
 			if (!dados || typeof dados !== "object") throw new Error("Arquivo inválido.");
 
-			if (Array.isArray(dados.produtos)) {
-				localStorage.setItem("produtos", JSON.stringify(dados.produtos));
-			} else {
-				console.warn("⚠️ Dados de produtos inválidos ou ausentes.");
-			}
+			if (Array.isArray(dados.produtos)) localStorage.setItem("produtos", JSON.stringify(dados.produtos));
+			if (Array.isArray(dados.ignorados)) localStorage.setItem("ignorados", JSON.stringify(dados.ignorados));
 
-			if (dados.configAlerta && typeof dados.configAlerta === "object") {
+			if (dados.configAlerta && typeof dados.configAlerta === "object")
 				localStorage.setItem("configAlerta", JSON.stringify(dados.configAlerta));
-			}
 
 			if (dados.firebaseConfig && typeof dados.firebaseConfig === "object") {
 				const mapeamentoFirebase = {
@@ -313,9 +310,8 @@ function importarLista(event) {
 					appidfire: "appid-fire"
 				};
 				Object.entries(dados.firebaseConfig).forEach(([key, value]) => {
-					if (mapeamentoFirebase[key] && typeof value === "string") {
+					if (mapeamentoFirebase[key] && typeof value === "string")
 						localStorage.setItem(mapeamentoFirebase[key], value);
-					}
 				});
 			}
 
