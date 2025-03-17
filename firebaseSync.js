@@ -284,7 +284,7 @@ function compararDiferencas(antigo, novo) {
                 const valorNovo = objNovo.hasOwnProperty(chave) ? objNovo[chave] : undefined;
 
                 if (JSON.stringify(valorAntigo) !== JSON.stringify(valorNovo)) {
-                    diffs[chave] = { antes: valorAntigo, depois: valorNovo };
+                    diffs[chave] = { antes: valorAntigo, agora: valorNovo };
                 }
             });
             return diffs;
