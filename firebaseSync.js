@@ -271,7 +271,7 @@ localStorage.setItem = function(chave, valor) {
         console.log("📥 LocalStorage modificado:", chave);
         limparChavesNaoPermitidas();
 
-        if (antigoValor !== null || antigoValor !== undefined) {
+        if (antigoValor !== null || valor !== undefined) {
             const diferencas = compararDiferencas(antigoValor, valor);
             console.log("🔄 Alterações:", diferencas);
         } else {
@@ -332,7 +332,7 @@ if (db) {
 					localStorage.setItem(chave, valor);
 					console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
 					
-					if (antigoValor !== null || antigoValor !== undefined) {
+					if (antigoValor !== null || valor !== undefined) {
 						const diferencas = compararDiferencas(antigoValor, valor);
 						console.log("🔍 Alterações:", diferencas);
 					} else {
