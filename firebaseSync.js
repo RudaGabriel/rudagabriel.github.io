@@ -321,8 +321,12 @@ if (db) {
 					console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
 					
 					if (chave === "configAlerta") {
-						document.querySelector("#nAlertar").value = JSON.parse(valor).alertarValor;
-						document.querySelector("#como").value = JSON.parse(valor).unidade;
+						const valorparse = JSON.parse(valor);
+						const hashnAlertar = document.querySelector("#nAlertar");
+						const hashcomo = document.querySelector("#como");
+
+						if (hashnAlertar) hashnAlertar.value = valorparse.alertarValor;
+						if (hashcomo) hashcomo.value = valorparse.unidade;
 					}
 
 					if (antigoValor !== null) {
