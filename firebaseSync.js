@@ -287,7 +287,7 @@ function compararDiferencas(antigo, novo) {
             return diffs;
         }
     } catch (error) {
-        console.error("Erro ao comparar diferenças:", error);
+        /*console.error("Erro ao comparar diferenças:", error);*/
     }
 
     return { antes: antigo, agora: novo };
