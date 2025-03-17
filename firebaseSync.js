@@ -319,9 +319,11 @@ if (db) {
 				if (antigoValor !== valor) {
 					localStorage.setItem(chave, valor);
 					console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
-					if (chave == "configAlerta") document.querySelector("#nAlertar")?.value = valor?.alertarValor || 60;
-					if (chave == "configAlerta") document.querySelector("#como")?.value = valor?.unidade || "meses";
-					
+					if (chave === "configAlerta" && valor) {
+						document.querySelector("#nAlertar")?.value = valor.alertarValor ?? 60;
+						document.querySelector("#como")?.value = valor.unidade ?? "meses";
+					}
+
 					if (antigoValor !== null) {
 						const diferencas = compararDiferencas(antigoValor, valor);
 						console.log("🔍 Alterações:", diferencas);
