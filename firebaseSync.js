@@ -325,8 +325,8 @@ if (db) {
 						const hashnAlertar = document.querySelector("#nAlertar");
 						const hashcomo = document.querySelector("#como");
 
-						if (hashnAlertar) hashnAlertar.value = valorparse.alertarValor;
-						if (hashcomo) hashcomo.value = valorparse.unidade;
+						if (hashnAlertar) hashnAlertar.value = valorparse.alertarValor ?? 60;
+						if (hashcomo) hashcomo.value = valorparse.unidade ?? "dias";
 					}
 
 					if (antigoValor !== null) {
