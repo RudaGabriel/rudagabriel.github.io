@@ -319,13 +319,13 @@ if (db) {
 				if (antigoValor !== valor) {
 					localStorage.setItem(chave, valor);
 					console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
-					console.log(valor);
+					
 					if (chave === "configAlerta" && valor && typeof valor === "object") {
 						const hashnAlertar = document.querySelector("#nAlertar");
 						const hashcomo = document.querySelector("#como");
 
 						if (hashnAlertar) hashnAlertar.value = valor.alertarValor ?? 60;
-						if (hashcomo) hashcomo.value = valor.unidade ?? "meses";
+						if (hashcomo) hashcomo.value = valor.unidade ?? "dias";
 					}
 
 					if (antigoValor !== null) {
