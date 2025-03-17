@@ -219,35 +219,34 @@ async function carregarLocalStorageOnline() {
 	}
 }
 
-async function limparChavesNaoPermitidas() {
-  Object.keys(localStorage).forEach(chave => {
-    if (!chavesPermitidas.some(term => chave.includes(term))) {
-      /*console.log(`🗑 Removendo chave não permitida do localStorage: ${chave}`);*/
-      localStorage.removeItem(chave);
-    }
-  });
-
-  try {
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      const firebaseData = docSnap.data().dados || {};
-      let dadosAtualizados = { ...firebaseData };
-
-      Object.keys(firebaseData).forEach(chave => {
-        if (!chavesPermitidas.some(term => chave.includes(term))) {
-          console.log(`🗑 Removendo chave não permitida do Firebase: ${chave}`);
-          delete dadosAtualizados[chave];
+function limparChavesNaoPermitidas() {
+    Object.keys(localStorage).forEach(chave => {
+        if (!chavesPermitidas.some(permitida => chave.includes(permitida))) {
+			/*console.log(`🗑 Removendo chave não permitida do localStorage: ${chave}`);*/
+            localStorage.removeItem(chave);
         }
-      });
+    });
 
-      if (Object.keys(dadosAtualizados).length !== Object.keys(firebaseData).length) {
-        await setDoc(docRef, { dados: dadosAtualizados }, { merge: true });
-        showCascadeAlert("✅ Dados atualizados no Firebase após remoção de chaves inválidas.");
-      }
-    }
-  } catch (error) {
-    showCascadeAlert(`❌ Erro ao limpar dados no Firebase:<br>${error}<br>Verifique as informações clicando no botão sincronizar.`);
-  }
+    getDoc(docRef).then(docSnap => {
+        if (docSnap.exists()) {
+            const firebaseData = docSnap.data().dados || {};
+            let dadosAtualizados = { ...firebaseData };
+
+            Object.keys(firebaseData).forEach(chave => {
+                if (!chavesPermitidas.some(permitida => chave.includes(permitida))) {
+					console.log(`🗑 Removendo chave não permitida do Firebase: ${chave}`);
+                    delete dadosAtualizados[chave];
+                }
+            });
+
+            if (Object.keys(dadosAtualizados).length !== Object.keys(firebaseData).length) {
+                setDoc(docRef, { dados: dadosAtualizados }, { merge: true });
+                showCascadeAlert("✅ Chaves inválidas removidas do Firebase.");
+            }
+        }
+    }).catch(error => {
+        showCascadeAlert(`❌ Erro ao limpar dados:<br>${error}`);
+    });
 }
 
 async function compararEPrivilegiarDados() {
@@ -287,7 +286,7 @@ async function compararEPrivilegiarDados() {
 
 const originalSetItem = localStorage.setItem;
 localStorage.setItem = function(chave, valor) {
-    if (!chavesPermitidas.includes(chave)) return;
+    if (!chavesPermitidas.some(permitida => chave.includes(permitida))) return;
 
     const antigoValor = localStorage.getItem(chave);
     if (antigoValor !== valor) {
