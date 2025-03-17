@@ -143,14 +143,12 @@ if (Object.values(firebaseConfig).some(valor => !valor)) {
 	docRef = doc(db, "dados", "sync");
 	showCascadeAlert("✅ Firebase inicializado com sucesso!");
 	compararEPrivilegiarDados();
-	limparChavesNaoPermitidas(); // Limpa as chaves não permitidas
 }
 
 async function salvarLocalStorageOnline() {
 	if(localStorage.getItem("syncenviar") !== "true") return;
 	if (!db) return showCascadeAlert("❌ Firebase não inicializado.<br>Verifique as informações clicando no botão sincronizar.");
 	let todosDados = {};
-	limparChavesNaoPermitidas();
 
 	Object.keys(localStorage).forEach(chave => {
 		if (chavesPermitidas.some(term => chave.includes(term)) && !chave.includes("syncenviar")) {
@@ -219,36 +217,6 @@ async function carregarLocalStorageOnline() {
 	}
 }
 
-function limparChavesNaoPermitidas() {
-    Object.keys(localStorage).forEach(chave => {
-        if (!chavesPermitidas.some(permitida => chave.includes(permitida))) {
-			/*console.log(`🗑 Removendo chave não permitida do localStorage: ${chave}`);*/
-            localStorage.removeItem(chave);
-        }
-    });
-
-    getDoc(docRef).then(docSnap => {
-        if (docSnap.exists()) {
-            const firebaseData = docSnap.data().dados || {};
-            let dadosAtualizados = { ...firebaseData };
-
-            Object.keys(firebaseData).forEach(chave => {
-                if (!chavesPermitidas.some(permitida => chave.includes(permitida))) {
-					console.log(`🗑 Removendo chave não permitida do Firebase: ${chave}`);
-                    delete dadosAtualizados[chave];
-                }
-            });
-
-            if (Object.keys(dadosAtualizados).length !== Object.keys(firebaseData).length) {
-                setDoc(docRef, { dados: dadosAtualizados }, { merge: true });
-                showCascadeAlert("✅ Chaves inválidas removidas do Firebase.");
-            }
-        }
-    }).catch(error => {
-        showCascadeAlert(`❌ Erro ao limpar dados:<br>${error}`);
-    });
-}
-
 async function compararEPrivilegiarDados() {
   if (!db || !docRef) return showCascadeAlert("❌ Firebase não inicializado.<br>Verifique as informações clicando no botão sincronizar.");
   if (bloqueioExecucao) return;
@@ -292,7 +260,6 @@ localStorage.setItem = function(chave, valor) {
     if (antigoValor !== valor) {
         originalSetItem.apply(this, arguments);
         console.log("📥 LocalStorage modificado:", chave);
-        limparChavesNaoPermitidas();
 
         if (antigoValor !== null) {
             const diferencas = compararDiferencas(antigoValor, valor);
@@ -348,7 +315,6 @@ if (db) {
 			setTimeout(() => bloqueioSincronizacao = false, 1000);
 
 			const firebaseData = snapshot.data().dados || {};
-			limparChavesNaoPermitidas();
 			Object.entries(firebaseData).forEach(([chave, valor]) => {
 				const antigoValor = localStorage.getItem(chave);
 				if (antigoValor !== valor) {
