@@ -190,16 +190,13 @@ async function carregarLocalStorageOnline() {
 						const firebaseObj = JSON.parse(valor);
 
 						if (Array.isArray(localObj) && Array.isArray(firebaseObj)) {
-							const novoArray = [...new Set([...localObj, ...firebaseObj])];
+							const novoArray = [...new Map([...localObj, ...firebaseObj].map(item => [JSON.stringify(item), item])).values()];
 							localStorage.setItem(chave, JSON.stringify(novoArray));
 						} else if (typeof localObj === "object" && typeof firebaseObj === "object") {
-							const novoObjeto = { ...localObj, ...firebaseObj };
-							localStorage.setItem(chave, JSON.stringify(novoObjeto));
-						} else {
-							if (localValor !== valor) localStorage.setItem(chave, valor);
-						}
+							localStorage.setItem(chave, JSON.stringify({ ...firebaseObj, ...localObj }));
+						} 
 					} catch {
-						if (localValor !== valor) localStorage.setItem(chave, valor);
+						if (!localValor) localStorage.setItem(chave, valor);
 					}
 				} else {
 					localStorage.setItem(chave, valor);
@@ -314,13 +311,16 @@ if (db) {
 			setTimeout(() => bloqueioSincronizacao = false, 1000);
 
 			const firebaseData = snapshot.data().dados || {};
+			const produtosFirebase = firebaseData.produtos || "[]";
+			const produtosLocal = localStorage.getItem("produtos") || "[]";
+
+			if (produtosLocal.length >= produtosFirebase.length) {
+				console.log("📤 LocalStorage tem mais itens em 'produtos', mantido.");
+				return;
+			}
+
 			Object.entries(firebaseData).forEach(([chave, valor]) => {
-				const antigoValor = localStorage.getItem(chave);
-				if (antigoValor !== valor) {
-					localStorage.setItem(chave, valor);
-					console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
-					
-					if (chave === "configAlerta") {
+				if (chave === "configAlerta") {
 						const valorparse = JSON.parse(valor);
 						const hashnAlertar = document.querySelector("#nAlertar");
 						const hashcomo = document.querySelector("#como");
@@ -328,14 +328,12 @@ if (db) {
 						if (hashnAlertar) hashnAlertar.value = valorparse.alertarValor ?? 60;
 						if (hashcomo) hashcomo.value = valorparse.unidade ?? "dias";
 					}
+				if (chave !== "produtos") return;
 
-					if (antigoValor !== null) {
-						const diferencas = compararDiferencas(antigoValor, valor);
-						console.log("🔍 Alterações:", diferencas);
-					} else {
-						console.log("➕ Novo valor:", valor);
-					}
-
+				const antigoValor = localStorage.getItem(chave);
+				if (antigoValor !== valor) {
+					localStorage.setItem(chave, valor);
+					console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
 					atualizarLista();
 				}
 			});
