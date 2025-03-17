@@ -95,40 +95,39 @@ function showCascadeAlert(message) {
 }
 
 (function() {
-    // Interceptando XMLHttpRequest
     const originalXHR = XMLHttpRequest.prototype.open;
     const originalXHRSend = XMLHttpRequest.prototype.send;
 
     XMLHttpRequest.prototype.open = function(method, url, ...rest) {
         this._url = url;
         this._method = method;
-        return originalXHR.apply(this, [method, url, ...rest]);
+        return originalXHR.apply(this, arguments);
     };
 
     XMLHttpRequest.prototype.send = function(...args) {
         this.addEventListener("load", function() {
-            if (this.status === 400) {
-                showCascadeAlert("❌ Error ao tentar conectar com o firestore!<br>Verifique as informações clicando no botão sincronizar.");
+            if (this.status === 400 && this._url.includes("firestore")) {
+                console.log(this._url);
+                showCascadeAlert("❌ Erro ao tentar conectar com o Firestore!<br>Verifique as informações clicando no botão sincronizar.");
             }
         });
         return originalXHRSend.apply(this, args);
     };
 
-    // Interceptando fetch
     const originalFetch = window.fetch;
 
-    window.fetch = function(url, options) {
+    window.fetch = function(url, options = {}) {
         return originalFetch(url, options)
             .then(response => {
-                if (response.status === 400) {
-                    if (url.url.includes("firestore")) {
-                        showCascadeAlert("❌ Error ao tentar conectar com o firestore!<br>Verifique as informações clicando no botão sincronizar.");
-                    }
+                if (response.status === 400 && typeof url === "string" && url.includes("firestore")) {
+                    console.log(url);
+                    showCascadeAlert("❌ Erro ao tentar conectar com o Firestore!<br>Verifique as informações clicando no botão sincronizar.");
                 }
                 return response;
             })
             .catch(error => {
                 console.error("Erro na requisição", error);
+                return Promise.reject(error);
             });
     };
 })();
