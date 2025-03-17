@@ -319,14 +319,20 @@ if (db) {
 					const produtosLocal = JSON.parse(antigoValor || "[]");
 
 					if (Array.isArray(produtosFirebase) && produtosFirebase.length > 0) {
+						// Mesclar produtos sem sobrescrever
 						const produtosUnificados = [...produtosLocal];
 
 						produtosFirebase.forEach(produto => {
-							if (!produtosUnificados.some(p => p.id === produto.id)) {
+							// Verifica se o produto já existe, usando uma comparação baseada no conteúdo (nome ou outro critério)
+							const existeProduto = produtosUnificados.some(p => JSON.stringify(p) === JSON.stringify(produto));
+
+							// Se não encontrar o produto, adiciona ele ao localStorage
+							if (!existeProduto) {
 								produtosUnificados.push(produto);
 							}
 						});
 
+						// Atualiza o localStorage com os produtos mesclados
 						localStorage.setItem("produtos", JSON.stringify(produtosUnificados));
 						console.log("🔄 Sincronizado Firestore → LocalStorage: produtos");
 					}
