@@ -365,7 +365,6 @@ if (db) {
 									modalBody.innerHTML = `O produto "${produto.nome}" não existe mais para sincronização.<br>Você deseja manter esse produto?<br>Clique em "SIM" para manter, ou "NÃO" para excluir.`;
 									modal.style.display = "flex";
 									confirmarBtn.onclick = () => modal.style.display = "none";
-
 									cancelarBtn.onclick = () => {
 										/ Remove o produto do localStorage se o usuário escolher excluir
 										const produtosAtualizados = produtosLocal.filter(p => JSON.stringify(p) !== JSON.stringify(produto));
