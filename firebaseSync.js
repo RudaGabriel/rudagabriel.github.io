@@ -328,7 +328,6 @@ if (db) {
 						if (hashcomo) hashcomo.value = valor.unidade ?? "meses";
 					}
 
-
 					if (antigoValor !== null) {
 						const diferencas = compararDiferencas(antigoValor, valor);
 						console.log("🔍 Alterações:", diferencas);
