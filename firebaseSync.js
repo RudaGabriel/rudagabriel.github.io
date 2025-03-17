@@ -319,13 +319,12 @@ if (db) {
 				if (antigoValor !== valor) {
 					localStorage.setItem(chave, valor);
 					console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
-					if (chave === "configAlerta") {
-						let config = typeof valor === "string" ? JSON.parse(valor) : valor;
-    
-						if (config) {
-							document.querySelector("#nAlertar")?.value = config.alertarValor ?? 60;
-							document.querySelector("#como")?.value = config.unidade ?? "meses";
-						}
+					if (chave === "configAlerta" && typeof valor === "object" && valor !== null) {
+						const nAlertar = document.querySelector("#nAlertar");
+						const como = document.querySelector("#como");
+
+						if (nAlertar) nAlertar.value = valor.alertarValor ?? 60;
+						if (como) como.value = valor.unidade ?? "meses";
 					}
 
 					if (antigoValor !== null) {
