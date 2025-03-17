@@ -135,12 +135,10 @@ function atualizarLista() {
 }
 
 function salvarProdutos() {
-	bloqueioExecucao = false;
 	localStorage.setItem("produtos", JSON.stringify(produtos));
 }
 
 function salvarIgnorados() {
-	bloqueioExecucao = false;
 	localStorage.setItem("ignorados", JSON.stringify(ignorados));
 }
 
@@ -177,7 +175,6 @@ function selectTudo(elemento) {
         const inputValue = filtroInput.value.toLowerCase();
         if (inputValue === "autorizarsyncenviar" || inputValue === "/ase") {
             if (syncenviar !== "true") {
-				bloqueioExecucao = false;
                 localStorage.setItem("syncenviar", "true");
                 modal.style.display = "flex";
                 modalBody.innerHTML = "✅ Este usuário foi autorizado a enviar dados ao firebase!";
@@ -189,7 +186,6 @@ function selectTudo(elemento) {
 			filtrarProdutos();
         } else if (inputValue === "naoautorizarsyncenviar" || inputValue === "/dse") {
             if (syncenviar === "true") {
-				bloqueioExecucao = false;
                 localStorage.setItem("syncenviar", "false");
                 modal.style.display = "flex";
                 modalBody.innerHTML = "❌ Este usuário foi desautorizado a enviar dados ao firebase!";
@@ -231,7 +227,6 @@ function removerProduto(nome, vencimento) {
 		}
 
 		produtos = produtos.filter(prod => !(prod.nome === nome && formatarData(prod.vencimento) === formatarData(vencimento)));
-		bloqueioExecucao = false;
 		localStorage.setItem("produtos", JSON.stringify(produtos));
 		modal.style.display = "none";
 		filtrarProdutos();
@@ -299,14 +294,12 @@ function importarLista(event) {
 			if (!dados || typeof dados !== "object") throw new Error("Arquivo inválido.");
 
 			if (Array.isArray(dados.produtos)) {
-				bloqueioExecucao = false;
 				localStorage.setItem("produtos", JSON.stringify(dados.produtos));
 			} else {
 				console.warn("⚠️ Dados de produtos inválidos ou ausentes.");
 			}
 
 			if (dados.configAlerta && typeof dados.configAlerta === "object") {
-				bloqueioExecucao = false;
 				localStorage.setItem("configAlerta", JSON.stringify(dados.configAlerta));
 			}
 
@@ -321,7 +314,6 @@ function importarLista(event) {
 				};
 				Object.entries(dados.firebaseConfig).forEach(([key, value]) => {
 					if (mapeamentoFirebase[key] && typeof value === "string") {
-						bloqueioExecucao = false;
 						localStorage.setItem(mapeamentoFirebase[key], value);
 					}
 				});
@@ -343,7 +335,6 @@ function importarLista(event) {
 function salvarConfiguracaoAlerta() {
 	const alertarValor = document.getElementById("nAlertar").value;
 	const unidade = document.getElementById("como").value;
-	bloqueioExecucao = false;
 	localStorage.setItem("configAlerta", JSON.stringify({
 		alertarValor,
 		unidade
@@ -476,7 +467,6 @@ iniciar.addEventListener("click", function() {
 });
 
 ConfirmarDadosFire.addEventListener("click", () => {
-	bloqueioExecucao = false;
 	// Coleta os valores dos campos
 	const chaveValue = SUA_CHAVE?.value;
 	const dominioValue = SEU_DOMINIO?.value;
@@ -545,7 +535,6 @@ sincronizar.addEventListener("click", () => {
 			modal.style.display = "flex";
 
 			confirmar.onclick = () => {
-				bloqueioExecucao = false;
 				// Limpa os valores no localStorage
 				["chave-fire", "dominio-fire", "projeto-fire", "bucket-fire", "id-fire", "appid-fire"].forEach(key => localStorage.setItem(key, ""));
 				window.location.reload();
