@@ -353,13 +353,17 @@ if (db) {
 								console.log("🔄 Sincronizado Firestore → LocalStorage: produtos");
 							}
 						} else {
-							localStorage.setItem(chave, valor);
-							console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
+							// Ignorar caso o valor seja um objeto ou array vazio
+							if (!(JSON.stringify(valor) === '{}' || JSON.stringify(valor) === '[]')) {
+								localStorage.setItem(chave, valor);
+								console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
+							}
 						}
 					}
 				}
 
-				if (chave === "configAlerta") {
+				// Verificar e atualizar os valores específicos de configuração
+				if (chave === "configAlerta" && valor) {
 					const valorparse = JSON.parse(valor);
 					const hashnAlertar = document.querySelector("#nAlertar");
 					const hashcomo = document.querySelector("#como");
@@ -368,9 +372,12 @@ if (db) {
 					if (hashcomo) hashcomo.value = valorparse.unidade ?? "dias";
 				}
 
+				// Comparar diferenças de forma mais eficiente
 				if (antigoValor !== null) {
 					const diferencas = compararDiferencas(antigoValor, valor);
-					console.log("🔍 Alterações:", diferencas);
+					if (Object.keys(diferencas).length > 0) {
+						console.log("🔍 Alterações:", diferencas);
+					}
 				} else {
 					console.log("➕ Novo valor:", valor);
 				}
