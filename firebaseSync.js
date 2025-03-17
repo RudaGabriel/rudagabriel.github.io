@@ -280,17 +280,29 @@ function compararDiferencas(antigo, novo) {
                 const valorAntigo = objAntigo.hasOwnProperty(chave) ? objAntigo[chave] : undefined;
                 const valorNovo = objNovo.hasOwnProperty(chave) ? objNovo[chave] : undefined;
 
-                if (JSON.stringify(valorAntigo) !== JSON.stringify(valorNovo)) {
+                // Comparar quando os valores são strings ou números
+                if ((typeof valorAntigo === "string" || typeof valorAntigo === "number") && 
+                    (typeof valorNovo === "string" || typeof valorNovo === "number")) {
+                    if (valorAntigo !== valorNovo) {
+                        diffs[chave] = { antes: valorAntigo, agora: valorNovo };
+                    }
+                }
+                // Caso sejam objetos ou arrays, utiliza JSON.stringify
+                else if (JSON.stringify(valorAntigo) !== JSON.stringify(valorNovo)) {
                     diffs[chave] = { antes: valorAntigo, agora: valorNovo };
                 }
             });
             return diffs;
         }
     } catch (error) {
-        /*console.error("Erro ao comparar diferenças:", error);*/
+        /*console.error("Erro ao comparar diferenças:", error); */
     }
 
-    return { antes: antigo, agora: novo };
+    // Caso a comparação não seja de objetos, compara os valores diretamente
+    if (antigo !== novo) {
+        return { antes: antigo, agora: novo };
+    }
+    return {};
 }
 
 const originalRemoveItem = localStorage.removeItem;
