@@ -315,6 +315,22 @@ localStorage.removeItem = function(chave) {
 	}
 };
 
+function msg(confText, canctext, cancVis, mensagem, confOnclick, cancOnclick) {
+    confirmar.textContent = confText;
+    cancVis === true ? cancelar.style.display = "none" : cancelar.removeAttribute("style");
+    cancelar.textContent = canctext;
+    modalBody.innerHTML = mensagem;
+    modal.style.display = "flex";
+    confirmarBtn.onclick = () => {
+        confOnclick();
+        modal.style.display = "none";
+    };
+    cancelarBtn.onclick = () => {
+        cancOnclick();
+        modal.style.display = "none";
+    };
+}
+									
 if (db) {
 	onSnapshot(docRef, snapshot => {
 		if (snapshot.exists()) {
@@ -359,20 +375,16 @@ if (db) {
 
 								if (!existeProdutoNoFirebase) {
 									// Pergunta ao usuário se deseja manter ou excluir o produto
-									confirmar.textContent = "SIM";
-									cancelar.removeAttribute("style");
-									cancelar.textContent = "NÃO";
-									modalBody.innerHTML = `O produto "${produto.nome}" não existe mais para sincronização.<br>Você deseja manter esse produto?<br>Clique em "SIM" para manter, ou "NÃO" para excluir.`;
-									modal.style.display = "flex";
-									confirmarBtn.onclick = () => modal.style.display = "none";
-									cancelarBtn.onclick = () => {
+									msg("SIM", "NÃO", false,
+									`O produto "${produto.nome}" não existe mais para sincronização.<br>Você deseja manter esse produto?<br>Clique em "SIM" para manter, ou "NÃO" para excluir.`, 
+									{}, 
+									function() {
 										// Remove o produto do localStorage se o usuário escolher excluir
 										const produtosAtualizados = produtosLocal.filter(p => JSON.stringify(p) !== JSON.stringify(produto));
 										localStorage.setItem("produtos", JSON.stringify(produtosAtualizados));
 										console.log(`❌ Produto "${produto.nome}" removido do localStorage.`);
 										atualizarLista();
-										modal.style.display = "none";
-									};
+									});
 								}
 							});
 						} else {
