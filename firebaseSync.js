@@ -171,7 +171,8 @@ async function carregarLocalStorageOnline() {
 				}
 			});
 			showCascadeAlert("✅ Dados carregados do Firebase!");
-			filtroInput.value.length > 0 ? filtrarProdutos() : atualizarLista();
+			atualizarLista();
+			filtrarProdutos();
 		} else {
 			console.log("⚠️ Nenhum dado encontrado no Firestore.");
 		}
@@ -221,7 +222,8 @@ localStorage.setItem = function (chave, valor) {
 			console.log("➕ Novo valor:", valor);
 		}
 		salvarLocalStorageOnline();
-		filtroInput.value.length > 0 ? filtrarProdutos() : atualizarLista();
+		atualizarLista();
+		filtrarProdutos();
 	}
 };
 
@@ -258,7 +260,8 @@ localStorage.removeItem = function (chave) {
 		originalRemoveItem.apply(this, arguments);
 		console.log("🗑 LocalStorage item removido:", chave);
 		salvarLocalStorageOnline();
-		filtroInput.value.length > 0 ? filtrarProdutos() : atualizarLista();
+		atualizarLista();
+		filtrarProdutos();
 	}
 };
 let modalAtivo = false;
@@ -326,7 +329,8 @@ if (db) {
 										const produtosAtualizados = produtosLocal.filter(p => p.nome !== produto.nome || p.codigoBarras !== produto.codigoBarras || p.dataVencimento !== produto.dataVencimento);
 										localStorage.setItem("produtos", JSON.stringify(produtosAtualizados));
 										console.log(`❌ Produto "${produto.nome}" removido do localStorage.`);
-										filtroInput.value.length > 0 ? filtrarProdutos() : atualizarLista();
+										atualizarLista();
+										filtrarProdutos();
 									});
 								}
 							});
@@ -352,7 +356,8 @@ if (db) {
 					console.log("➕ Novo valor:", valor);
 				}
 			});
-			filtroInput.value.length > 0 ? filtrarProdutos() : atualizarLista();
+			atualizarLista();
+			filtrarProdutos();
 		}
 	});
 }
