@@ -327,17 +327,14 @@ function exibirProximoModal() {
 
 function msg(confText, canctext, cancVis, mensagem, confOnclick = () => {}, cancOnclick = () => {}) {
     let modal = document.querySelector("#modal");
-    if (!modal) return;
 
     if (modalAtivo && window.getComputedStyle(modal).display === "flex") return filaModais.push({ confText, canctext, cancVis, mensagem, confOnclick, cancOnclick });
 
     modalAtivo = true;
 
-    const confirmar = document.querySelector("#confirmar");
-    const cancelar = document.querySelector("#cancelar");
-    const modalBody = document.querySelector("#modalBody");
-
-    if (!confirmar || !cancelar || !modalBody) return;
+    let confirmar = document.querySelector("#confirmar");
+    let cancelar = document.querySelector("#cancelar");
+    let modalBody = document.querySelector("#modalBody");
 
     confirmar.textContent = confText;
     cancelar.style.display = cancVis ? "none" : "";
