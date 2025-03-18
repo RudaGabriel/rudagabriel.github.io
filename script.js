@@ -220,7 +220,7 @@ function removerProduto(nome, vencimento) {
 		filtrarProdutos();
 	}
 	msg("Sim", "Não", false,
-	"Tem certeza que deseja remover o item<br><b>${nome}</b><br>com vencimento em <b>${vencimento}</b> ?", 
+	`Tem certeza que deseja remover o item<br><b>${nome}</b><br>com vencimento em <b>${vencimento}</b> ?`, 
 	() => removerItem, 
 	()=>{});
 }
