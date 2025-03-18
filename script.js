@@ -336,7 +336,7 @@ function exibirProximoModal() {
 }
 
 function msg(confText, canctext, cancVis, mensagem, confOnclick = () => {}, cancOnclick = () => {}) {
-    if (modalAtivo && window.getComputedStyle(modal).display === "flex") return filaModais.push({ confText, canctext, cancVis, mensagem, confOnclick, cancOnclick });
+    if (modalAtivo || window.getComputedStyle(modal).display === "flex") return filaModais.push({ confText, canctext, cancVis, mensagem, confOnclick, cancOnclick });
 
     modalAtivo = true;
 
