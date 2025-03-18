@@ -160,26 +160,18 @@ function selectTudo(elemento) {
         if (inputValue === "autorizarsyncenviar" || inputValue === "/ase") {
             if (syncenviar !== "true") {
                 localStorage.setItem("syncenviar", "true");
-				msg("OK", "Não", true,
-				"✅ Este usuário foi autorizado a enviar dados ao firebase!", 
-				()=>{}, ()=>{});
+				msg("OK", "", true, "✅ Este usuário foi autorizado a enviar dados ao firebase!");
             } else {
-				msg("OK", "Não", true,
-				"✅ Este usuário já foi autorizado a enviar dados ao firebase!", 
-				()=>{}, ()=>{});
+				msg("OK", "", true, "✅ Este usuário já foi autorizado a enviar dados ao firebase!");
             }
             filtroInput.value = "";
 			filtrarProdutos();
         } else if (inputValue === "naoautorizarsyncenviar" || inputValue === "/dse") {
             if (syncenviar === "true") {
                 localStorage.setItem("syncenviar", "false");
-				msg("OK", "Não", true,
-				"❌ Este usuário foi desautorizado a enviar dados ao firebase!", 
-				()=>{}, ()=>{});
+				msg("OK", "", true, "❌ Este usuário foi desautorizado a enviar dados ao firebase!");
             } else {
-				msg("OK", "Não", true,
-				"❌ Este usuário já foi desautorizado a enviar dados ao firebase!", 
-				()=>{}, ()=>{});
+				msg("OK", "", true, "❌ Este usuário já foi desautorizado a enviar dados ao firebase!");
             }
             filtroInput.value = "";
 			filtrarProdutos();
@@ -446,13 +438,7 @@ iniciar.addEventListener("click", function() {
 			readers: ["ean_reader", "code_128_reader"]
 		}
 	}, (err) => {
-		if (err) {
-			msg("OK", "Não", true,
-			err, 
-			()=>{}, 
-			()=>{});
-			return
-		}
+		if (err) return msg("OK", "", true, err);
 		Quagga.start()
 		containerleitor.style.display = "flex";
 	})
@@ -489,9 +475,7 @@ ConfirmarDadosFire.addEventListener("click", () => {
 		dadosfirediv.style.display = "none";
 	} else if (!allFilled) {
 		// Caso algum campo esteja vazio, alerta o usuário
-		msg("OK", "", true,
-		"Todos os campos devem estar preenchidos!", 
-		()=>{}, ()=>{});
+		msg("OK", "", true, "Todos os campos devem estar preenchidos!");
 	} else {
 		dadosfirediv.style.display = "none";
 		msg("OK", "", true,
@@ -523,7 +507,7 @@ sincronizar.addEventListener("click", () => {
 
 		// Se todos os valores estiverem preenchidos, mostra o modal
 		if (chaveValue && dominioValue && projetoValue && bucketValue && idValue && appIdValue) {
-			msg("Sim", "Não", true,
+			msg("Sim", "Não", false,
 			"Deixar de sincronizar?", 
 			function() {
 				["chave-fire", "dominio-fire", "projeto-fire", "bucket-fire", "id-fire", "appid-fire"].forEach(key => localStorage.setItem(key, ""));
