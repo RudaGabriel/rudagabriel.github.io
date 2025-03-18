@@ -321,7 +321,6 @@ function msg(confText, canctext, cancVis, mensagem, confOnclick, cancOnclick) {
     // Se um modal estiver ativo, armazena os dados na fila
     if (modalAtivo) {
         filaModais.push({ confText, canctext, cancVis, mensagem, confOnclick, cancOnclick });
-        console.log("Modal em espera, aguardando o fechamento do modal atual.");
         return; // Não exibe o modal agora, só o armazena
     }
 
