@@ -199,11 +199,10 @@ function filtrarProdutos() {
 }
 
 function removerProduto(nome, vencimento) {
-	let linhas = document.querySelectorAll("#lista tr");
-
 	msg("Sim", "Não", false,
 	`Tem certeza que deseja remover o item<br><b>${nome}</b><br>com vencimento em <b>${vencimento}</b> ?`, 
 	function() {
+		let linhas = document.querySelectorAll("#lista tr");
 		for (let linha of linhas) {
 			let colunas = linha.querySelectorAll("td");
 			if (!colunas.length) continue;
