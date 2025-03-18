@@ -374,13 +374,17 @@ if (db) {
 								const produtosUnificados = [...produtosLocal];
 
 								produtosFirebase.forEach(produto => {
-									const existeProduto = produtosUnificados.some(p => 
+									const index = produtosUnificados.findIndex(p => 
 										p.nome === produto.nome && 
 										p.codigoBarras === produto.codigoBarras && 
 										p.dataVencimento === produto.dataVencimento
 									);
 
-									if (!existeProduto) produtosUnificados.push(produto);
+									if (index !== -1) {
+										produtosUnificados[index] = produto; // Atualiza a quantidade
+									} else {
+										produtosUnificados.push(produto); // Adiciona novo produto
+									}
 								});
 
 								localStorage.setItem("produtos", JSON.stringify(produtosUnificados));
