@@ -30,31 +30,23 @@ function adicionarProduto() {
 		quantidade = quantidadeInput.value.trim(),
 		vencimento = vencimentoInput.value.trim(),
 		codigoBarras = codigoBarrasInput.value.trim();
-		modalBody.innerHTML = "Preencha todos os campos!";
-		confirmar.textContent = "OK";
-		cancelar.style.display = "none";
-		confirmarBtn.onclick = () => modal.style.display = "none";
 
-	if (!nome || !quantidade || !vencimento || !codigoBarras) return modal.style.display = "flex";
+	if (!nome || !quantidade || !vencimento || !codigoBarras) msg("OK", "", true,"Preencha todos os campos!", {}, {});
 
 	if (produtoEditadoIndex === -1 && adicionarBtn.textContent !== "Atualizar") {
 		let produtoExistente = produtos.find(p => p.codigoBarras === codigoBarras && p.nome === nome && formatarData(p.vencimento) === formatarData(vencimento));
 		if (produtoExistente) {
-			modalBody.innerHTML = "Produto já adicionado<br>Com o mesmo código de barras, nome e data de vencimento!<br>Deseja atualizar esse produto?";
-			confirmar.textContent = "Sim";
-			cancelar.removeAttribute("style");
-			cancelar.textContent = "Não";
-			modal.style.display = "flex";
-			
-			confirmar.onclick = () => {
+			msg("Sim", "Não", false,
+			"Produto já adicionado<br>Com o mesmo código de barras, nome e data de vencimento!<br>Deseja atualizar esse produto?", 
+			function() {
 				Object.assign(produtoExistente, { nome, quantidade, vencimento, codigoBarras });
 				modal.style.display = "none";
 				salvarProdutos();
 				atualizarLista();
 				filtrarProdutos();
 				produtoInput.value = quantidadeInput.value = vencimentoInput.value = codigoBarrasInput.value = "";
-			};
-			cancelar.onclick = () => modal.style.display = "none";
+			}, 
+			{});
 			return;
 		}
 		produtos.push({ nome, quantidade, vencimento, codigoBarras });
@@ -164,34 +156,30 @@ function selectTudo(elemento) {
 ["keydown", "keyup"].forEach(qual => {
     filtroInput.addEventListener(qual, () => {
         const syncenviar = localStorage.getItem("syncenviar");
-        const isFiltroActive = document.activeElement === document.querySelector("#filtro");
-
-        if (isFiltroActive) {
-            confirmar.textContent = "OK";
-            cancelar.style.display = "none";
-            confirmar.onclick = () => modal.style.display = "none";
-        }
-
         const inputValue = filtroInput.value.toLowerCase();
         if (inputValue === "autorizarsyncenviar" || inputValue === "/ase") {
             if (syncenviar !== "true") {
                 localStorage.setItem("syncenviar", "true");
-                modal.style.display = "flex";
-                modalBody.innerHTML = "✅ Este usuário foi autorizado a enviar dados ao firebase!";
+				msg("OK", "Não", true,
+				"✅ Este usuário foi autorizado a enviar dados ao firebase!", 
+				{}, {});
             } else {
-                modal.style.display = "flex";
-                modalBody.innerHTML = "✅ Este usuário já foi autorizado a enviar dados ao firebase!";
+				msg("OK", "Não", true,
+				"✅ Este usuário já foi autorizado a enviar dados ao firebase!", 
+				{}, {});
             }
             filtroInput.value = "";
 			filtrarProdutos();
         } else if (inputValue === "naoautorizarsyncenviar" || inputValue === "/dse") {
             if (syncenviar === "true") {
                 localStorage.setItem("syncenviar", "false");
-                modal.style.display = "flex";
-                modalBody.innerHTML = "❌ Este usuário foi desautorizado a enviar dados ao firebase!";
+				msg("OK", "Não", true,
+				"❌ Este usuário foi desautorizado a enviar dados ao firebase!", 
+				{}, {});
             } else {
-                modal.style.display = "flex";
-                modalBody.innerHTML = "❌ Este usuário já foi desautorizado a enviar dados ao firebase!";
+				msg("OK", "Não", true,
+				"❌ Este usuário já foi desautorizado a enviar dados ao firebase!", 
+				{}, {});
             }
             filtroInput.value = "";
 			filtrarProdutos();
@@ -231,14 +219,10 @@ function removerProduto(nome, vencimento) {
 		modal.style.display = "none";
 		filtrarProdutos();
 	}
-	modalBody.innerHTML = `Tem certeza que deseja remover o item<br><b>${nome}</b><br>com vencimento em <b>${vencimento}</b> ?`;
-	confirmar.textContent = "Sim";
-	cancelar.removeAttribute("style");
-	cancelar.textContent = "Não";
-	modal.style.display = "flex";
-
-	confirmarBtn.onclick = removerItem;
-	cancelarBtn.onclick = () => modal.style.display = "none";
+	msg("Sim", "Não", false,
+	"Tem certeza que deseja remover o item<br><b>${nome}</b><br>com vencimento em <b>${vencimento}</b> ?", 
+	() => removerItem, 
+	{});
 }
 
 
@@ -400,24 +384,15 @@ function alertarProdutosProximos() {
 		if (index >= proximos.length) return;
 
 		let p = proximos[index];
-		confirmar.textContent = "Sim";
-		cancelar.removeAttribute("style");
-		cancelar.textContent = "Não";
-		modalBody.innerHTML = `O produto <b>${p.nome}</b><br>está próximo do vencimento! <b>${formatarData(p.vencimento)}</b><br>Deseja continuar sendo alertado?`;
-		modal.style.display = "flex";
-
-		confirmarBtn.onclick = () => {
-			modal.style.display = "none";
-			mostrarAlerta(index + 1);
-		};
-
-		cancelarBtn.onclick = () => {
+		msg("Sim", "Não", false,
+		`O produto <b>${p.nome}</b><br>está próximo do vencimento! <b>${formatarData(p.vencimento)}</b><br>Deseja continuar sendo alertado?`, 
+		() => mostrarAlerta(index + 1), 
+		function() {
 			ignorados.push(p.vencimento + "+" + p.codigoBarras);
 			salvarIgnorados();
-			modal.style.display = "none";
 			atualizarLista();
 			mostrarAlerta(index + 1);
-		};
+		});
 	}
 
 	if (proximos.length > 0) mostrarAlerta(0);
@@ -486,12 +461,10 @@ iniciar.addEventListener("click", function() {
 		}
 	}, (err) => {
 		if (err) {
-			confirmar.textContent = "OK";
-			cancelar.style.display = "none";
-			modalBody.innerHTML = err;
-			modal.style.display = "flex";
-			containerleitor.style.display = "none";
-			confirmar.onclick = () => modal.style.display = "none";
+			msg("OK", "Não", true,
+			err, 
+			{}, 
+			{});
 			return
 		}
 		Quagga.start()
@@ -568,19 +541,13 @@ sincronizar.addEventListener("click", () => {
 
 		// Se todos os valores estiverem preenchidos, mostra o modal
 		if (chaveValue && dominioValue && projetoValue && bucketValue && idValue && appIdValue) {
-			confirmar.textContent = "Sim";
-			cancelar.removeAttribute("style");
-			cancelar.textContent = "Não";
-			modalBody.innerHTML = "Deixar de sincronizar?";
-			modal.style.display = "flex";
-
-			confirmar.onclick = () => {
-				// Limpa os valores no localStorage
+			msg("Sim", "Não", true,
+			"Deixar de sincronizar?", 
+			function() {
 				["chave-fire", "dominio-fire", "projeto-fire", "bucket-fire", "id-fire", "appid-fire"].forEach(key => localStorage.setItem(key, ""));
 				window.location.reload();
-			};
-
-			cancelar.onclick = () => modal.style.display = "none";
+			}, 
+			{});
 		} else {
 			// Caso nem todos os valores estejam preenchidos, exibe os inputs
 			dadosfirediv.style.display = "flex";
