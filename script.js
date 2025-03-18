@@ -50,8 +50,7 @@ function adicionarProduto() {
 	filtroVencidosBtn.textContent = "Mostrar produtos vencidos";
 	ocultarVencidos = false;
 	salvarProdutos();
-	atualizarLista();
-	filtrarProdutos();
+	filtroInput.value.length > 0 ? filtrarProdutos() : atualizarLista();
 	produtoInput.value = quantidadeInput.value = vencimentoInput.value = codigoBarrasInput.value = "";
 }
 function editarProduto(index, botao) {
