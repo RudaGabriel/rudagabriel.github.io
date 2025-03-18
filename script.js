@@ -336,17 +336,9 @@ function exibirProximoModal() {
 }
 
 function msg(confText, canctext, cancVis, mensagem, confOnclick = () => {}, cancOnclick = () => {}) {
-    if (!modal) return;
-
     if (modalAtivo && window.getComputedStyle(modal).display === "flex") return filaModais.push({ confText, canctext, cancVis, mensagem, confOnclick, cancOnclick });
 
     modalAtivo = true;
-
-    const confirmar = document.querySelector("#confirmar");
-    const cancelar = document.querySelector("#cancelar");
-    const modalBody = document.querySelector("#modalBody");
-
-    if (!confirmar || !cancelar || !modalBody) return;
 
     confirmar.textContent = confText;
     cancelar.style.display = cancVis ? "none" : "";
