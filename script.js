@@ -33,7 +33,7 @@ function adicionarProduto() {
 					Object.assign(produtoExistente, { nome, quantidade, vencimento, codigoBarras });
 					modal.style.display = "none";
 					salvarProdutos();
-					filtroInput.value.length > 0 ? filtrarProdutos() : atualizarLista();
+					atualizarLista();
 					filtrarProdutos();
 					produtoInput.value = quantidadeInput.value = vencimentoInput.value = codigoBarrasInput.value = "";
 				},
@@ -50,7 +50,8 @@ function adicionarProduto() {
 	filtroVencidosBtn.textContent = "Mostrar produtos vencidos";
 	ocultarVencidos = false;
 	salvarProdutos();
-	filtroInput.value.length > 0 ? filtrarProdutos() : atualizarLista();
+	atualizarLista();
+	filtrarProdutos();
 	produtoInput.value = quantidadeInput.value = vencimentoInput.value = codigoBarrasInput.value = "";
 }
 function editarProduto(index, botao) {
@@ -239,7 +240,8 @@ function importarLista(event) {
 					if (mapeamentoFirebase[key] && typeof value === "string") localStorage.setItem(mapeamentoFirebase[key], value);
 				});
 			}
-			filtroInput.value.length > 0 ? filtrarProdutos() : atualizarLista();
+			atualizarLista();
+			filtrarProdutos();
 			carregarConfiguracaoAlerta();
 			setTimeout(() => {
 				if (dados.firebaseConfig) window.location.reload();
@@ -258,7 +260,8 @@ function salvarConfiguracaoAlerta() {
 		alertarValor,
 		unidade
 	}));
-	filtroInput.value.length > 0 ? filtrarProdutos() : atualizarLista();
+	atualizarLista();
+	filtrarProdutos();
 }
 document.getElementById("nAlertar").addEventListener("input", salvarConfiguracaoAlerta);
 document.getElementById("como").addEventListener("change", salvarConfiguracaoAlerta);
@@ -306,7 +309,8 @@ function alertarProdutosProximos() {
 			function () {
 				ignorados.push(p.vencimento + "+" + p.codigoBarras);
 				salvarIgnorados();
-				filtroInput.value.length > 0 ? filtrarProdutos() : atualizarLista();
+				atualizarLista();
+				filtrarProdutos();
 				mostrarAlerta(index + 1);
 			});
 	}
@@ -315,7 +319,8 @@ function alertarProdutosProximos() {
 function reverterAlerta(cod) {
 	ignorados = ignorados.filter(c => c !== cod);
 	salvarIgnorados();
-	filtroInput.value.length > 0 ? filtrarProdutos() : atualizarLista();
+	atualizarLista();
+	filtrarProdutos();
 }
 function piscar(elemento, intervalo = 300) {
 	setInterval(() => {
@@ -328,7 +333,8 @@ filtroVencidosBtn.addEventListener("click", toggleVencidos);
 exportarBtn.addEventListener("click", exportarLista);
 botaoImportar.addEventListener("click", () => importarInput.click());
 importarInput.addEventListener("change", importarLista);
-filtroInput.value.length > 0 ? filtrarProdutos() : atualizarLista();
+atualizarLista();
+filtrarProdutos();
 alertarProdutosProximos();
 const ajustarAlturaTabela = () => {
 	const alturaTela = window.innerHeight;
