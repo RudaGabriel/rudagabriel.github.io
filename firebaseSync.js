@@ -110,8 +110,7 @@ function showCascadeAlert(message) {
 		});
 	};
 })();
-let db, docRef, bloqueioExecucao = false,
-	bloqueioSincronizacao = false;
+let db, docRef, bloqueioExecucao = false,bloqueioSincronizacao = false, filtroInput = document.getElementById("filtro");
 const chavesPermitidas = ["-fire", "produtos", "configAlerta", "ignorados", "syncenviar"];
 if (Object.values(firebaseConfig).some(valor => !valor)) {
 	showCascadeAlert("⚠️ Configuração do Firebase está vazia.");
@@ -172,7 +171,7 @@ async function carregarLocalStorageOnline() {
 				}
 			});
 			showCascadeAlert("✅ Dados carregados do Firebase!");
-			atualizarLista();
+			filtroInput.value.length > 0 ? filtrarProdutos() : atualizarLista();
 		} else {
 			console.log("⚠️ Nenhum dado encontrado no Firestore.");
 		}
@@ -222,7 +221,7 @@ localStorage.setItem = function (chave, valor) {
 			console.log("➕ Novo valor:", valor);
 		}
 		salvarLocalStorageOnline();
-		atualizarLista();
+		filtroInput.value.length > 0 ? filtrarProdutos() : atualizarLista();
 	}
 };
 
@@ -259,7 +258,7 @@ localStorage.removeItem = function (chave) {
 		originalRemoveItem.apply(this, arguments);
 		console.log("🗑 LocalStorage item removido:", chave);
 		salvarLocalStorageOnline();
-		atualizarLista();
+		filtroInput.value.length > 0 ? filtrarProdutos() : atualizarLista();
 	}
 };
 let modalAtivo = false;
@@ -327,7 +326,7 @@ if (db) {
 										const produtosAtualizados = produtosLocal.filter(p => p.nome !== produto.nome || p.codigoBarras !== produto.codigoBarras || p.dataVencimento !== produto.dataVencimento);
 										localStorage.setItem("produtos", JSON.stringify(produtosAtualizados));
 										console.log(`❌ Produto "${produto.nome}" removido do localStorage.`);
-										atualizarLista();
+										filtroInput.value.length > 0 ? filtrarProdutos() : atualizarLista();
 									});
 								}
 							});
@@ -353,7 +352,7 @@ if (db) {
 					console.log("➕ Novo valor:", valor);
 				}
 			});
-			atualizarLista();
+			filtroInput.value.length > 0 ? filtrarProdutos() : atualizarLista();
 		}
 	});
 }
