@@ -1,12 +1,12 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
 import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.4.0/firebase-firestore.js";
 const firebaseConfig = {
-	apiKey: localStorage.getItem("chave-fire") || ""
-	, authDomain: localStorage.getItem("dominio-fire") || ""
-	, projectId: localStorage.getItem("projeto-fire") || ""
-	, storageBucket: localStorage.getItem("bucket-fire") || ""
-	, messagingSenderId: localStorage.getItem("id-fire") || ""
-	, appId: localStorage.getItem("appid-fire") || ""
+	apiKey: localStorage.getItem("chave-fire") || "",
+	authDomain: localStorage.getItem("dominio-fire") || "",
+	projectId: localStorage.getItem("projeto-fire") || "",
+	storageBucket: localStorage.getItem("bucket-fire") || "",
+	messagingSenderId: localStorage.getItem("id-fire") || "",
+	appId: localStorage.getItem("appid-fire") || ""
 };
 
 function showCascadeAlert(message) {
@@ -110,7 +110,8 @@ function showCascadeAlert(message) {
 		});
 	};
 })();
-let db, docRef, bloqueioExecucao = false, bloqueioSincronizacao = false;
+let db, docRef, bloqueioExecucao = false,
+	bloqueioSincronizacao = false;
 const chavesPermitidas = ["-fire", "produtos", "configAlerta", "ignorados", "syncenviar"];
 if (Object.values(firebaseConfig).some(valor => !valor)) {
 	showCascadeAlert("⚠️ Configuração do Firebase está vazia.");
@@ -224,6 +225,7 @@ localStorage.setItem = function (chave, valor) {
 		atualizarLista();
 	}
 };
+
 function compararDiferencas(antigo, novo) {
 	try {
 		const objAntigo = JSON.parse(antigo);
@@ -262,12 +264,14 @@ localStorage.removeItem = function (chave) {
 };
 let modalAtivo = false;
 let filaModais = [];
+
 function exibirProximoModal() {
 	if (filaModais.length > 0) {
 		const { confText, canctext, cancVis, mensagem, confOnclick, cancOnclick } = filaModais.shift();
 		msg(confText, canctext, cancVis, mensagem, confOnclick, cancOnclick);
 	}
 }
+
 function msg(confText, canctext, cancVis, mensagem, confOnclick = () => {}, cancOnclick = () => {}) {
 	let modal = document.querySelector("#modal");
 	if (modalAtivo || window.getComputedStyle(modal).display === "flex") return filaModais.push({ confText, canctext, cancVis, mensagem, confOnclick, cancOnclick });
