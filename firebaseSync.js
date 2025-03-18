@@ -364,45 +364,41 @@ if (db) {
 			Object.entries(firebaseData).forEach(([chave, valor]) => {
 				const antigoValor = localStorage.getItem(chave);
 
-				// Verificar se o valor é nulo ou indefinido
 				if (valor !== null && valor !== undefined) {
-					// Verifica se o valor no localStorage já é o mesmo
 					if (antigoValor !== valor) {
 						if (chave === "produtos") {
 							const produtosFirebase = JSON.parse(valor || "[]");
 							const produtosLocal = JSON.parse(antigoValor || "[]");
 
 							if (Array.isArray(produtosFirebase) && produtosFirebase.length > 0) {
-								// Mesclar produtos sem sobrescrever
 								const produtosUnificados = [...produtosLocal];
 
 								produtosFirebase.forEach(produto => {
-									// Verifica se o produto já existe, usando uma comparação baseada no conteúdo (nome ou outro critério)
 									const existeProduto = produtosUnificados.some(p => JSON.stringify(p) === JSON.stringify(produto));
-
-									// Se não encontrar o produto, adiciona ele ao localStorage
-									if (!existeProduto) {
-										produtosUnificados.push(produto);
-									}
+									if (!existeProduto) produtosUnificados.push(produto);
 								});
 
-								// Atualiza o localStorage com os produtos mesclados
 								localStorage.setItem("produtos", JSON.stringify(produtosUnificados));
 								console.log("🔄 Sincronizado Firestore → LocalStorage: produtos");
 							}
 
-							// Verifica se há produtos no localStorage que não estão no Firebase
 							produtosLocal.forEach(produto => {
-								const existeProdutoNoFirebase = produtosFirebase.some(p => JSON.stringify(p) === JSON.stringify(produto));
+								const existeProdutoNoFirebase = produtosFirebase.some(p => 
+									p.nome === produto.nome && 
+									p.codigoBarras === produto.codigoBarras && 
+									p.dataVencimento === produto.dataVencimento
+								);
 
 								if (!existeProdutoNoFirebase) {
-									// Pergunta ao usuário se deseja manter ou excluir o produto
 									msg("SIM", "NÃO", false,
 									`O produto "${produto.nome}" não existe mais para sincronização.<br>Você deseja manter esse produto?<br>Clique em "SIM" para manter, ou "NÃO" para excluir.`, 
 									()=>{}, 
 									function() {
-										// Remove o produto do localStorage se o usuário escolher excluir
-										const produtosAtualizados = produtosLocal.filter(p => JSON.stringify(p) !== JSON.stringify(produto));
+										const produtosAtualizados = produtosLocal.filter(p => 
+											p.nome !== produto.nome || 
+											p.codigoBarras !== produto.codigoBarras || 
+											p.dataVencimento !== produto.dataVencimento
+										);
 										localStorage.setItem("produtos", JSON.stringify(produtosAtualizados));
 										console.log(`❌ Produto "${produto.nome}" removido do localStorage.`);
 										atualizarLista();
@@ -410,7 +406,6 @@ if (db) {
 								}
 							});
 						} else {
-							// Ignorar caso o valor seja um objeto ou array vazio
 							if (!(JSON.stringify(valor) === '{}' || JSON.stringify(valor) === '[]')) {
 								localStorage.setItem(chave, valor);
 								console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
@@ -419,7 +414,6 @@ if (db) {
 					}
 				}
 
-				// Verificar e atualizar os valores específicos de configuração
 				if (chave === "configAlerta" && valor) {
 					const valorparse = JSON.parse(valor);
 					const hashnAlertar = document.querySelector("#nAlertar");
@@ -429,12 +423,9 @@ if (db) {
 					if (hashcomo) hashcomo.value = valorparse.unidade ?? "dias";
 				}
 
-				// Comparar diferenças de forma mais eficiente
 				if (antigoValor !== null) {
 					const diferencas = compararDiferencas(antigoValor, valor);
-					if (Object.keys(diferencas).length > 0) {
-						console.log("🔍 Alterações:", diferencas);
-					}
+					if (Object.keys(diferencas).length > 0) console.log("🔍 Alterações:", diferencas);
 				} else {
 					console.log("➕ Novo valor:", valor);
 				}
