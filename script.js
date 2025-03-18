@@ -31,7 +31,7 @@ function adicionarProduto() {
 		vencimento = vencimentoInput.value.trim(),
 		codigoBarras = codigoBarrasInput.value.trim();
 
-	if (!nome || !quantidade || !vencimento || !codigoBarras) msg("OK", "", true,"Preencha todos os campos!", {}, {});
+	if (!nome || !quantidade || !vencimento || !codigoBarras) msg("OK", "", true,"Preencha todos os campos!", ()=>{}, ()=>{});
 
 	if (produtoEditadoIndex === -1 && adicionarBtn.textContent !== "Atualizar") {
 		let produtoExistente = produtos.find(p => p.codigoBarras === codigoBarras && p.nome === nome && formatarData(p.vencimento) === formatarData(vencimento));
@@ -46,7 +46,7 @@ function adicionarProduto() {
 				filtrarProdutos();
 				produtoInput.value = quantidadeInput.value = vencimentoInput.value = codigoBarrasInput.value = "";
 			}, 
-			{});
+			()=>{});
 			return;
 		}
 		produtos.push({ nome, quantidade, vencimento, codigoBarras });
@@ -162,11 +162,11 @@ function selectTudo(elemento) {
                 localStorage.setItem("syncenviar", "true");
 				msg("OK", "Não", true,
 				"✅ Este usuário foi autorizado a enviar dados ao firebase!", 
-				{}, {});
+				()=>{}, ()=>{});
             } else {
 				msg("OK", "Não", true,
 				"✅ Este usuário já foi autorizado a enviar dados ao firebase!", 
-				{}, {});
+				()=>{}, ()=>{});
             }
             filtroInput.value = "";
 			filtrarProdutos();
@@ -175,11 +175,11 @@ function selectTudo(elemento) {
                 localStorage.setItem("syncenviar", "false");
 				msg("OK", "Não", true,
 				"❌ Este usuário foi desautorizado a enviar dados ao firebase!", 
-				{}, {});
+				()=>{}, ()=>{});
             } else {
 				msg("OK", "Não", true,
 				"❌ Este usuário já foi desautorizado a enviar dados ao firebase!", 
-				{}, {});
+				()=>{}, ()=>{});
             }
             filtroInput.value = "";
 			filtrarProdutos();
@@ -222,7 +222,7 @@ function removerProduto(nome, vencimento) {
 	msg("Sim", "Não", false,
 	"Tem certeza que deseja remover o item<br><b>${nome}</b><br>com vencimento em <b>${vencimento}</b> ?", 
 	() => removerItem, 
-	{});
+	()=>{});
 }
 
 
@@ -462,8 +462,8 @@ iniciar.addEventListener("click", function() {
 		if (err) {
 			msg("OK", "Não", true,
 			err, 
-			{}, 
-			{});
+			()=>{}, 
+			()=>{});
 			return
 		}
 		Quagga.start()
@@ -504,12 +504,12 @@ ConfirmarDadosFire.addEventListener("click", () => {
 		// Caso algum campo esteja vazio, alerta o usuário
 		msg("OK", "", true,
 		"Todos os campos devem estar preenchidos!", 
-		{}, {});
+		()=>{}, ()=>{});
 	} else {
 		dadosfirediv.style.display = "none";
 		msg("OK", "", true,
 		"Verificando se as informações fornecidas estão corretas!<br>Os dados deverão ser sincronizados após a página recarregar!<br>Se nenhum dado aparecer, as informações fornecidas estão incorretas! verifique com seu suporte.<br>Clique em OK para recarregar a página", 
-		() => window.location.reload(), {});
+		() => window.location.reload(), ()=>{});
 	}
 });
 
@@ -542,7 +542,7 @@ sincronizar.addEventListener("click", () => {
 				["chave-fire", "dominio-fire", "projeto-fire", "bucket-fire", "id-fire", "appid-fire"].forEach(key => localStorage.setItem(key, ""));
 				window.location.reload();
 			}, 
-			{});
+			()=>{});
 		} else {
 			// Caso nem todos os valores estejam preenchidos, exibe os inputs
 			dadosfirediv.style.display = "flex";
