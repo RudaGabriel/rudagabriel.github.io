@@ -315,8 +315,8 @@ localStorage.removeItem = function(chave) {
 	}
 };
 
-let modalAtivo = false;  // Controla se um modal está ativo
-let filaModais = []; // Fila que armazena os modais em espera
+var modalAtivo = false;  // Controla se um modal está ativo
+var filaModais = []; // Fila que armazena os modais em espera
 function msg(confText, canctext, cancVis, mensagem, confOnclick = () => {}, cancOnclick = () => {}) {
     // Se um modal estiver ativo, armazena os dados na fila
     if (modalAtivo) {
@@ -404,7 +404,7 @@ if (db) {
 									// Pergunta ao usuário se deseja manter ou excluir o produto
 									msg("SIM", "NÃO", false,
 									`O produto "${produto.nome}" não existe mais para sincronização.<br>Você deseja manter esse produto?<br>Clique em "SIM" para manter, ou "NÃO" para excluir.`, 
-									{}, 
+									()=>{}, 
 									function() {
 										// Remove o produto do localStorage se o usuário escolher excluir
 										const produtosAtualizados = produtosLocal.filter(p => JSON.stringify(p) !== JSON.stringify(produto));
