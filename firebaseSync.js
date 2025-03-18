@@ -374,7 +374,12 @@ if (db) {
 								const produtosUnificados = [...produtosLocal];
 
 								produtosFirebase.forEach(produto => {
-									const existeProduto = produtosUnificados.some(p => JSON.stringify(p) === JSON.stringify(produto));
+									const existeProduto = produtosUnificados.some(p => 
+										p.nome === produto.nome && 
+										p.codigoBarras === produto.codigoBarras && 
+										p.dataVencimento === produto.dataVencimento
+									);
+
 									if (!existeProduto) produtosUnificados.push(produto);
 								});
 
