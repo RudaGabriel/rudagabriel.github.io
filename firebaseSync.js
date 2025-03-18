@@ -248,7 +248,7 @@ function compararDiferencas(antigo, novo) {
 			});
 			return diffs;
 		}
-	} catch () {}
+	} catch (_) {}
 	// Caso a comparação não seja de objetos, compara os valores diretamente
 	if (antigo !== novo) return { antes: antigo, agora: novo };
 	return {};
