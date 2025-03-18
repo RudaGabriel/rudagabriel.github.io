@@ -325,8 +325,8 @@ function salvarConfiguracaoAlerta() {
 document.getElementById("nAlertar").addEventListener("input", salvarConfiguracaoAlerta);
 document.getElementById("como").addEventListener("change", salvarConfiguracaoAlerta);
 
-let modalAtivo = false;  // Controla se um modal está ativo
-let filaModais = []; // Fila que armazena os modais em espera
+var modalAtivo = false;  // Controla se um modal está ativo
+var filaModais = []; // Fila que armazena os modais em espera
 function msg(confText, canctext, cancVis, mensagem, confOnclick = () => {}, cancOnclick = () => {}) {
     // Se um modal estiver ativo, armazena os dados na fila
     if (modalAtivo) {
