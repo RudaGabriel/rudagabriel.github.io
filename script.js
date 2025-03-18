@@ -508,11 +508,9 @@ ConfirmarDadosFire.addEventListener("click", () => {
 		{}, {});
 	} else {
 		dadosfirediv.style.display = "none";
-		confirmar.textContent = "OK";
-		cancelar.style.display = "none";
-		modalBody.innerHTML = "Verificando se as informações fornecidas estão corretas!<br>Os dados deverão ser sincronizados após a página recarregar!<br>Se nenhum dado aparecer, as informações fornecidas estão incorretas! verifique com seu suporte.<br>Clique em OK para recarregar a página";
-		modal.style.display = "flex";
-		confirmar.onclick = () => window.location.reload();
+		msg("OK", "", true,
+		"Verificando se as informações fornecidas estão corretas!<br>Os dados deverão ser sincronizados após a página recarregar!<br>Se nenhum dado aparecer, as informações fornecidas estão incorretas! verifique com seu suporte.<br>Clique em OK para recarregar a página", 
+		() => window.location.reload(), {});
 	}
 });
 
