@@ -201,7 +201,9 @@ function filtrarProdutos() {
 function removerProduto(nome, vencimento) {
 	let linhas = document.querySelectorAll("#lista tr");
 
-	function removerItem() {
+	msg("Sim", "Não", false,
+	`Tem certeza que deseja remover o item<br><b>${nome}</b><br>com vencimento em <b>${vencimento}</b> ?`, 
+	function() {
 		for (let linha of linhas) {
 			let colunas = linha.querySelectorAll("td");
 			if (!colunas.length) continue;
@@ -218,10 +220,7 @@ function removerProduto(nome, vencimento) {
 		localStorage.setItem("produtos", JSON.stringify(produtos));
 		modal.style.display = "none";
 		filtrarProdutos();
-	}
-	msg("Sim", "Não", false,
-	`Tem certeza que deseja remover o item<br><b>${nome}</b><br>com vencimento em <b>${vencimento}</b> ?`, 
-	() => removerItem, 
+	}, 
 	()=>{});
 }
 
