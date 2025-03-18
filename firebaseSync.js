@@ -317,7 +317,7 @@ localStorage.removeItem = function(chave) {
 
 let modalAtivo = false;  // Controla se um modal está ativo
 let filaModais = []; // Fila que armazena os modais em espera
-function msg(confText, canctext, cancVis, mensagem, confOnclick, cancOnclick) {
+function msg(confText, canctext, cancVis, mensagem, confOnclick = () => {}, cancOnclick = () => {}) {
     // Se um modal estiver ativo, armazena os dados na fila
     if (modalAtivo) {
         filaModais.push({ confText, canctext, cancVis, mensagem, confOnclick, cancOnclick });
