@@ -320,10 +320,7 @@ var filaModais = []; // Fila que armazena os modais em espera
 function msg(confText, canctext, cancVis, mensagem, confOnclick = () => {}, cancOnclick = () => {}) {
 	const dispmodal = document.querySelector("#modal").style.display;
     // Se um modal estiver ativo, armazena os dados na fila
-    if (modalAtivo && dispmodal == "flex") {
-        filaModais.push({ confText, canctext, cancVis, mensagem, confOnclick, cancOnclick });
-        return; // Não exibe o modal agora, só o armazena
-    }
+    if (modalAtivo && dispmodal == "flex") return filaModais.push({ confText, canctext, cancVis, mensagem, confOnclick, cancOnclick });
 
     // Exibe o modal se não houver outro ativo
     modalAtivo = true;
