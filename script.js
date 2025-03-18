@@ -328,8 +328,9 @@ document.getElementById("como").addEventListener("change", salvarConfiguracaoAle
 var modalAtivo = false;  // Controla se um modal está ativo
 var filaModais = []; // Fila que armazena os modais em espera
 function msg(confText, canctext, cancVis, mensagem, confOnclick = () => {}, cancOnclick = () => {}) {
+	const dispmodal = document.querySelector("#modal").style.display;
     // Se um modal estiver ativo, armazena os dados na fila
-    if (modalAtivo) {
+    if (modalAtivo && dispmodal == "flex") {
         filaModais.push({ confText, canctext, cancVis, mensagem, confOnclick, cancOnclick });
         return; // Não exibe o modal agora, só o armazena
     }
