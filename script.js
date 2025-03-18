@@ -503,11 +503,9 @@ ConfirmarDadosFire.addEventListener("click", () => {
 		dadosfirediv.style.display = "none";
 	} else if (!allFilled) {
 		// Caso algum campo esteja vazio, alerta o usuário
-		confirmar.textContent = "OK";
-		cancelar.style.display = "none";
-		modalBody.innerHTML = "Todos os campos devem estar preenchidos!";
-		modal.style.display = "flex";
-		confirmar.onclick = () => modal.style.display = "none";
+		msg("OK", "", true,
+		"Todos os campos devem estar preenchidos!", 
+		{}, {});
 	} else {
 		dadosfirediv.style.display = "none";
 		confirmar.textContent = "OK";
