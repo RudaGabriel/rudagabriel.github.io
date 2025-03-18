@@ -315,45 +315,45 @@ localStorage.removeItem = function(chave) {
 	}
 };
 
-let modalAtivo = false;  // Controla se um modal está ativo
-let filaModais = []; // Fila que armazena os modais em espera
-function msg(confText, canctext, cancVis, mensagem, confOnclick = () => {}, cancOnclick = () => {}) {
-	const dispmodal = document.querySelector("#modal").style.display;
-    // Se um modal estiver ativo, armazena os dados na fila
-    if (modalAtivo && dispmodal == "flex") return filaModais.push({ confText, canctext, cancVis, mensagem, confOnclick, cancOnclick });
+let modalAtivo = false;
+let filaModais = [];
 
-    // Exibe o modal se não houver outro ativo
+function exibirProximoModal() {
+    if (filaModais.length > 0) {
+        const { confText, canctext, cancVis, mensagem, confOnclick, cancOnclick } = filaModais.shift();
+        msg(confText, canctext, cancVis, mensagem, confOnclick, cancOnclick);
+    }
+}
+
+function msg(confText, canctext, cancVis, mensagem, confOnclick = () => {}, cancOnclick = () => {}) {
+    const modal = document.querySelector("#modal");
+    if (!modal) return;
+
+    if (modalAtivo && window.getComputedStyle(modal).display === "flex") return filaModais.push({ confText, canctext, cancVis, mensagem, confOnclick, cancOnclick });
+
     modalAtivo = true;
 
+    const confirmar = document.querySelector("#confirmar");
+    const cancelar = document.querySelector("#cancelar");
+    const modalBody = document.querySelector("#modalBody");
+
+    if (!confirmar || !cancelar || !modalBody) return;
+
     confirmar.textContent = confText;
-    cancVis === true ? cancelar.style.display = "none" : cancelar.removeAttribute("style");
+    cancelar.style.display = cancVis ? "none" : "";
     cancelar.textContent = canctext;
     modalBody.innerHTML = mensagem;
     modal.style.display = "flex";
 
-    confirmarBtn.onclick = () => {
-        confOnclick();  // Executa a função de confirmação
-        modal.style.display = "none";  // Fecha o modal
-        modalAtivo = false;  // Marca o modal como fechado
-
-        // Verifica se há algum modal em espera
-        if (filaModais.length > 0) {
-            const proximoModal = filaModais.shift(); // Remove o próximo modal da fila
-            msg(proximoModal.confText, proximoModal.canctext, proximoModal.cancVis, proximoModal.mensagem, proximoModal.confOnclick, proximoModal.cancOnclick); // Chama o próximo modal
-        }
+    const fecharModal = (callback) => {
+        callback();
+        modal.style.display = "none";
+        modalAtivo = false;
+        exibirProximoModal();
     };
 
-    cancelarBtn.onclick = () => {
-        cancOnclick();  // Executa a função de cancelamento
-        modal.style.display = "none";  // Fecha o modal
-        modalAtivo = false;  // Marca o modal como fechado
-
-        // Verifica se há algum modal em espera
-        if (filaModais.length > 0) {
-            const proximoModal = filaModais.shift(); // Remove o próximo modal da fila
-            msg(proximoModal.confText, proximoModal.canctext, proximoModal.cancVis, proximoModal.mensagem, proximoModal.confOnclick, proximoModal.cancOnclick); // Chama o próximo modal
-        }
-    };
+    confirmar.onclick = () => fecharModal(confOnclick);
+    cancelar.onclick = () => fecharModal(cancOnclick);
 }
 									
 if (db) {
