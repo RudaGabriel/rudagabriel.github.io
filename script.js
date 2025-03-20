@@ -403,9 +403,9 @@ iniciar.addEventListener("click", function () {
 		inputStream: {
 			type: "LiveStream",
 			constraints: {
-				facingMode: "environment"/*,
-				width: { ideal: 1280 },
-				height: { ideal: 720 }*/
+				facingMode: "environment",
+				width: { ideal: 720 }, //1280
+				height: { ideal: 540 }  //720
 			},
 			target: document.getElementById("containerleitor")
 		},
