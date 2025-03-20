@@ -401,7 +401,7 @@ window.addEventListener('load', ajustarAlturaTabela);
 window.addEventListener('resize', ajustarAlturaTabela);
 pararleitor.addEventListener("click", function () {
 	Quagga.stop()
-	containerleitor.style.display = "none";
+	containerleitor.style.opacity = 0;
 });
 iniciar.addEventListener("click", function () {
 	Quagga.init({
@@ -418,13 +418,13 @@ iniciar.addEventListener("click", function () {
 	}, (err) => {
 		if (err) return msg("OK", "", true, err);
 		Quagga.start()
-		containerleitor.style.display = "flex";
+		containerleitor.style.opacity = 1;
 	})
 	Quagga.onDetected((res) => {
 		let codigo = res.codeResult.code
 		codigoBarras.value = codigo;
 		Quagga.stop()
-		containerleitor.style.display = "none";
+		containerleitor.style.opacity = 0;
 	})
 });
 CancelarDadosFire.addEventListener("click", () => {dadosfirediv.style.display = "none";});
