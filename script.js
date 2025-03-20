@@ -34,7 +34,6 @@ function adicionarProduto() {
 					modal.style.display = "none";
 					salvarProdutos();
 					atualizarLista();
-					filtrarProdutos();
 					produtoInput.value = quantidadeInput.value = vencimentoInput.value = codigoBarrasInput.value = "";
 				},
 				() => {});
@@ -51,7 +50,6 @@ function adicionarProduto() {
 	ocultarVencidos = false;
 	salvarProdutos();
 	atualizarLista();
-	filtrarProdutos();
 	produtoInput.value = quantidadeInput.value = vencimentoInput.value = codigoBarrasInput.value = "";
 }
 function editarProduto(index, botao) {
@@ -77,8 +75,8 @@ function atualizarLista() {
 	produtos.forEach((p, index) => {
 		let dias = verificarVencimento(p.vencimento);
 		let tr = document.createElement("tr");
-		let vencido = dias < 0;
-		let proximo = dias >= 0 && dias <= limiteAlerta;
+		let vencido = dias <= -1;
+		let proximo = dias >= -1 && dias <= limiteAlerta;
 		let estilo = proximo ? "font-size:1.2em;font-weight:bold;filter:drop-shadow(2px 0px 5px red)" : "";
 		let fontbold = "font-size:1.2em;font-weight:bold;";
 		tr.innerHTML = `
@@ -95,7 +93,6 @@ function atualizarLista() {
 		if (vencido) produtosVencidos.push(tr);
 		else if (proximo) produtosProximos.push(tr);
 		else produtosRestantes.push(tr);
-		filtrarProdutos();
 	});
 	produtosProximos.sort((a, b) => {
 		let dataA = new Date(a.children[3].textContent.split('/').reverse().join('-'));
@@ -104,13 +101,47 @@ function atualizarLista() {
 	});
 	produtosProximos.forEach(tr => (lista.appendChild(tr), piscar(tr.children[3])));
 	produtosRestantes.concat(produtosVencidos).forEach(tr => lista.appendChild(tr));
+	filtrarProdutos();
+}
+function alertarProdutosProximos() {
+	const alertarValor = parseInt(document.getElementById("nAlertar").value) || 60;
+	const unidade = document.getElementById("como").value;
+	const fator = unidade === "meses" ? 30 : 1;
+	const limiteAlerta = alertarValor * fator;
+	let proximos = produtos.filter(p => {
+		let dias = verificarVencimento(p.vencimento);
+		return dias >= -1 && dias <= limiteAlerta && !ignorados.includes(p.vencimento + "+" + p.codigoBarras);
+	});
+
+	function mostrarAlerta(index) {
+		if (index >= proximos.length) return;
+		let p = proximos[index];
+		msg("Sim", "Não", false, `O produto <b>${p.nome}</b><br>está próximo do vencimento! <b>${formatarData(p.vencimento)}</b><br>Deseja continuar sendo alertado?`,
+			() => mostrarAlerta(index + 1),
+			function () {
+				ignorados.push(p.vencimento + "+" + p.codigoBarras);
+				salvarIgnorados();
+				atualizarLista();
+				mostrarAlerta(index + 1);
+			});
+	}
+	if (proximos.length > 0) mostrarAlerta(0);
+}
+function reverterAlerta(cod) {
+	ignorados = ignorados.filter(c => c !== cod);
+	salvarIgnorados();
+	atualizarLista();
+}
+function piscar(elemento, intervalo = 300) {
+	setInterval(() => {
+		elemento.style.visibility = elemento.style.visibility === "hidden" ? "visible" : "hidden";
+	}, intervalo);
 }
 function salvarProdutos() {localStorage.setItem("produtos", JSON.stringify(produtos));}
 function salvarIgnorados() {localStorage.setItem("ignorados", JSON.stringify(ignorados));}
 function formatarData(data) {return data.split("-").reverse().join("/");}
 function verificarVencimento(data) {
-	const hoje = new Date(),
-		validade = new Date(data);
+	const hoje = new Date(),validade = new Date(data);
 	const diffDias = (validade - hoje) / (1000 * 60 * 60 * 24);
 	return diffDias;
 }
@@ -239,7 +270,6 @@ function importarLista(event) {
 				});
 			}
 			atualizarLista();
-			filtrarProdutos();
 			carregarConfiguracaoAlerta();
 			setTimeout(() => {
 				if (dados.firebaseConfig) window.location.reload();
@@ -259,7 +289,6 @@ function salvarConfiguracaoAlerta() {
 		unidade
 	}));
 	atualizarLista();
-	filtrarProdutos();
 }
 document.getElementById("nAlertar").addEventListener("input", salvarConfiguracaoAlerta);
 document.getElementById("como").addEventListener("change", salvarConfiguracaoAlerta);
@@ -287,42 +316,6 @@ function msg(confText, canctext, cancVis, mensagem, confOnclick = () => {}, canc
 	};
 	confirmar.onclick = () => fecharModal(confOnclick);
 	cancelar.onclick = () => fecharModal(cancOnclick);
-}
-function alertarProdutosProximos() {
-	const alertarValor = parseInt(document.getElementById("nAlertar").value) || 60;
-	const unidade = document.getElementById("como").value;
-	const fator = unidade === "meses" ? 30 : 1;
-	const limiteAlerta = alertarValor * fator;
-	let proximos = produtos.filter(p => {
-		let dias = verificarVencimento(p.vencimento);
-		return dias >= 0 && dias <= limiteAlerta && !ignorados.includes(p.vencimento + "+" + p.codigoBarras);
-	});
-
-	function mostrarAlerta(index) {
-		if (index >= proximos.length) return;
-		let p = proximos[index];
-		msg("Sim", "Não", false, `O produto <b>${p.nome}</b><br>está próximo do vencimento! <b>${formatarData(p.vencimento)}</b><br>Deseja continuar sendo alertado?`,
-			() => mostrarAlerta(index + 1),
-			function () {
-				ignorados.push(p.vencimento + "+" + p.codigoBarras);
-				salvarIgnorados();
-				atualizarLista();
-				filtrarProdutos();
-				mostrarAlerta(index + 1);
-			});
-	}
-	if (proximos.length > 0) mostrarAlerta(0);
-}
-function reverterAlerta(cod) {
-	ignorados = ignorados.filter(c => c !== cod);
-	salvarIgnorados();
-	atualizarLista();
-	filtrarProdutos();
-}
-function piscar(elemento, intervalo = 300) {
-	setInterval(() => {
-		elemento.style.visibility = elemento.style.visibility === "hidden" ? "visible" : "hidden";
-	}, intervalo);
 }
 adicionarBtn.addEventListener("click", adicionarProduto);
 filtroInput.addEventListener("input", filtrarProdutos);
