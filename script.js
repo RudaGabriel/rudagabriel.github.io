@@ -390,10 +390,7 @@ ConfirmarDadosFire.addEventListener("click", () => {
 	localStorage.setItem("appid-fire", appIdValue || "");
 	// Verifica se todos os campos estão preenchidos
 	const allFilled = chaveValue && dominioValue && projetoValue && bucketValue && idValue && appIdValue;
-	if (!chaveValue && !dominioValue && !projetoValue && !bucketValue && !idValue && !appIdValue) {
-		// Se nenhum campo tiver valor, oculta a div
-		dadosfirediv.style.display = "none";
-	} else if (!allFilled) {
+	if (!allFilled) {
 		// Caso algum campo esteja vazio, alerta o usuário
 		msg("OK", "", true, "Todos os campos devem estar preenchidos!");
 	} else {
