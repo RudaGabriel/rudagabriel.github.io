@@ -158,15 +158,13 @@ async function carregarLocalStorageOnline() {
 						const firebaseObj = JSON.parse(valor);
 						if (Array.isArray(localObj) && Array.isArray(firebaseObj)) {
 							const novoArray = [...new Map([...localObj, ...firebaseObj].map(item => [JSON.stringify(item), item])).values()];
-							localStorage.setItem(chave, JSON.stringify(novoArray));
+							localStorage.setItem(chave, JSON.stringify(chave === "ignorados" ? localObj : novoArray));
 						} else if (typeof localObj === "object" && typeof firebaseObj === "object") {
-							localStorage.setItem(chave, JSON.stringify({ ...firebaseObj, ...localObj }));
+							localStorage.setItem(chave, JSON.stringify(chave === "ignorados" ? localObj : { ...firebaseObj, ...localObj }));
 						}
 					} catch {
 						if (!localValor) localStorage.setItem(chave, valor);
 					}
-				} else {
-					localStorage.setItem(chave, valor);
 				}
 			});
 			showCascadeAlert("✅ Dados carregados do Firebase!");
@@ -310,9 +308,9 @@ if (db) {
 								produtosFirebase.forEach(produto => {
 									const index = produtosUnificados.findIndex(p => p.nome === produto.nome && p.codigoBarras === produto.codigoBarras && p.dataVencimento === produto.dataVencimento);
 									if (index !== -1) {
-										produtosUnificados[index] = produto; // Atualiza a quantidade
+										produtosUnificados[index] = produto;
 									} else {
-										produtosUnificados.push(produto); // Adiciona novo produto
+										produtosUnificados.push(produto);
 									}
 								});
 								localStorage.setItem("produtos", JSON.stringify(produtosUnificados));
@@ -332,7 +330,12 @@ if (db) {
 							});
 						} else {
 							if (!(JSON.stringify(valor) === '{}' || JSON.stringify(valor) === '[]')) {
-								localStorage.setItem(chave, valor);
+								if (chave === "ignorados") {
+									const ignoradosLocal = localStorage.getItem("ignorados");
+									if (!ignoradosLocal) localStorage.setItem("ignorados", valor);
+								} else {
+									localStorage.setItem(chave, valor);
+								}
 								console.log("🔄 Sincronizado Firestore → LocalStorage:", chave);
 							}
 						}
