@@ -278,9 +278,10 @@ select:focus {
 }
 
 .opacity {
-	opacity: 0 !important;
-	height: 0 !important;
-	width: 0 !important;
+	opacity: 0;
+	height: 0;
+	width: 0;
+	display: none;
 }
 
 #leitor {
