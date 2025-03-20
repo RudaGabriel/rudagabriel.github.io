@@ -69,7 +69,7 @@ function editarProduto(index, botao) {
 function atualizarLista() {
 	produtos = JSON.parse(localStorage.getItem("produtos")) || [];
 	lista.innerHTML = "";
-	let produtosProximos = [],produtosVencidos = [],produtosRestantes = [];
+	let produtosProximos = [], produtosVencidos = [], produtosRestantes = [];
 	const alertarValor = parseInt(document.getElementById("nAlertar").value) || 60;
 	const unidade = document.getElementById("como").value;
 	const fator = unidade === "meses" ? 30 : 1;
@@ -78,7 +78,7 @@ function atualizarLista() {
 		let dias = verificarVencimento(p.vencimento);
 		let tr = document.createElement("tr");
 		let vencido = dias < 0;
-		let proximo = dias > -1 && dias <= limiteAlerta;
+		let proximo = dias >= 0 && dias <= limiteAlerta;
 		let estilo = proximo ? "font-size:1.2em;font-weight:bold;filter:drop-shadow(2px 0px 5px red)" : "";
 		let fontbold = "font-size:1.2em;font-weight:bold;";
 		tr.innerHTML = `
@@ -105,7 +105,6 @@ function atualizarLista() {
 	produtosProximos.forEach(tr => (lista.appendChild(tr), piscar(tr.children[3])));
 	produtosRestantes.concat(produtosVencidos).forEach(tr => lista.appendChild(tr));
 }
-
 function salvarProdutos() {localStorage.setItem("produtos", JSON.stringify(produtos));}
 function salvarIgnorados() {localStorage.setItem("ignorados", JSON.stringify(ignorados));}
 function formatarData(data) {return data.split("-").reverse().join("/");}
@@ -173,8 +172,7 @@ function removerProduto(nome, vencimento) {
 			localStorage.setItem("produtos", JSON.stringify(produtos));
 			modal.style.display = "none";
 			filtrarProdutos();
-		},
-		() => {});
+		});
 }
 function toggleVencidos() {
 	if (filtroInput.value) return;
@@ -267,7 +265,6 @@ document.getElementById("nAlertar").addEventListener("input", salvarConfiguracao
 document.getElementById("como").addEventListener("change", salvarConfiguracaoAlerta);
 let modalAtivo = false;
 let filaModais = [];
-
 function exibirProximoModal() {
 	if (filaModais.length > 0) {
 		const { confText, canctext, cancVis, mensagem, confOnclick, cancOnclick } = filaModais.shift();
@@ -298,7 +295,7 @@ function alertarProdutosProximos() {
 	const limiteAlerta = alertarValor * fator;
 	let proximos = produtos.filter(p => {
 		let dias = verificarVencimento(p.vencimento);
-		return dias > -1 && dias <= limiteAlerta && !ignorados.includes(p.vencimento + "+" + p.codigoBarras);
+		return dias >= 0 && dias <= limiteAlerta && !ignorados.includes(p.vencimento + "+" + p.codigoBarras);
 	});
 
 	function mostrarAlerta(index) {
