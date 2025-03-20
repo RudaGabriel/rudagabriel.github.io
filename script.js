@@ -400,31 +400,41 @@ const ajustarAlturaTabela = () => {
 window.addEventListener('load', ajustarAlturaTabela);
 window.addEventListener('resize', ajustarAlturaTabela);
 iniciar.addEventListener("click", function () {
-	containerleitor.classList.remove("opacity");
-	Quagga.init({
-		inputStream: {
-			type: "LiveStream",
-			constraints: {
-				facingMode: "environment"
+	navigator.mediaDevices.getUserMedia({ video: true }).then(() => {
+		Quagga.init({
+			inputStream: {
+				type: "LiveStream",
+				constraints: {
+					facingMode: "environment"
+				},
+				target: document.getElementById("containerleitor")
 			},
-			target: document.getElementById("containerleitor")
-		},
-		decoder: {
-			readers: ["ean_reader", "code_128_reader"]
-		}
-	}, (err) => {
-		if (err) return msg("OK", "", true, err);
-		Quagga.start();
-	});
+			locator: {
+				halfSample: true,
+				patchSize: "medium"
+			},
+			decoder: {
+				readers: ["ean_reader", "code_128_reader"]
+			},
+			numOfWorkers: navigator.hardwareConcurrency || 4
+		}, (err) => {
+			if (err) {
+				msg("OK", "", true, err);
+				return;
+			}
+			Quagga.start();
+			containerleitor.classList.remove("opacity");
+		});
 
-	Quagga.onDetected((res) => {
-		let codigo = res.codeResult.code;
-		if (codigo) {
-			codigoBarras.value = codigo;
-			Quagga.stop();
-			containerleitor.classList.add("opacity");
-		}
-	});
+		Quagga.onDetected((res) => {
+			let codigo = res.codeResult.code;
+			if (codigo) {
+				codigoBarras.value = codigo;
+				Quagga.stop();
+				containerleitor.classList.add("opacity");
+			}
+		});
+	}).catch(err => msg("OK", "", true, err));
 });
 pararleitor.addEventListener("click", function () {
 	Quagga.stop();
