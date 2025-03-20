@@ -407,7 +407,7 @@ iniciar.addEventListener("click", function () {
 				constraints: {
 					facingMode: "environment"
 				},
-				target: document.getElementById("containerleitor")
+				target: document.getElementById("leitor")
 			},
 			locator: {
 				halfSample: true,
