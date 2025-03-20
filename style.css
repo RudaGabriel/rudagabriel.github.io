@@ -278,6 +278,12 @@ select:focus {
   justify-content: center;
 }
 
+.opacity {
+	opacity: 1;
+	height: 0;
+	width: 0;
+}
+
 #leitor {
   max-width: 80%;
   max-height: 80%;
