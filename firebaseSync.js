@@ -8,7 +8,6 @@ const firebaseConfig = {
 	messagingSenderId: localStorage.getItem("id-fire") || "",
 	appId: localStorage.getItem("appid-fire") || ""
 };
-
 function showCascadeAlert(message) {
 	if (!document.querySelector("#cascade-alert-style")) {
 		const style = document.createElement("style");
@@ -226,7 +225,6 @@ localStorage.setItem = function (chave, valor) {
 		filtrarProdutos();
 	}
 };
-
 function compararDiferencas(antigo, novo) {
 	try {
 		const objAntigo = JSON.parse(antigo);
@@ -266,14 +264,12 @@ localStorage.removeItem = function (chave) {
 };
 let modalAtivo = false;
 let filaModais = [];
-
 function exibirProximoModal() {
 	if (filaModais.length > 0) {
 		const { confText, canctext, cancVis, mensagem, confOnclick, cancOnclick } = filaModais.shift();
 		msg(confText, canctext, cancVis, mensagem, confOnclick, cancOnclick);
 	}
 }
-
 function msg(confText, canctext, cancVis, mensagem, confOnclick = () => {}, cancOnclick = () => {}) {
 	let modal = document.querySelector("#modal");
 	if (modalAtivo || window.getComputedStyle(modal).display === "flex") return filaModais.push({ confText, canctext, cancVis, mensagem, confOnclick, cancOnclick });
