@@ -272,7 +272,22 @@ function exibirProximoModal() {
 }
 function msg(confText, canctext, cancVis, mensagem, confOnclick = () => {}, cancOnclick = () => {}) {
 	let modal = document.querySelector("#modal");
-	if (modalAtivo || window.getComputedStyle(modal).display === "flex") return filaModais.push({ confText, canctext, cancVis, mensagem, confOnclick, cancOnclick });
+	if (modalAtivo || window.getComputedStyle(modal).display === "flex") {
+		// Verifica se já existe um modal com as mesmas informações na fila
+		const modalExistente = filaModais.some(modal => 
+			modal.confText === confText &&
+			modal.canctext === canctext &&
+			modal.cancVis === cancVis &&
+			modal.mensagem === mensagem &&
+			modal.confOnclick.toString() === confOnclick.toString() &&
+			modal.cancOnclick.toString() === cancOnclick.toString()
+		);
+		if (!modalExistente) {
+			filaModais.push({ confText, canctext, cancVis, mensagem, confOnclick, cancOnclick });
+		}
+		return;
+	}
+
 	modalAtivo = true;
 	let confirmar = document.querySelector("#confirmar");
 	let cancelar = document.querySelector("#cancelar");
@@ -282,12 +297,14 @@ function msg(confText, canctext, cancVis, mensagem, confOnclick = () => {}, canc
 	cancelar.textContent = canctext;
 	modalBody.innerHTML = mensagem;
 	modal.style.display = "flex";
+
 	const fecharModal = (callback) => {
 		callback();
 		modal.style.display = "none";
 		modalAtivo = false;
 		exibirProximoModal();
 	};
+
 	confirmar.onclick = () => fecharModal(confOnclick);
 	cancelar.onclick = () => fecharModal(cancOnclick);
 }
