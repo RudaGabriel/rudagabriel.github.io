@@ -305,6 +305,7 @@ select:focus {
 	transform: translateX(-50%); /* Ajusta para o centro exato */
 	padding: 10px 20px;
 	cursor: pointer;
+	max-width: 50%;
 }
 
 .modal-content {
