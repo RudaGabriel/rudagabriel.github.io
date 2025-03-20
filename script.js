@@ -256,9 +256,21 @@ function importarLista(event) {
 		try {
 			let dados = JSON.parse(reader.result);
 			if (!dados || typeof dados !== "object") throw new Error("Arquivo inválido.");
-			if (Array.isArray(dados.produtos)) localStorage.setItem("produtos", JSON.stringify(dados.produtos));
-			if (Array.isArray(dados.ignorados)) localStorage.setItem("ignorados", JSON.stringify(dados.ignorados));
-			if (dados.configAlerta && typeof dados.configAlerta === "object") localStorage.setItem("configAlerta", JSON.stringify(dados.configAlerta));
+
+			if (Array.isArray(dados.produtos)) {
+				let produtos = JSON.parse(localStorage.getItem("produtos")) || [];
+				produtos = [...produtos, ...dados.produtos]; // Mescla os produtos existentes com os novos
+				localStorage.setItem("produtos", JSON.stringify(produtos));
+			}
+
+			if (Array.isArray(dados.ignorados)) {
+				localStorage.setItem("ignorados", JSON.stringify(dados.ignorados));
+			}
+
+			if (dados.configAlerta && typeof dados.configAlerta === "object") {
+				localStorage.setItem("configAlerta", JSON.stringify(dados.configAlerta));
+			}
+
 			if (dados.firebaseConfig && typeof dados.firebaseConfig === "object") {
 				const mapeamentoFirebase = {
 					chavefire: "chave-fire",
@@ -269,9 +281,12 @@ function importarLista(event) {
 					appidfire: "appid-fire"
 				};
 				Object.entries(dados.firebaseConfig).forEach(([key, value]) => {
-					if (mapeamentoFirebase[key] && typeof value === "string") localStorage.setItem(mapeamentoFirebase[key], value);
+					if (mapeamentoFirebase[key] && typeof value === "string") {
+						localStorage.setItem(mapeamentoFirebase[key], value);
+					}
 				});
 			}
+
 			atualizarLista();
 			carregarConfiguracaoAlerta();
 			setTimeout(() => {
