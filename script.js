@@ -404,15 +404,23 @@ iniciar.addEventListener("click", function () {
 		inputStream: {
 			type: "LiveStream",
 			constraints: {
-				facingMode: "environment"
+				facingMode: "environment",
+				width: { ideal: 1280 },
+				height: { ideal: 720 }
 			},
 			target: document.getElementById("containerleitor")
 		},
+		locator: {
+			patchSize: "medium",
+			halfSample: true
+		},
 		decoder: {
 			readers: ["ean_reader", "code_128_reader"]
-		}
+		},
+		numOfWorkers: navigator.hardwareConcurrency || 4
 	}, (err) => {
 		if (err) return msg("OK", "", true, err);
+
 		containerleitor.classList.remove("displaynone");
 		Quagga.start();
 	});
