@@ -395,7 +395,7 @@ ConfirmarDadosFire.addEventListener("click", () => {
 		msg("OK", "", true, "Todos os campos devem estar preenchidos!");
 	} else {
 		dadosfirediv.style.display = "none";
-		msg("OK", "", true, "Verificando se as informações fornecidas estão corretas!<br>Os dados deverão ser sincronizados após a página recarregar!<br>Se nenhum dado aparecer, as informações fornecidas estão incorretas! verifique com seu suporte.<br>Clique em OK para recarregar a página",
+		msg("OK", "", true, "Verificando se as informações fornecidas estão corretas!<br>Os dados deverão ser sincronizados após a página recarregar!<br>Se nenhum dado aparecer, as informações fornecidas estão incorretas! verifique com seu suporte qualquer dúvida.<br>Clique em OK para recarregar a página",
 		() => window.location.reload());
 	}
 });
