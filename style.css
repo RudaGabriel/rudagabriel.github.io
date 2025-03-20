@@ -304,7 +304,6 @@ select:focus {
 	left: 50%; /* Centraliza horizontalmente */
 	transform: translateX(-50%); /* Ajusta para o centro exato */
 	padding: 10px 20px;
-	border-radius: 5px;
 	cursor: pointer;
 }
 
