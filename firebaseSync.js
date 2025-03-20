@@ -165,6 +165,8 @@ async function carregarLocalStorageOnline() {
 					} catch {
 						if (!localValor) localStorage.setItem(chave, valor);
 					}
+				} else {
+					localStorage.setItem(chave, JSON.stringify(chave === "ignorados" ? JSON.parse(valor) : valor));
 				}
 			});
 			showCascadeAlert("✅ Dados carregados do Firebase!");
