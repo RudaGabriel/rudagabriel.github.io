@@ -29,7 +29,7 @@ function adicionarProduto() {
 	if (produtoEditadoIndex === -1 && adicionarBtn.textContent !== "Atualizar") {
 		let produtoExistente = produtos.find(p => p.codigoBarras === codigoBarras && p.nome === nome && formatarData(p.vencimento) === formatarData(vencimento));
 		if (produtoExistente) {
-			msg("Sim", "Não", false, `Produto ${p.nome} já adicionado<br>Com o mesmo código de barras e data de vencimento!<br>Deseja atualizar a quantidade deste produto com a nova fornecida?`, function () {
+			msg("Sim", "Não", false, `Produto ${p.nome} já adicionado<br>Com o mesmo código de barras e data de vencimento!<br>Deseja atualizar a quantidade deste produto com a nova quantidade: ${quantidade}?`, function () {
 					Object.assign(produtoExistente, { nome, quantidade, vencimento, codigoBarras });
 					modal.style.display = "none";
 					salvarProdutos();
