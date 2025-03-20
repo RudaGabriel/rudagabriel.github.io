@@ -413,7 +413,8 @@ iniciar.addEventListener("click", function () {
 		}
 	}, (err) => {
 		if (err) return msg("OK", "", true, err);
-		containerleitor.classList.remove("opacity");
+		//containerleitor.classList.remove("opacity");
+		containerleitor.style.display = "flex";
 		Quagga.start();
 	});
 
@@ -421,13 +422,15 @@ iniciar.addEventListener("click", function () {
 		let codigo = res.codeResult.code;
 		if (codigo) {
 			codigoBarras.value = codigo;
-			containerleitor.classList.add("opacity");
+			//containerleitor.classList.add("opacity");
+			containerleitor.style.display = "none";
 			Quagga.stop();
 		}
 	});
 });
 pararleitor.addEventListener("click", function () {
-	containerleitor.classList.add("opacity");
+	containerleitor.style.display = "none";
+	//containerleitor.classList.add("opacity");
 	Quagga.stop();
 });
 CancelarDadosFire.addEventListener("click", () => {dadosfirediv.style.display = "none";});
