@@ -261,14 +261,18 @@ function importarLista(event) {
 				let produtos = JSON.parse(localStorage.getItem("produtos")) || [];
 
 				dados.produtos.forEach(novoProduto => {
-					// Verifica se já existe um produto com as mesmas especificações
+					// Verifica se já existe um produto com o mesmo nome, data e código de barras
 					let indexExistente = produtos.findIndex(produto =>
-						JSON.stringify(produto) === JSON.stringify(novoProduto)
+						produto.nome === novoProduto.nome &&
+						produto.data === novoProduto.data &&
+						produto.codigoBarras === novoProduto.codigoBarras
 					);
 
 					if (indexExistente !== -1) {
-						// Se já existir, sobrescreve o produto
-						produtos[indexExistente] = novoProduto;
+						// Se já existir e a única diferença for a quantidade, atualiza apenas a quantidade
+						if (produtos[indexExistente].quantidade !== novoProduto.quantidade) {
+							produtos[indexExistente].quantidade = novoProduto.quantidade;
+						}
 					} else {
 						// Se não existir, adiciona o novo produto
 						produtos.push(novoProduto);
