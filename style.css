@@ -284,21 +284,28 @@ select:focus {
 }
 
 #leitor {
-	max-width: 80%;
-	max-height: 80%;
-	display: flex;
-	flex-wrap: nowrap;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	background-color: aqua;
+  max-width: 80%;
+  max-height: 80%;
+  display: flex;
+  flex-wrap: nowrap;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: aqua;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
 }
 
 #pararleitor {
-  z-index: 150;
-  padding: 10px 20px;
-  border-radius: 10px;
-  cursor: pointer;
+	position: fixed;
+	bottom: 20px; /* Ajusta a distância do botão da parte inferior */
+	left: 50%; /* Centraliza horizontalmente */
+	transform: translateX(-50%); /* Ajusta para o centro exato */
+	padding: 10px 20px;
+	border-radius: 5px;
+	cursor: pointer;
 }
 
 .modal-content {
