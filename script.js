@@ -422,8 +422,8 @@ iniciar.addEventListener("click", function () {
 				msg("OK", "", true, err);
 				return;
 			}
-			Quagga.start();
 			containerleitor.classList.remove("opacity");
+			Quagga.start();
 		});
 
 		Quagga.onDetected((res) => {
