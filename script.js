@@ -400,8 +400,8 @@ const ajustarAlturaTabela = () => {
 window.addEventListener('load', ajustarAlturaTabela);
 window.addEventListener('resize', ajustarAlturaTabela);
 pararleitor.addEventListener("click", function () {
-	Quagga.stop()
 	containerleitor.classList.add("opacity");
+	Quagga.stop();
 });
 iniciar.addEventListener("click", function () {
 	Quagga.init({
