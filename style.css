@@ -275,7 +275,7 @@ select:focus {
   align-items: center; /* Centraliza o conteúdo dentro */
 }
 
-#cancelar {
+#pararleitor {
   position: absolute;
   bottom: 20px; /* Ajusta a distância do botão da parte inferior */
   left: 50%; /* Centraliza horizontalmente */
