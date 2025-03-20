@@ -403,7 +403,7 @@ ConfirmarDadosFire.addEventListener("click", () => {
 	} else {
 		dadosfirediv.style.display = "none";
 		msg("OK", "", true, "Verificando se as informações fornecidas estão corretas!<br>Os dados deverão ser sincronizados após a página recarregar!<br>Se nenhum dado aparecer, as informações fornecidas estão incorretas! verifique com seu suporte.<br>Clique em OK para recarregar a página",
-			() => window.location.reload(), () => {});
+		() => window.location.reload());
 	}
 });
 sincronizar.addEventListener("click", () => {
@@ -431,8 +431,7 @@ sincronizar.addEventListener("click", () => {
 			msg("Sim", "Não", false, "Deixar de sincronizar?", function () {
 				["chave-fire", "dominio-fire", "projeto-fire", "bucket-fire", "id-fire", "appid-fire"].forEach(key => localStorage.setItem(key, ""));
 					window.location.reload();
-				},
-				() => {});
+				});
 		} else {
 			// Caso nem todos os valores estejam preenchidos, exibe os inputs
 			dadosfirediv.style.display = "flex";
