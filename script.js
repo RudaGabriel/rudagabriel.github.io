@@ -35,8 +35,7 @@ function adicionarProduto() {
 					salvarProdutos();
 					atualizarLista();
 					produtoInput.value = quantidadeInput.value = vencimentoInput.value = codigoBarrasInput.value = "";
-				},
-				() => {});
+				});
 			return;
 		}
 		produtos.push({ nome, quantidade, vencimento, codigoBarras });
