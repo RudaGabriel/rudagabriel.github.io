@@ -372,7 +372,7 @@ iniciar.addEventListener("click", function () {
 		containerleitor.style.display = "none";
 	})
 });
-CancelarDadosFire.addEventListener("click", () => {dadosfirediv.style.display = "none";};
+CancelarDadosFire.addEventListener("click", () => {dadosfirediv.style.display = "none";});
 ConfirmarDadosFire.addEventListener("click", () => {
 	// Coleta os valores dos campos
 	const chaveValue = SUA_CHAVE?.value;
