@@ -324,7 +324,6 @@ exportarBtn.addEventListener("click", exportarLista);
 botaoImportar.addEventListener("click", () => importarInput.click());
 importarInput.addEventListener("change", importarLista);
 atualizarLista();
-filtrarProdutos();
 alertarProdutosProximos();
 const ajustarAlturaTabela = () => {
 	const alturaTela = window.innerHeight;
