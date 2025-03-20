@@ -259,7 +259,22 @@ function importarLista(event) {
 
 			if (Array.isArray(dados.produtos)) {
 				let produtos = JSON.parse(localStorage.getItem("produtos")) || [];
-				produtos = [...produtos, ...dados.produtos]; // Mescla os produtos existentes com os novos
+
+				dados.produtos.forEach(novoProduto => {
+					// Verifica se já existe um produto com as mesmas especificações
+					let indexExistente = produtos.findIndex(produto =>
+						JSON.stringify(produto) === JSON.stringify(novoProduto)
+					);
+
+					if (indexExistente !== -1) {
+						// Se já existir, sobrescreve o produto
+						produtos[indexExistente] = novoProduto;
+					} else {
+						// Se não existir, adiciona o novo produto
+						produtos.push(novoProduto);
+					}
+				});
+
 				localStorage.setItem("produtos", JSON.stringify(produtos));
 			}
 
