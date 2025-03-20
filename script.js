@@ -407,7 +407,7 @@ iniciar.addEventListener("click", function () {
 			constraints: {
 				facingMode: "environment"
 			},
-			target: document.getElementById("leitor")
+			target: document.getElementById("containerleitor")
 		},
 		decoder: {
 			readers: ["ean_reader", "code_128_reader"]
