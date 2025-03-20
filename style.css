@@ -258,12 +258,9 @@ select {
 	font-variant: all-petite-caps;
 }
 
-select:focus {
-	/*border: 1px solid #6200ea;
-    */
-}
+select:focus {/*border: 1px solid #6200ea;*/}
 
-/*#containerleitor {
+#containerleitor {
 	position: fixed;
 	width: 100%;
 	height: 100%;
@@ -275,12 +272,9 @@ select:focus {
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-}*/
-
-.opacity {
-	opacity: 0 !important;
-	display: none !important;
 }
+
+.displaynone {display: none !important;}
 
 /*#leitor {
   max-width: 80%;
@@ -290,15 +284,13 @@ select:focus {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: aqua;
   position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  opacity: 1;
 }*/
 
-/*#pararleitor {
+#pararleitor {
 	position: fixed;
 	bottom: 20px;
 	left: 50%;
@@ -306,7 +298,7 @@ select:focus {
 	padding: 10px 20px;
 	cursor: pointer;
 	max-width: 50%;
-}*/
+}
 
 .modal-content {
 	padding: 20px;
