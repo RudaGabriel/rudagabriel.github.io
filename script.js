@@ -399,11 +399,8 @@ const ajustarAlturaTabela = () => {
 };
 window.addEventListener('load', ajustarAlturaTabela);
 window.addEventListener('resize', ajustarAlturaTabela);
-pararleitor.addEventListener("click", function () {
-	containerleitor.classList.add("opacity");
-	Quagga.stop();
-});
 iniciar.addEventListener("click", function () {
+	containerleitor.classList.remove("opacity");
 	Quagga.init({
 		inputStream: {
 			type: "LiveStream",
@@ -417,15 +414,21 @@ iniciar.addEventListener("click", function () {
 		}
 	}, (err) => {
 		if (err) return msg("OK", "", true, err);
-		Quagga.start()
-		containerleitor.classList.remove("opacity");
-	})
+		Quagga.start();
+	});
+
 	Quagga.onDetected((res) => {
-		let codigo = res.codeResult.code
-		codigoBarras.value = codigo;
-		Quagga.stop()
-		containerleitor.classList.add("opacity");
-	})
+		let codigo = res.codeResult.code;
+		if (codigo) {
+			codigoBarras.value = codigo;
+			Quagga.stop();
+			containerleitor.classList.add("opacity");
+		}
+	});
+});
+pararleitor.addEventListener("click", function () {
+	Quagga.stop();
+	containerleitor.classList.add("opacity");
 });
 CancelarDadosFire.addEventListener("click", () => {dadosfirediv.style.display = "none";});
 ConfirmarDadosFire.addEventListener("click", () => {
