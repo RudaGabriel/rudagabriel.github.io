@@ -437,8 +437,8 @@ iniciar.addEventListener("click", function () {
 	}).catch(err => msg("OK", "", true, err));
 });
 pararleitor.addEventListener("click", function () {
-	Quagga.stop();
 	containerleitor.classList.add("opacity");
+	Quagga.stop();
 });
 CancelarDadosFire.addEventListener("click", () => {dadosfirediv.style.display = "none";});
 ConfirmarDadosFire.addEventListener("click", () => {
