@@ -25,11 +25,11 @@ let produtoEditadoIndex = -1
 let botaodesabilitado;
 function adicionarProduto() {
 	let nome = produtoInput.value.trim(),quantidade = quantidadeInput.value.trim(),vencimento = vencimentoInput.value.trim(),codigoBarras = codigoBarrasInput.value.trim();
-	if (!nome || !quantidade || !vencimento || !codigoBarras) msg("OK", "", true, "Preencha todos os campos!", () => {}, () => {});
+	if (!nome || !quantidade || !vencimento || !codigoBarras) return msg("OK", "", true, "Preencha todos os campos!", () => {}, () => {});
 	if (produtoEditadoIndex === -1 && adicionarBtn.textContent !== "Atualizar") {
 		let produtoExistente = produtos.find(p => p.codigoBarras === codigoBarras && p.nome === nome && formatarData(p.vencimento) === formatarData(vencimento));
 		if (produtoExistente) {
-			msg("Sim", "Não", false, "Produto já adicionado<br>Com o mesmo código de barras, nome e data de vencimento!<br>Deseja atualizar esse produto?", function () {
+			msg("Sim", "Não", false, `Produto ${p.nome} já adicionado<br>Com o mesmo código de barras e data de vencimento!<br>Deseja atualizar esse produto?`, function () {
 					Object.assign(produtoExistente, { nome, quantidade, vencimento, codigoBarras });
 					modal.style.display = "none";
 					salvarProdutos();
