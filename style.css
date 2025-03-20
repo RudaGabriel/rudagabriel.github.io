@@ -297,7 +297,7 @@ video {
 	transform: translateX(-50%);
 	padding: 10px 20px;
 	cursor: pointer;
-	max-width: 50%;
+	max-width: 40%;
 	z-index: 250;
 }
 
