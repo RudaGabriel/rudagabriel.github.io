@@ -300,13 +300,23 @@ if (db) {
 			const firebaseData = snapshot.data().dados || {};
 			Object.entries(firebaseData).forEach(([chave, valor]) => {
 				const antigoValor = localStorage.getItem(chave);
-				const antigoValorJSON = antigoValor ? JSON.stringify(JSON.parse(antigoValor)) : null;
-				const novoValorJSON = valor ? JSON.stringify(valor) : null;
+
+				const isObjeto = v => {
+					try {
+						const parsed = JSON.parse(v);
+						return typeof parsed === "object" && parsed !== null;
+					} catch {
+						return false;
+					}
+				};
+
+				const antigoValorJSON = isObjeto(antigoValor) ? JSON.stringify(JSON.parse(antigoValor)) : antigoValor;
+				const novoValorJSON = isObjeto(valor) ? JSON.stringify(valor) : valor;
 
 				if (novoValorJSON !== null && novoValorJSON !== antigoValorJSON) {
 					if (chave === "produtos") {
-						const produtosFirebase = JSON.parse(valor || "[]");
-						const produtosLocal = JSON.parse(antigoValor || "[]");
+						const produtosFirebase = isObjeto(valor) ? JSON.parse(valor) : [];
+						const produtosLocal = isObjeto(antigoValor) ? JSON.parse(antigoValor) : [];
 						if (Array.isArray(produtosFirebase) && produtosFirebase.length > 0) {
 							const produtosUnificados = [...produtosLocal];
 							produtosFirebase.forEach(produto => {
@@ -346,7 +356,7 @@ if (db) {
 				}
 
 				if (chave === "configAlerta" && valor) {
-					const valorparse = JSON.parse(valor);
+					const valorparse = isObjeto(valor) ? JSON.parse(valor) : {};
 					const hashnAlertar = document.querySelector("#nAlertar");
 					const hashcomo = document.querySelector("#como");
 					if (hashnAlertar) hashnAlertar.value = valorparse.alertarValor ?? 60;
