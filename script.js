@@ -430,8 +430,8 @@ iniciar.addEventListener("click", function () {
 			let codigo = res.codeResult.code;
 			if (codigo) {
 				codigoBarras.value = codigo;
-				Quagga.stop();
 				containerleitor.classList.add("opacity");
+				Quagga.stop();
 			}
 		});
 	}).catch(err => msg("OK", "", true, err));
