@@ -263,6 +263,30 @@ select:focus {
     */
 }
 
+#containerleitor {
+  position: fixed; /* Para fixar na tela */
+  top: 50%; /* Centraliza verticalmente */
+  left: 50%; /* Centraliza horizontalmente */
+  transform: translate(-50%, -50%); /* Ajusta o posicionamento para o centro exato */
+  width: 80%; /* Tamanho do container */
+  height: 80%; /* Tamanho do container */
+  display: none; /* Inicialmente escondido */
+  justify-content: center; /* Centraliza o conteúdo dentro */
+  align-items: center; /* Centraliza o conteúdo dentro */
+}
+
+#cancelar {
+  position: absolute;
+  bottom: 20px; /* Ajusta a distância do botão da parte inferior */
+  left: 50%; /* Centraliza horizontalmente */
+  transform: translateX(-50%); /* Ajusta para o centro exato */
+  background-color: #ff5555; /* Cor do botão */
+  color: white; /* Cor do texto */
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
 .modal-content {
 	padding: 20px;
 	text-align: center;
