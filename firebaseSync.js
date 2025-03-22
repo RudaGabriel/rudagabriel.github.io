@@ -137,6 +137,7 @@ async function salvarLocalStorageOnline() {
 		const docSnap = await getDoc(docRef);
 		const firebaseData = docSnap.exists() ? docSnap.data().dados || {} : {};
 		let diferenca = {};
+		console.log(todosDados);
 		Object.entries(todosDados).forEach(([chave, valor]) => {
 			if (firebaseData[chave] !== valor) diferenca[chave] = valor;
 		});
