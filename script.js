@@ -182,6 +182,7 @@ function selectTudo(elemento) {
 });
 function filtrarProdutos() {
 	filtroVencidosBtn.textContent = "Mostrar produtos vencidos";
+	filtroEsteMesBtn.textContent = "Mostrar produtos que vão vencer este mês";
 	ocultarVencidos = false;
 	let filtro = filtroInput.value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 	document.querySelectorAll("#lista tr").forEach(row => {
