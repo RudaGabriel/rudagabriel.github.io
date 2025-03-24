@@ -202,6 +202,7 @@ function removerProduto(nome, vencimento, quantidade) {
 
 			if (nomeProduto === nome && formatarData(vencimentoProduto) === formatarData(vencimento) && qtdProduto === quantidade) {
 				linha.remove();
+				let produtos = JSON.parse(localStorage.getItem("produtos")) || [];
 				produtos = produtos.filter(prod => !(prod.nome === nome && formatarData(prod.vencimento) === formatarData(vencimento) && prod.quantidade === quantidade));
 				localStorage.setItem("produtos", JSON.stringify(produtos));
 				modal.style.display = "none";
