@@ -190,6 +190,15 @@ function filtrarProdutos() {
 		row.style.display = nomeNormalizado.includes(filtro) || codigo.textContent.includes(filtro) ? "" : "none";
 	});
 }
+function tremerElemento(seletor) {
+    let elemento = document.querySelector(seletor);
+    if (!elemento) return;
+    
+    gsap.fromTo(elemento, 
+        { x: -5 }, 
+        { x: 5, duration: 0.1, repeat: 5, yoyo: true, ease: "power1.inOut" }
+    );
+}
 function removerProduto(nome, vencimento, quantidade) {
 	msg("Sim", "Não", false, `Tem certeza que deseja remover o item<br><b>${nome}</b><br>com vencimento em <b>${vencimento}</b> e quantidade <b>${quantidade}</b>?`, function () {
 		let linhas = document.querySelectorAll("#lista tr");
@@ -213,7 +222,8 @@ function removerProduto(nome, vencimento, quantidade) {
 	});
 }
 function toggleVencidos() {
-	if (filtroInput.value || filtroEsteMesBtn.textContent == "Mostrar Todos") return atualizarLista();
+	if (filtroInput.value) return tremerElemento("#filtro");
+	if (filtroEsteMesBtn.textContent == "Mostrar Todos") return tremerElemento("#filtroEsteMesBtn");
 	ocultarVencidos = !ocultarVencidos;
 	filtroVencidosBtn.textContent = ocultarVencidos ? "Mostrar Todos" : "Mostrar produtos vencidos";
 	document.querySelectorAll("#lista tr").forEach(row => {
@@ -226,7 +236,8 @@ function toggleVencidos() {
 	});
 }
 function toggleEsteMes() {
-	if (filtroInput.value || filtroVencidos.textContent == "Mostrar Todos") return atualizarLista();
+	if (filtroInput.value) return tremerElemento("#filtro");
+	if (filtroEsteMesBtn.textContent == "Mostrar Todos") return tremerElemento("#filtroEsteMesBtn");
 	let txt = filtroEsteMesBtn.textContent;
 	filtroEsteMesBtn.textContent = txt == "Mostrar Todos" ? "Mostrar produtos que vão vencer este mês" : "Mostrar Todos";
 	let mesAtual = new Date().getMonth() + 1;
