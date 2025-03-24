@@ -225,8 +225,8 @@ localStorage.setItem = function (chave, valor) {
 		}
 		atualizarLista();
 		filtrarProdutos();
-		salvarLocalStorageOnline();
 	}
+	salvarLocalStorageOnline();
 };
 function compararDiferencas(antigo, novo) {
 	try {
