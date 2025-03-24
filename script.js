@@ -245,7 +245,6 @@ function toggleEsteMes() {
 
 		let venceEsteMes = mes === mesAtual && ano === anoAtual;
 		row.style.display = filtroEsteMesBtn.textContent == "Mostrar Todos" && !venceEsteMes ? "none" : "";
-		console.log(venceEsteMes, ano, mes, dataVenc, mesAtual, anoAtual);
 	});
 }
 function carregarConfiguracaoAlerta() {
