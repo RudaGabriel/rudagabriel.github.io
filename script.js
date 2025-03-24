@@ -236,16 +236,21 @@ function toggleEsteMes() {
 	document.querySelectorAll("#lista tr").forEach(row => {
 		let dataVenc = row.querySelector("td:nth-child(4)")?.textContent.trim();
 		let vencido = row.querySelector("td:nth-child(4)").classList.contains("riscado");
-		if (!dataVenc && vencido) return;
-		
+
+		if (!dataVenc || vencido) return;
+
 		let partes = dataVenc.includes("/") ? dataVenc.split("/") : dataVenc.split("-");
 		if (partes.length !== 3) return;
-		
+
 		let [dia, mes, ano] = partes.map(Number);
 		if (ano < 100) ano += 2000;
 
 		let venceEsteMes = mes === mesAtual && ano === anoAtual;
-		if(!vencido) row.style.display = filtroEsteMesBtn.textContent == "Mostrar Todos" && !venceEsteMes ? "none" : "";
+		if (filtroEsteMesBtn.textContent == "Mostrar Todos" && !venceEsteMes) {
+			row.style.display = "none"; 
+		} else {
+			row.querySelector("td:nth-child(4)").classList.contains("riscado") ? null : row.style.display = ""; 
+		}
 	});
 }
 function carregarConfiguracaoAlerta() {
