@@ -204,9 +204,9 @@ function removerProduto(nome, vencimento, quantidade) {
 				linha.remove();
 				let produtos = JSON.parse(localStorage.getItem("produtos")) || [];
 				produtos = produtos.filter(prod => !(prod.nome === nome && prod.quantidade === quantidade));
+				localStorage.setItem("produtos", JSON.stringify(produtos));
 				console.log(produtos);
 				modal.style.display = "none";
-				salvarProdutos();
 				filtrarProdutos();
 				break;
 			}
