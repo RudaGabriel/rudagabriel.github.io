@@ -234,6 +234,11 @@ function toggleEsteMes() {
 	let anoAtual = new Date().getFullYear();
 
 	document.querySelectorAll("#lista tr").forEach(row => {
+		if (row.classList.contains("riscado")) {
+			row.remove();
+			return;
+		}
+		
 		let dataVenc = row.querySelector("td:nth-child(4)")?.textContent.trim();
 		if (!dataVenc) return;
 		
@@ -241,7 +246,7 @@ function toggleEsteMes() {
 		if (partes.length !== 3) return;
 		
 		let [dia, mes, ano] = partes.map(Number);
-		if (ano < 100) ano += 2000; // Corrige anos curtos (ex: "25" vira "2025")
+		if (ano < 100) ano += 2000;
 
 		let venceEsteMes = mes === mesAtual && ano === anoAtual;
 		row.style.display = filtroEsteMesBtn.textContent == "Mostrar Todos" && !venceEsteMes ? "none" : "";
