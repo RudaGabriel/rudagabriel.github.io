@@ -246,11 +246,8 @@ function toggleEsteMes() {
 		if (ano < 100) ano += 2000;
 
 		let venceEsteMes = mes === mesAtual && ano === anoAtual;
-		if (filtroEsteMesBtn.textContent == "Mostrar Todos" && !venceEsteMes) {
-			row.style.display = "none"; 
-		} else {
-			row.querySelector("td:nth-child(4)").classList.contains("riscado") ? null : row.style.display = ""; 
-		}
+		if (filtroEsteMesBtn.textContent == "Mostrar Todos" && !venceEsteMes) row.style.display = "none";
+		else row.style.display = "";
 	});
 }
 function carregarConfiguracaoAlerta() {
