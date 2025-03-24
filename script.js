@@ -6,6 +6,7 @@ const lista = document.getElementById("lista"),
 	adicionarBtn = document.getElementById("adicionar"),
 	filtroInput = document.getElementById("filtro"),
 	filtroVencidosBtn = document.getElementById("filtroVencidos"),
+	filtroEsteMesBtn = document.getElementById("filtroEsteMes"),
 	exportarBtn = document.getElementById("exportar"),
 	importarInput = document.getElementById("importar"),
 	iniciar = document.getElementById("iniciar"),
@@ -213,7 +214,7 @@ function removerProduto(nome, vencimento, quantidade) {
 	});
 }
 function toggleVencidos() {
-	if (filtroInput.value || filtroEsteMes.textContent == "Mostrar Todos") return;
+	if (filtroInput.value || filtroEsteMesBtn.textContent == "Mostrar Todos") return;
 	ocultarVencidos = !ocultarVencidos;
 	filtroVencidosBtn.textContent = ocultarVencidos ? "Mostrar Todos" : "Mostrar produtos vencidos";
 	document.querySelectorAll("#lista tr").forEach(row => {
@@ -227,11 +228,11 @@ function toggleVencidos() {
 }
 function toggleEsteMes() {
 	if (filtroInput.value || filtroVencidos.textContent == "Mostrar Todos") return;
-	let txt = filtroEsteMes.textContent;
-	filtroEsteMes.textContent = txt == "Mostrar Todos" ? "Mostrar produtos que vão vencer este mês" : "Mostrar Todos";
+	let txt = filtroEsteMesBtn.textContent;
+	filtroEsteMesBtn.textContent = txt == "Mostrar Todos" ? "Mostrar produtos que vão vencer este mês" : "Mostrar Todos";
 	document.querySelectorAll("#lista tr").forEach(row => {
 		let estemes = row.querySelector(".back-vermelho");
-		if (filtroEsteMes.textContent == "Mostrar Todos") {
+		if (filtroEsteMesBtn.textContent == "Mostrar Todos") {
 			row.style.display = estemes ? "" : "none";
 		} else {
 			row.style.display = "";
@@ -395,6 +396,7 @@ function msg(confText, canctext, cancVis, mensagem, confOnclick = () => {}, canc
 adicionarBtn.addEventListener("click", adicionarProduto);
 filtroInput.addEventListener("input", filtrarProdutos);
 filtroVencidosBtn.addEventListener("click", toggleVencidos);
+filtroEsteMesBtn.addEventListener("click", toggleEsteMes);
 exportarBtn.addEventListener("click", exportarLista);
 botaoImportar.addEventListener("click", () => importarInput.click());
 importarInput.addEventListener("change", importarLista);
