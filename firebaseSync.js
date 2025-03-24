@@ -341,7 +341,7 @@ if (db) {
 							}
 							produtosLocal.forEach(produto => {
 								if (!produtosFirebase.some(p => p.nome === produto.nome && p.codigoBarras === produto.codigoBarras && p.vencimento === produto.vencimento)) {
-									msg("SIM", "NÃO", false, `O produto com nome "${produto.nome}", código de barras "${produto.codigoBarras}", quantidade "${produto.quantidade}" e data de vencimento em "${produto.vencimento}"<br>Não existe mais para sincronização ou ainda não foi enviado ao firebase.<br>Você deseja manter esse produto?<br>Clique em "SIM" para manter, ou "NÃO" para excluir.`, () => {}, () => {
+									msg("SIM", "NÃO", false, `O produto com nome "${produto.nome}", código de barras "${produto.codigoBarras}", quantidade "${produto.quantidade}" e data de vencimento em "${formatarData(produto.vencimento)}"<br>Não existe mais para sincronização ou ainda não foi enviado ao firebase.<br>Você deseja manter esse produto?<br>Clique em "SIM" para manter, ou "NÃO" para excluir.`, () => {}, () => {
 										const produtosAtualizados = produtosLocal.filter(p => !(p.nome === produto.nome && p.codigoBarras === produto.codigoBarras && p.vencimento === produto.vencimento));
 										localStorage.setItem("produtos", JSON.stringify(produtosAtualizados));
 										console.log(`❌ Produto "${produto.nome}" removido do localStorage.`);
