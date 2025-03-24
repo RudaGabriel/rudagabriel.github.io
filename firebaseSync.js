@@ -124,6 +124,32 @@ if (Object.values(firebaseConfig).some(valor => !valor)) {
 	showCascadeAlert("✅ Firebase inicializado com sucesso!");
 	compararEPrivilegiarDados();
 }
+
+/*let produtos1 = JSON.parse(dadosloca.produtos);
+let produtos2 = JSON.parse(dadosfirebase.produtos);
+
+produtos1.forEach(produto1 => {
+  const produto2 = produtos2.find(p => p.nome === produto1.nome);
+
+  if (produto2) {
+    // Se o produto com o mesmo nome for encontrado
+    if (JSON.stringify(produto1) !== JSON.stringify(produto2)) {
+      console.log('Produto em dadosloca:', produto1);
+      console.log('Produto em dadosfirebase:', produto2);
+    }
+  } else {
+    console.log(`Produto "${produto1.nome}" não encontrado em dadosfirebase.`);
+  }
+});
+
+// Caso haja produtos em dadosfirebase que não existam em dadosloca
+produtos2.forEach(produto2 => {
+  const produto1 = produtos1.find(p => p.nome === produto2.nome);
+  if (!produto1) {
+    console.log(`Produto "${produto2.nome}" não encontrado em dadoslocal.`);
+  }
+});*/
+
 async function salvarLocalStorageOnline() {
 	if (localStorage.getItem("syncenviar") !== "true") return;
 	if (!db) return showCascadeAlert("❌ Firebase não inicializado.<br>Verifique as informações clicando no botão sincronizar.");
@@ -139,6 +165,33 @@ async function salvarLocalStorageOnline() {
 		let diferenca = {};
 		console.log(todosDados);
 		console.log(firebaseData);
+		
+		/* teste */
+		let dadoslocal = JSON.parse(todosDados.produtos);
+let dadosfirebase = JSON.parse(firebaseData.produtos);
+
+dadoslocal.forEach(produto1 => {
+  const produto2 = dadosfirebase.find(p => p.nome === produto1.nome);
+
+  if (produto2) {
+    // Se o produto com o mesmo nome for encontrado
+    if (JSON.stringify(produto1) !== JSON.stringify(produto2)) {
+      console.log('Produto em dadosloca:', produto1);
+      console.log('Produto em dadosfirebase:', produto2);
+    }
+  } else {
+    console.log(`Produto "${produto1.nome}" não encontrado em dadosfirebase.`);
+  }
+});
+
+// Caso haja produtos em dadosfirebase que não existam em dadosloca
+dadosfirebase.forEach(produto2 => {
+  const produto1 = dadoslocal.find(p => p.nome === produto2.nome);
+  if (!produto1) {
+    console.log(`Produto "${produto2.nome}" não encontrado em dadoslocal.`);
+  }
+});
+/* teste */
 		Object.entries(todosDados).forEach(([chave, valor]) => {
 			if (firebaseData[chave] !== valor) diferenca[chave] = valor;
 		});
