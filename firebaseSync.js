@@ -213,7 +213,6 @@ async function compararEPrivilegiarDados() {
 }
 const originalSetItem = localStorage.setItem;
 localStorage.setItem = function (chave, valor) {
-	if (!chavesPermitidas.some(permitida => chave.includes(permitida))) return;
 	const antigoValor = localStorage.getItem(chave);
 	if (antigoValor !== valor) {
 		originalSetItem.apply(this, arguments);
@@ -224,9 +223,9 @@ localStorage.setItem = function (chave, valor) {
 		} else {
 			console.log("➕ Novo valor:", valor);
 		}
-		salvarLocalStorageOnline();
 		atualizarLista();
 		filtrarProdutos();
+		salvarLocalStorageOnline();
 	}
 };
 function compararDiferencas(antigo, novo) {
