@@ -235,7 +235,8 @@ function toggleEsteMes() {
 
 	document.querySelectorAll("#lista tr").forEach(row => {
 		let dataVenc = row.querySelector("td:nth-child(4)")?.textContent.trim();
-		if (!dataVenc) return;
+		let vencido = row.querySelector("td:nth-child(4)").classList.contains("riscado");
+		if (!dataVenc && vencido) return;
 		
 		let partes = dataVenc.includes("/") ? dataVenc.split("/") : dataVenc.split("-");
 		if (partes.length !== 3) return;
@@ -244,7 +245,7 @@ function toggleEsteMes() {
 		if (ano < 100) ano += 2000;
 
 		let venceEsteMes = mes === mesAtual && ano === anoAtual;
-		row.style.display = filtroEsteMesBtn.textContent == "Mostrar Todos" && !venceEsteMes ? "none" : "";
+		if(!vencido) row.style.display = filtroEsteMesBtn.textContent == "Mostrar Todos" && !venceEsteMes ? "none" : "";
 	});
 }
 function carregarConfiguracaoAlerta() {
