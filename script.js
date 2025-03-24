@@ -88,7 +88,7 @@ function atualizarLista() {
             <td ${proximo ? 'class="back-vermelho"' : ""} class="${vencido ? "riscado" : ""}" style="${proximo ? fontbold : ''}">${formatarData(p.vencimento)}</td>
             <td>
                 <button onclick="editarProduto(${index}, this)">Editar</button>
-                <button onclick="removerProduto('${p.nome}','${formatarData(p.vencimento)}')">Remover</button>
+                <button onclick="removerProduto('${p.nome}','${formatarData(p.vencimento)}','${p.quantidade}')">Remover</button>
                 ${!vencido && ignorados.includes(p.vencimento + "+" + p.codigoBarras) ? `<button onclick="reverterAlerta('${p.vencimento + "+" + p.codigoBarras}')">Mostrar alerta ao iniciar</button>` : ""}
             </td>
         `;
@@ -189,23 +189,28 @@ function filtrarProdutos() {
 		row.style.display = nomeNormalizado.includes(filtro) || codigo.textContent.includes(filtro) ? "" : "none";
 	});
 }
-function removerProduto(nome, vencimento) {
-	msg("Sim", "Não", false, `Tem certeza que deseja remover o item<br><b>${nome}</b><br>com vencimento em <b>${vencimento}</b> ?`, function () {
-			let linhas = document.querySelectorAll("#lista tr");
-			for (let linha of linhas) {
-				let colunas = linha.querySelectorAll("td");
-				if (!colunas.length) continue;
-				let nomeProduto = colunas[1].textContent.trim();
-				let vencimentoProduto = colunas[3].textContent.trim();
-				if (nomeProduto === nome && formatarData(vencimentoProduto) === formatarData(vencimento)) {
-					linha.remove();
-				}
+function removerProduto(nome, vencimento, quantidade) {
+	msg("Sim", "Não", false, `Tem certeza que deseja remover o item<br><b>${nome}</b><br>com vencimento em <b>${vencimento}</b> e quantidade <b>${quantidade}</b>?`, function () {
+		let linhas = document.querySelectorAll("#lista tr");
+		for (let linha of linhas) {
+			let colunas = linha.querySelectorAll("td");
+			if (!colunas.length) continue;
+			let nomeProduto = colunas[1].textContent.trim();
+			let vencimentoProduto = colunas[3].textContent.trim();
+			let qtdProduto = parseInt(colunas[2].textContent.trim());
+
+			if (nomeProduto === nome && formatarData(vencimentoProduto) === formatarData(vencimento) && qtdProduto === quantidade) {
+				linha.remove();
+				break;
 			}
-			produtos = produtos.filter(prod => !(prod.nome === nome && formatarData(prod.vencimento) === formatarData(vencimento)));
-			localStorage.setItem("produtos", JSON.stringify(produtos));
-			modal.style.display = "none";
-			filtrarProdutos();
-		});
+		}
+
+		produtos = produtos.filter(prod => !(prod.nome === nome && formatarData(prod.vencimento) === formatarData(vencimento) && prod.quantidade === quantidade));
+
+		localStorage.setItem("produtos", JSON.stringify(produtos));
+		modal.style.display = "none";
+		filtrarProdutos();
+	});
 }
 function toggleVencidos() {
 	if (filtroInput.value) return;
