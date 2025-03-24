@@ -223,7 +223,7 @@ function removerProduto(nome, vencimento, quantidade) {
 }
 function toggleVencidos() {
 	if (filtroInput.value) return tremerElemento("#filtro");
-	if (filtroEsteMesBtn.textContent == "Mostrar Todos") return tremerElemento("#filtroEsteMesBtn");
+	if (filtroEsteMesBtn.textContent == "Mostrar Todos") return tremerElemento("#filtroEsteMes");
 	ocultarVencidos = !ocultarVencidos;
 	filtroVencidosBtn.textContent = ocultarVencidos ? "Mostrar Todos" : "Mostrar produtos vencidos";
 	document.querySelectorAll("#lista tr").forEach(row => {
@@ -237,7 +237,7 @@ function toggleVencidos() {
 }
 function toggleEsteMes() {
 	if (filtroInput.value) return tremerElemento("#filtro");
-	if (filtroEsteMesBtn.textContent == "Mostrar Todos") return tremerElemento("#filtroEsteMesBtn");
+	if (filtroVencidosBtn.textContent == "Mostrar Todos") return tremerElemento("#filtroVencidos");
 	let txt = filtroEsteMesBtn.textContent;
 	filtroEsteMesBtn.textContent = txt == "Mostrar Todos" ? "Mostrar produtos que vão vencer este mês" : "Mostrar Todos";
 	let mesAtual = new Date().getMonth() + 1;
