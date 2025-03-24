@@ -196,7 +196,7 @@ function tremerElemento(seletor) {
     if (!elemento) return;
     
     gsap.fromTo(elemento, 
-        { x: -5 }, 
+        { x: 0 }, 
         { x: 5, duration: 0.1, repeat: 5, yoyo: true, ease: "power1.inOut" }
     );
 }
