@@ -234,11 +234,11 @@ function toggleEsteMes() {
 	let anoAtual = new Date().getFullYear();
 
 	document.querySelectorAll("#lista tr").forEach(row => {
-		if (row.classList.contains("riscado")) {
+		if (row.querySelector(".riscado")) {
 			row.remove();
 			return;
 		}
-		
+
 		let dataVenc = row.querySelector("td:nth-child(4)")?.textContent.trim();
 		if (!dataVenc) return;
 		
@@ -249,7 +249,7 @@ function toggleEsteMes() {
 		if (ano < 100) ano += 2000;
 
 		let venceEsteMes = mes === mesAtual && ano === anoAtual;
-		row.style.display = filtroEsteMesBtn.textContent == "Mostrar Todos" && !venceEsteMes ? "none" : "";
+		row.style.display = filtroEsteMesBtn.textContent == "Mostrar Todos" || venceEsteMes ? "" : "none";
 	});
 }
 function carregarConfiguracaoAlerta() {
