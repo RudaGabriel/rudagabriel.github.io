@@ -214,7 +214,7 @@ function removerProduto(nome, vencimento, quantidade) {
 	});
 }
 function toggleVencidos() {
-	if (filtroInput.value || filtroEsteMesBtn.textContent == "Mostrar Todos") return;
+	if (filtroInput.value || filtroEsteMesBtn.textContent == "Mostrar Todos") return atualizarLista();
 	ocultarVencidos = !ocultarVencidos;
 	filtroVencidosBtn.textContent = ocultarVencidos ? "Mostrar Todos" : "Mostrar produtos vencidos";
 	document.querySelectorAll("#lista tr").forEach(row => {
@@ -227,7 +227,7 @@ function toggleVencidos() {
 	});
 }
 function toggleEsteMes() {
-	if (filtroInput.value || filtroVencidos.textContent == "Mostrar Todos") return;
+	if (filtroInput.value || filtroVencidos.textContent == "Mostrar Todos") return atualizarLista();
 	let txt = filtroEsteMesBtn.textContent;
 	filtroEsteMesBtn.textContent = txt == "Mostrar Todos" ? "Mostrar produtos que vão vencer este mês" : "Mostrar Todos";
 	let mesAtual = new Date().getMonth() + 1;
