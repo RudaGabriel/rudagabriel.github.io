@@ -119,7 +119,7 @@ function alertarProdutosProximos() {
 	function mostrarAlerta(index) {
 		if (index >= proximos.length) return;
 		let p = proximos[index];
-		msg("Sim", "Não", false, `O produto <b>${p.nome}</b><br>Com quantidade: <b>${p.quantidade}</b><br>Está próximo do vencimento!<b>${formatarData(p.vencimento)}</b><br>Deseja continuar sendo alertado?`,
+		msg("Sim", "Não", false, `O produto <b>${p.nome}</b><br>Com quantidade: <b>${p.quantidade}</b><br>Está próximo do vencimento! <b>${formatarData(p.vencimento)}</b><br>Deseja continuar sendo alertado?`,
 			() => mostrarAlerta(index + 1),
 			function () {
 				ignorados.push(p.vencimento + "+" + p.codigoBarras);
