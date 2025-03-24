@@ -197,7 +197,7 @@ function tremerElemento(seletor) {
     
     gsap.fromTo(elemento, 
         { x: 0 }, 
-        { x: 5, duration: 0.2, repeat: 5, yoyo: true, ease: "power1.inOut" }
+        { x: 6, duration: 0.2, repeat: 5, yoyo: true, ease: "power1.inOut" }
     );
 }
 function removerProduto(nome, vencimento, quantidade) {
