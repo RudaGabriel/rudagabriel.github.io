@@ -89,7 +89,7 @@ function atualizarLista() {
             <td ${proximo ? 'class="back-vermelho"' : ""} class="${vencido ? "riscado" : ""}" style="${proximo ? fontbold : ''}">${formatarData(p.vencimento)}</td>
             <td>
                 <button onclick="editarProduto(${index}, this)">Editar</button>
-                <button onclick="removerProduto('${p.nome}','${formatarData(p.vencimento)}','${p.quantidade ? p.quantidade : ''}')">Remover</button>
+                <button onclick="removerProduto('${p.nome}','${formatarData(p.vencimento)}','${p.quantidade ? p.quantidade : undefined}')">Remover</button>
                 ${!vencido && ignorados.includes(p.vencimento + "+" + p.codigoBarras) ? `<button onclick="reverterAlerta('${p.vencimento + "+" + p.codigoBarras}')">Mostrar alerta ao iniciar</button>` : ""}
             </td>
         `;
