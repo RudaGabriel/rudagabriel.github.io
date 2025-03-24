@@ -230,13 +230,21 @@ function toggleEsteMes() {
 	if (filtroInput.value || filtroVencidos.textContent == "Mostrar Todos") return;
 	let txt = filtroEsteMesBtn.textContent;
 	filtroEsteMesBtn.textContent = txt == "Mostrar Todos" ? "Mostrar produtos que vão vencer este mês" : "Mostrar Todos";
+	let mesAtual = new Date().getMonth() + 1;
+	let anoAtual = new Date().getFullYear();
+
 	document.querySelectorAll("#lista tr").forEach(row => {
-		let estemes = row.querySelector(".back-vermelho");
-		if (filtroEsteMesBtn.textContent == "Mostrar Todos") {
-			row.style.display = estemes ? "" : "none";
-		} else {
-			row.style.display = "";
-		}
+		let dataVenc = row.querySelector("td:nth-child(4)")?.textContent.trim();
+		if (!dataVenc) return;
+		
+		let partes = dataVenc.includes("/") ? dataVenc.split("/") : dataVenc.split("-");
+		if (partes.length !== 3) return;
+		
+		let [dia, mes, ano] = partes.map(Number);
+		if (ano < 100) ano += 2000; // Corrige anos curtos (ex: "25" vira "2025")
+
+		let venceEsteMes = mes === mesAtual && ano === anoAtual;
+		row.style.display = filtroEsteMesBtn.textContent == "Mostrar Todos" && !venceEsteMes ? "none" : "";
 	});
 }
 function carregarConfiguracaoAlerta() {
