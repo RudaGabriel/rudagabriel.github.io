@@ -141,7 +141,7 @@ function piscar(elemento, intervalo = 300) {
 	}, intervalo);
 }
 function salvarProdutos() {localStorage.setItem("produtos", JSON.stringify(produtos));atualizarLista();}
-function salvarIgnorados() {localStorage.setItem("ignorados", JSON.stringify(ignorados));}
+function salvarIgnorados() {localStorage.setItem("ignorados", JSON.stringify(ignorados));atualizarLista();}
 function formatarData(data) {return data.split("-").reverse().join("/");}
 function verificarVencimento(data) {
 	const hoje = new Date(),validade = new Date(data);
