@@ -208,7 +208,6 @@ function removerProduto(nome, vencimento, quantidade) {
 
 		produtos = produtos.filter(prod => !(prod.nome === nome && formatarData(prod.vencimento) === formatarData(vencimento) && prod.quantidade === quantidade));
 
-		localStorage.setItem("produtos", JSON.stringify(produtos));
 		modal.style.display = "none";
 		filtrarProdutos();
 	});
