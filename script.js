@@ -140,8 +140,8 @@ function piscar(elemento, intervalo = 300) {
 		elemento.style.visibility = elemento.style.visibility === "hidden" ? "visible" : "hidden";
 	}, intervalo);
 }
-function salvarProdutos() {localStorage.setItem("produtos", JSON.stringify(produtos));atualizarLista();}
-function salvarIgnorados() {localStorage.setItem("ignorados", JSON.stringify(ignorados));atualizarLista();}
+function salvarProdutos() {localStorage.setItem("produtos", JSON.stringify(produtos));}
+function salvarIgnorados() {localStorage.setItem("ignorados", JSON.stringify(ignorados));}
 function formatarData(data) {return data.split("-").reverse().join("/");}
 function verificarVencimento(data) {
 	const hoje = new Date(),validade = new Date(data);
@@ -204,9 +204,10 @@ function removerProduto(nome, vencimento, quantidade) {
 				linha.remove();
 				let produtos = JSON.parse(localStorage.getItem("produtos")) || [];
 				produtos = produtos.filter(prod => !(prod.nome === nome && formatarData(prod.vencimento) === formatarData(vencimento) && prod.quantidade === quantidade));
+				console.log(produtos);
 				modal.style.display = "none";
-				filtrarProdutos();
 				salvarProdutos();
+				filtrarProdutos();
 				break;
 			}
 		}
