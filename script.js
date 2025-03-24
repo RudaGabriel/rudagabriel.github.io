@@ -213,13 +213,26 @@ function removerProduto(nome, vencimento, quantidade) {
 	});
 }
 function toggleVencidos() {
-	if (filtroInput.value) return;
+	if (filtroInput.value || filtroEsteMes.textContent == "Mostrar Todos") return;
 	ocultarVencidos = !ocultarVencidos;
 	filtroVencidosBtn.textContent = ocultarVencidos ? "Mostrar Todos" : "Mostrar produtos vencidos";
 	document.querySelectorAll("#lista tr").forEach(row => {
 		let erisc = row.querySelector(".riscado");
 		if (filtroVencidosBtn.textContent == "Mostrar Todos") {
 			row.style.display = erisc ? "" : "none";
+		} else {
+			row.style.display = "";
+		}
+	});
+}
+function toggleEsteMes() {
+	if (filtroInput.value || filtroVencidos.textContent == "Mostrar Todos") return;
+	let txt = filtroEsteMes.textContent;
+	filtroEsteMes.textContent = txt == "Mostrar Todos" ? "Mostrar produtos que vão vencer este mês" : "Mostrar Todos";
+	document.querySelectorAll("#lista tr").forEach(row => {
+		let estemes = row.querySelector(".back-vermelho");
+		if (filtroEsteMes.textContent == "Mostrar Todos") {
+			row.style.display = estemes ? "" : "none";
 		} else {
 			row.style.display = "";
 		}
