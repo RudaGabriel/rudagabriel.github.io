@@ -1,4 +1,15 @@
 @media (max-width: 768px) {
+	input, button {
+		max-width: 40%;
+	}
+
+	.controls {
+		display: flex !important;
+		align-content: center;
+		justify-content: center;
+		align-items: center;
+	}
+	
 	body {
 		padding: 10px;
 	}
