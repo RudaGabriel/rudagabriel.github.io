@@ -8,6 +8,7 @@
 		align-content: center;
 		justify-content: center;
 		align-items: center;
+		width: 100% !important;
 	}
 	
 	body {
@@ -31,10 +32,6 @@
 	.table-container {
 		max-height: 300px;
 		overflow-x: hidden;
-	}
-
-	.controls {
-		display: block !important;
 	}
 
 	th,
