@@ -247,7 +247,7 @@ function toggleEsteMes() {
 	document.querySelectorAll("#lista tr").forEach(row => {
 		let dataVenc = row.querySelector("td:nth-child(4)")?.textContent.trim();
 
-		if (!dataVenc || vencido) return;
+		if (!dataVenc) return;
 
 		let partes = dataVenc.includes("/") ? dataVenc.split("/") : dataVenc.split("-");
 		if (partes.length !== 3) return;
