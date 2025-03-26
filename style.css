@@ -2,10 +2,6 @@
 	input, button:not(.table-container button), select {
 		max-width: 40%;
 	}
-	
-	td button {
-		margin-left: -10px;
-	}
 
 	.controls {
 		display: flex !important;
@@ -31,6 +27,7 @@
 		width: 100%;
 		padding: 5px !important;
 		font-size: 12px;
+		margin-left: 0px !important;
 	}
 
 	.table-container {
