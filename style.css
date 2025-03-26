@@ -1,8 +1,4 @@
 @media (max-width: 768px) {
-	input, button:not(.table-container button), select {
-		max-width: 40%;
-	}
-
 	.controls {
 		display: flex !important;
 		align-content: center;
@@ -22,12 +18,13 @@
 	}
 
 	input,
-	button,
+	button:not(.table-container button),
 	select {
 		width: 100%;
 		padding: 5px !important;
 		font-size: 12px;
 		margin-left: 0px !important;
+		max-width: 40%;
 	}
 
 	.table-container {
