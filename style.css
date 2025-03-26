@@ -1,5 +1,5 @@
 @media (max-width: 768px) {
-	input, button:not(.table-container button) {
+	input, button:not(.table-container button), select {
 		max-width: 40%;
 	}
 
