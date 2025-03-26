@@ -246,7 +246,6 @@ function toggleEsteMes() {
 
 	document.querySelectorAll("#lista tr").forEach(row => {
 		let dataVenc = row.querySelector("td:nth-child(4)")?.textContent.trim();
-		let vencido = row.querySelector("td:nth-child(4)").classList.contains("riscado");
 
 		if (!dataVenc || vencido) return;
 
