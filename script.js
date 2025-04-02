@@ -445,8 +445,8 @@ iniciar.addEventListener("click", function () {
 			type: "LiveStream",
 			constraints: {
 				facingMode: "environment",
-				width: { ideal: 720 }, //1280
-				height: { ideal: 540 }  //720
+				width: { ideal: 1280 }, //1280 ou 720
+				height: { ideal: 720 }  //720 ou 540
 			},
 			target: document.getElementById("containerleitor")
 		},
