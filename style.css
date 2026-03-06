@@ -16,9 +16,6 @@
 	padding: 0;
 	box-sizing: border-box;
 	font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-}
-
-* {
 	scrollbar-width: thin;
 	scrollbar-color: rgba(34, 211, 238, 0.7) rgba(154, 191, 255, 0.12);
 }
