@@ -73,6 +73,11 @@ function showCascadeAlert(msg, dur = 5200) {
 })();
 let db, docRef, bloqueioExecucao = false, bloqueioSincronizacao = false;
 const chavesPermitidas = ["-fire", "produtos", "configAlerta", "ignorados", "syncenviar"];
+
+function atualizarUIComSeguranca() {
+	if (typeof window.atualizarLista === "function") window.atualizarLista();
+	if (typeof window.filtrarProdutos === "function") window.filtrarProdutos();
+}
 if (Object.values(firebaseConfig).some(valor => !valor)) {
 	showCascadeAlert("⚠️ Configuração do Firebase está vazia.");
 } else {
@@ -132,8 +137,7 @@ async function carregarLocalStorageOnline() {
 				}
 			});
 			showCascadeAlert("✅ Dados carregados do Firebase!");
-			atualizarLista();
-			filtrarProdutos();
+			atualizarUIComSeguranca();
 		} else {
 			console.log("⚠️ Nenhum dado encontrado no Firestore.");
 		}
@@ -194,8 +198,7 @@ localStorage.setItem = function (chave, valor) {
 			console.log("➕ Novo valor:", valor);
 		}
 		salvarLocalStorageOnline();
-		atualizarLista();
-		filtrarProdutos();
+		atualizarUIComSeguranca();
 	}
 };
 function compararDiferencas(antigo, novo) {
@@ -231,8 +234,7 @@ localStorage.removeItem = function (chave) {
 		originalRemoveItem.apply(this, arguments);
 		console.log("🗑 LocalStorage item removido:", chave);
 		salvarLocalStorageOnline();
-		atualizarLista();
-		filtrarProdutos();
+		atualizarUIComSeguranca();
 	}
 };
 let modalAtivo = false;
@@ -314,8 +316,7 @@ if (db) {
 										const produtosAtualizados = produtosLocal.filter(p => !(p.nome === produto.nome && p.codigoBarras === produto.codigoBarras && p.vencimento === produto.vencimento));
 										localStorage.setItem("produtos", JSON.stringify(produtosAtualizados));
 										console.log(`❌ Produto "${produto.nome}" removido do localStorage.`);
-										atualizarLista();
-										filtrarProdutos();
+										atualizarUIComSeguranca();
 									});
 								}
 							});
@@ -346,8 +347,7 @@ if (db) {
 					console.log("➕ Novo valor:", valor);
 				}
 			});
-			atualizarLista();
-			filtrarProdutos();
+			atualizarUIComSeguranca();
 		}
 	});
 }

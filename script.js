@@ -17,12 +17,20 @@ const lista = document.getElementById("lista"),
 	modal = document.getElementById("modal"),
 	modalBody = document.getElementById("modalBody"),
 	confirmarBtn = document.getElementById("confirmar"),
-	cancelarBtn = document.getElementById("cancelar");
+	cancelarBtn = document.getElementById("cancelar"),
+	dadosfirediv = document.getElementById("dadosfirediv"),
+	confirmarDadosFireBtn = document.getElementById("ConfirmarDadosFire"),
+	cancelarDadosFireBtn = document.getElementById("CancelarDadosFire"),
+	suaChaveInput = document.getElementById("SUA_CHAVE"),
+	seuDominioInput = document.getElementById("SEU_DOMINIO"),
+	seuProjetoInput = document.getElementById("SEU_PROJETO"),
+	seuBucketInput = document.getElementById("SEU_BUCKET"),
+	seuIdInput = document.getElementById("SEU_ID"),
+	suaAppIdInput = document.getElementById("SUA_APP_ID");
 let produtos = JSON.parse(localStorage.getItem("produtos")) || [];
 let ocultarVencidos = false;
 let ignorados = JSON.parse(localStorage.getItem("ignorados")) || [];
 let produtoEditadoIndex = -1;
-let botaodesabilitado;
 
 function limparFormularioProduto() {
 	produtoInput.value = "";
@@ -498,15 +506,15 @@ pararleitor.addEventListener("click", function () {
 	containerleitor.classList.add("displaynone");
 	Quagga.stop();
 });
-CancelarDadosFire.addEventListener("click", () => {dadosfirediv.style.display = "none";});
-ConfirmarDadosFire.addEventListener("click", () => {
+cancelarDadosFireBtn?.addEventListener("click", () => { dadosfirediv.style.display = "none"; });
+confirmarDadosFireBtn?.addEventListener("click", () => {
 	// Coleta os valores dos campos
-	const chaveValue = SUA_CHAVE?.value;
-	const dominioValue = SEU_DOMINIO?.value;
-	const projetoValue = SEU_PROJETO?.value;
-	const bucketValue = SEU_BUCKET?.value;
-	const idValue = SEU_ID?.value;
-	const appIdValue = SUA_APP_ID?.value;
+	const chaveValue = suaChaveInput?.value;
+	const dominioValue = seuDominioInput?.value;
+	const projetoValue = seuProjetoInput?.value;
+	const bucketValue = seuBucketInput?.value;
+	const idValue = seuIdInput?.value;
+	const appIdValue = suaAppIdInput?.value;
 	// Salva os dados no localStorage
 	localStorage.setItem("chave-fire", chaveValue || "");
 	localStorage.setItem("dominio-fire", dominioValue || "");
@@ -555,12 +563,12 @@ sincronizar.addEventListener("click", () => {
 			// Caso nem todos os valores estejam preenchidos, exibe os inputs
 			dadosfirediv.style.display = "flex";
 			// Preenche os inputs com os valores do localStorage, se existirem
-			if (chaveValue) document.getElementById("SUA_CHAVE").value = chaveValue;
-			if (dominioValue) document.getElementById("SEU_DOMINIO").value = dominioValue;
-			if (projetoValue) document.getElementById("SEU_PROJETO").value = projetoValue;
-			if (bucketValue) document.getElementById("SEU_BUCKET").value = bucketValue;
-			if (idValue) document.getElementById("SEU_ID").value = idValue;
-			if (appIdValue) document.getElementById("SUA_APP_ID").value = appIdValue;
+			if (chaveValue && suaChaveInput) suaChaveInput.value = chaveValue;
+			if (dominioValue && seuDominioInput) seuDominioInput.value = dominioValue;
+			if (projetoValue && seuProjetoInput) seuProjetoInput.value = projetoValue;
+			if (bucketValue && seuBucketInput) seuBucketInput.value = bucketValue;
+			if (idValue && seuIdInput) seuIdInput.value = idValue;
+			if (appIdValue && suaAppIdInput) suaAppIdInput.value = appIdValue;
 		}
 	}
 });
