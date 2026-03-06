@@ -445,24 +445,15 @@ importarInput.addEventListener("change", importarLista);
 atualizarLista();
 alertarProdutosProximos();
 const ajustarAlturaTabela = () => {
-	const alturaTela = window.innerHeight;
-	const h1 = document.querySelector("h1");
-	const controls = document.querySelectorAll(".controls");
 	const tableContainer = document.querySelector(".table-container");
 	if (!tableContainer) return;
 
-	let alturaAcimaDaTabela = 0;
-	if (h1) {
-		alturaAcimaDaTabela += h1.offsetHeight;
-	}
-	controls.forEach(control => {
-		alturaAcimaDaTabela += control.offsetHeight;
-	});
-
-	const estiloBody = window.getComputedStyle(document.body);
-	const paddingVerticalBody = parseFloat(estiloBody.paddingTop) + parseFloat(estiloBody.paddingBottom);
-	const margemSeguranca = window.innerWidth <= 768 ? 42 : 56;
-	const alturaTabela = Math.max(220, alturaTela - alturaAcimaDaTabela - paddingVerticalBody - margemSeguranca);
+	const bodyStyle = window.getComputedStyle(document.body);
+	const bodyPaddingBottom = parseFloat(bodyStyle.paddingBottom) || 0;
+	const margemBottom = 10;
+	const topTabela = tableContainer.getBoundingClientRect().top;
+	const alturaDisponivel = window.innerHeight - topTabela - bodyPaddingBottom - margemBottom;
+	const alturaTabela = Math.max(220, Math.floor(alturaDisponivel));
 	tableContainer.style.maxHeight = `${alturaTabela}px`;
 };
 window.addEventListener('load', ajustarAlturaTabela);

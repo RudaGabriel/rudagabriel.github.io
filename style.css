@@ -177,7 +177,7 @@ button:hover {
 	overflow: auto;
 	width: 100%;
 	max-width: 100%;
-	max-height: min(64vh, calc(100vh - 280px));
+	max-height: calc(100vh - 260px);
 	border-radius: 12px;
 	border: 1px solid var(--line);
 	padding: 2px;
@@ -376,7 +376,7 @@ tbody tr:hover {
 	}
 
 	.table-container {
-		max-height: min(58vh, calc(100vh - 320px));
+		max-height: calc(100vh - 290px);
 	}
 
 	.table-container button {
