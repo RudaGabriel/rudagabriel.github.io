@@ -8,80 +8,38 @@ const firebaseConfig = {
 	messagingSenderId: localStorage.getItem("id-fire") || "",
 	appId: localStorage.getItem("appid-fire") || ""
 };
-function showCascadeAlert(message) {
-	if (!document.querySelector("#cascade-alert-style")) {
-		const style = document.createElement("style");
-		style.id = "cascade-alert-style";
-		style.innerHTML = `
-            .cascade-alert {
-                position: fixed; left: 20px; background: #222; border: 2px solid #0ff;
-                box-shadow: 0 0 10px #0ff, 0 0 20px #0ff; padding: 12px 10px; text-align: left;
-                border-radius: 8px; font-family: Arial, sans-serif; color: #fff; z-index: 10000;
-                display: flex; flex-direction: row; justify-content: space-between;
-                align-items: center; word-wrap: break-word; max-width: 35%; transition: opacity 0.4s, transform 0.4s;
-            }
-            .cascade-alert.removing {
-                opacity: 0; transform: translateX(-100%);
-            }
-            .cascade-alert .message-cascade { flex-grow: 1; }
-            .cascade-alert .close-btn-cascade { font-size: 16px; color: #fff; background: transparent; border: none; cursor: pointer; padding: 0; margin-left: 12px; }
-            .cascade-alert .close-btn-cascade:hover { color: #0cc; }
-            .cascade-clear-btn {
-                position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
-                background: #0ff; color: #000; border: 2px solid #000; padding: 10px 20px;
-                font-weight: bold; cursor: pointer; z-index: 10001; border-radius: 5px;
-                box-shadow: 0 0 20px #0ff, 0 0 40px #0ff;
-            }
-            .cascade-clear-btn:hover { background: #0cc; }
-        `;
-		document.head.appendChild(style);
+const __ncToastMsgs = new Set();
+function showCascadeAlert(msg, dur = 5200) {
+	if (!msg || __ncToastMsgs.has(msg)) return;
+	__ncToastMsgs.add(msg);
+	if (!document.getElementById("__nc_toast_style")) {
+		const st = document.createElement("style");
+		st.id = "__nc_toast_style";
+		st.textContent = ".__nc_toast_box{position:fixed;top:16px;left:16px;z-index:2147483647!important;display:flex;flex-direction:column;gap:10px;max-width:min(520px,92vw);pointer-events:none}.__nc_toast{pointer-events:auto;z-index:2147483647!important;background:#111;border:1px solid rgba(0,255,255,.45);box-shadow:0 0 10px rgba(0,255,255,.25),0 0 18px rgba(0,255,255,.18);color:#fff;border-radius:12px;padding:10px 32px 16px 12px;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;font-weight:600;font-size:13px;line-height:1.3;position:relative;opacity:0;transform:translateX(-18px);transition:opacity .18s ease,transform .18s ease;overflow:hidden}.__nc_toast.__on{opacity:1;transform:translateX(0)}.__nc_toast_x{position:absolute;top:8px;right:8px;width:18px;height:18px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#fff;font-weight:600;font-size:10px;cursor:pointer;padding:0;display:grid;place-items:center}.__nc_toast_x:hover{background:rgba(255,255,255,.10)}.__nc_toast a{color:#0ff;text-decoration:none}.__nc_toast a:hover{text-decoration:underline}.__nc_toast_bar{position:absolute;left:10px;right:10px;bottom:8px;height:3px;border-radius:999px;background:rgba(255,255,255,.10);overflow:hidden}.__nc_toast_bar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,rgba(0,255,255,.85),rgba(0,255,255,.35));transform-origin:left;transform:scaleX(1);animation:__nc_toast_bar var(--dur) linear forwards}@keyframes __nc_toast_bar{to{transform:scaleX(0)}}";
+		(document.head || document.documentElement).appendChild(st);
 	}
-	if (!document.querySelector(".cascade-clear-btn")) {
-		const clearButton = document.createElement("button");
-		clearButton.className = "cascade-clear-btn";
-		clearButton.style.maxWidth = "35%";
-		clearButton.style.fontFamily = "monospace";
-		clearButton.style.fontSize = "smaller";
-		clearButton.style.fontWeight = "bolder";
-		clearButton.title = "Limpar todas as mensagens de informações exibidas a esquerda";
-		clearButton.textContent = "← Limpar todos estes alertas";
-		clearButton.addEventListener("click", () => {
-			document.querySelectorAll(".cascade-alert").forEach((el) => removeAlert(el));
-		});
-		document.body.appendChild(clearButton);
+	let box = document.querySelector(".__nc_toast_box");
+	if (!box) {
+		box = document.createElement("div");
+		box.className = "__nc_toast_box";
+		(document.body || document.documentElement).appendChild(box);
 	}
-	const formattedMessage = message.replace(/https?:\/\/[^\s]+/g, (url) => `<a href="${url}" target="_blank" style="color: #0ff; text-decoration: underline;">${url}</a>`).replace(/<br\s*\/?>/g, "\n").trim();
-	if ([...document.querySelectorAll(".cascade-alert .message-cascade")].some(el => el.innerText.replace(/\s+/g, " ").trim() === formattedMessage.replace(/\s+/g, " "))) return;
-	const alert = document.createElement("div");
-	alert.className = "cascade-alert";
-	alert.innerHTML = `
-        <div class="message-cascade">${formattedMessage.replace(/\n/g, "<br>")}</div>
-        <button class="close-btn-cascade" title="fechar esta mensagem">X</button>
-    `;
-	alert.querySelector(".close-btn-cascade").addEventListener("click", () => removeAlert(alert));
-	document.body.appendChild(alert);
-	const removeAlert = (el) => {
-		el.classList.add("removing");
-		setTimeout(() => {
-			el.remove();
-			positionAlerts();
-			toggleClearButton();
-		}, 400);
+	const el = document.createElement("div");
+	el.className = "__nc_toast";
+	const html = msg.replace(/https?:\/\/[^\s]+/g, u => `<a href="${u}" target="_blank" rel="noreferrer noopener">${u}</a>`).replace(/\n/g, "<br>");
+	el.style.setProperty("--dur", dur + "ms");
+	el.innerHTML = `<div>${html}</div><button class="__nc_toast_x" aria-label="Fechar">✕</button><div class="__nc_toast_bar"><i></i></div>`;
+	const rm = () => {
+		if (!el.isConnected) return;
+		el.remove();
+		__ncToastMsgs.delete(msg);
 	};
-	const positionAlerts = () => {
-		let offset = 20;
-		document.querySelectorAll(".cascade-alert").forEach((el) => {
-			el.style.top = `${offset}px`;
-			offset += el.offsetHeight + 15;
-		});
-	};
-	const toggleClearButton = () => {
-		const clearButton = document.querySelector(".cascade-clear-btn");
-		clearButton.style.display = document.querySelectorAll(".cascade-alert").length > 0 ? "block" : "none";
-	};
-	positionAlerts();
-	toggleClearButton();
+	el.querySelector("button").addEventListener("click", rm);
+	box.appendChild(el);
+	requestAnimationFrame(() => el.classList.add("__on"));
+	setTimeout(rm, dur);
 }
+
 (function () {
 	const originalXHR = XMLHttpRequest.prototype.open;
 	const originalXHRSend = XMLHttpRequest.prototype.send;
