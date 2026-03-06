@@ -447,10 +447,19 @@ alertarProdutosProximos();
 const ajustarAlturaTabela = () => {
 	const tableContainer = document.querySelector(".table-container");
 	if (!tableContainer) return;
-	tableContainer.style.maxHeight = "none";
+
+	const viewportHeight = window.visualViewport?.height || window.innerHeight;
+	const topTabela = tableContainer.getBoundingClientRect().top;
+	const bodyStyle = window.getComputedStyle(document.body);
+	const paddingBottom = parseFloat(bodyStyle.paddingBottom) || 0;
+	const margemBottom = 10;
+	const alturaDisponivel = Math.floor(viewportHeight - topTabela - paddingBottom - margemBottom);
+	tableContainer.style.maxHeight = `${Math.max(120, alturaDisponivel)}px`;
 };
 window.addEventListener("load", ajustarAlturaTabela);
 window.addEventListener("resize", ajustarAlturaTabela);
+window.visualViewport?.addEventListener("resize", ajustarAlturaTabela);
+window.visualViewport?.addEventListener("scroll", ajustarAlturaTabela);
 iniciar.addEventListener("click", function () {
 	Quagga.init({
 		inputStream: {
