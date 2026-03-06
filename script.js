@@ -55,7 +55,6 @@ function adicionarProduto() {
 		Object.assign(produtos[produtoEditadoIndex], { nome, quantidade, vencimento, codigoBarras });
 		produtoEditadoIndex = -1;
 		adicionarBtn.textContent = "Adicionar";
-		if (botaodesabilitado) botaodesabilitado.disabled = false;
 	}
 	filtroVencidosBtn.textContent = "Mostrar produtos vencidos";
 	ocultarVencidos = false;
@@ -63,7 +62,15 @@ function adicionarProduto() {
 	atualizarLista();
 	limparFormularioProduto();
 }
-function editarProduto(index, botao) {
+function cancelarEdicao() {
+	if (produtoEditadoIndex === -1) return;
+	produtoEditadoIndex = -1;
+	adicionarBtn.textContent = "Adicionar";
+	limparFormularioProduto();
+	atualizarLista();
+}
+
+function editarProduto(index) {
 	let p = produtos[index];
 	produtoInput.value = p.nome;
 	quantidadeInput.value = p.quantidade;
@@ -71,9 +78,7 @@ function editarProduto(index, botao) {
 	codigoBarrasInput.value = p.codigoBarras;
 	produtoEditadoIndex = index;
 	adicionarBtn.textContent = "Atualizar";
-	if (botaodesabilitado) botaodesabilitado.disabled = false;
-	botaodesabilitado = botao.parentNode.children[1];
-	botaodesabilitado.disabled = true;
+	atualizarLista();
 }
 function atualizarLista() {
 	produtos = JSON.parse(localStorage.getItem("produtos")) || [];
@@ -90,14 +95,18 @@ function atualizarLista() {
 		let proximo = dias >= -1 && dias <= limiteAlerta;
 		let estilo = proximo ? "font-size:1.2em;font-weight:bold;filter:drop-shadow(2px 0px 5px red)" : "";
 		let fontbold = "font-size:1.2em;font-weight:bold;";
+		const emEdicao = produtoEditadoIndex === index;
+		const onClickAcaoSecundaria = emEdicao
+			? "cancelarEdicao()"
+			: `removerProduto('${p.nome}','${formatarData(p.vencimento)}',${p.quantidade ? p.quantidade : undefined})`;
 		tr.innerHTML = `
             <td class="${vencido ? "riscado" : ""}" onclick="selectTudo(this);" style="${estilo}">${p.codigoBarras}</td>
             <td class="${vencido ? "riscado" : ""}" onclick="selectTudo(this);" style="${estilo}">${p.nome}</td>
             <td class="${vencido ? "riscado" : ""}" style="${estilo}">${p.quantidade}</td>
             <td ${proximo ? 'class="back-vermelho"' : ""} class="${vencido ? "riscado" : ""}" style="${proximo ? fontbold : ''}">${formatarData(p.vencimento)}</td>
             <td>
-                <button onclick="editarProduto(${index}, this)">Editar</button>
-                <button onclick="removerProduto('${p.nome}','${formatarData(p.vencimento)}',${p.quantidade ? p.quantidade : undefined})">Remover</button>
+                <button class="${emEdicao ? "btn-editing" : ""}" onclick="editarProduto(${index})">${emEdicao ? "Editando..." : "Editar"}</button>
+                <button class="${emEdicao ? "btn-cancelar-edicao" : ""}" onclick="${onClickAcaoSecundaria}">${emEdicao ? "Cancelar" : "Remover"}</button>
                 ${!vencido && ignorados.includes(p.vencimento + "+" + p.codigoBarras) ? `<button onclick="reverterAlerta('${p.vencimento + "+" + p.codigoBarras}')">Mostrar alerta ao iniciar</button>` : ""}
             </td>
         `;
@@ -429,8 +438,11 @@ atualizarLista();
 alertarProdutosProximos();
 const ajustarAlturaTabela = () => {
 	const alturaTela = window.innerHeight;
-	const h1 = document.querySelector('h1');
-	const controls = document.querySelectorAll('.controls');
+	const h1 = document.querySelector("h1");
+	const controls = document.querySelectorAll(".controls");
+	const tableContainer = document.querySelector(".table-container");
+	if (!tableContainer) return;
+
 	let alturaAcimaDaTabela = 0;
 	if (h1) {
 		alturaAcimaDaTabela += h1.offsetHeight;
@@ -438,8 +450,12 @@ const ajustarAlturaTabela = () => {
 	controls.forEach(control => {
 		alturaAcimaDaTabela += control.offsetHeight;
 	});
-	const alturaTabela = alturaTela - alturaAcimaDaTabela - 80;
-	document.querySelector('.table-container').style.maxHeight = `${alturaTabela}px`;
+
+	const estiloBody = window.getComputedStyle(document.body);
+	const paddingVerticalBody = parseFloat(estiloBody.paddingTop) + parseFloat(estiloBody.paddingBottom);
+	const margemSeguranca = window.innerWidth <= 768 ? 42 : 56;
+	const alturaTabela = Math.max(220, alturaTela - alturaAcimaDaTabela - paddingVerticalBody - margemSeguranca);
+	tableContainer.style.maxHeight = `${alturaTabela}px`;
 };
 window.addEventListener('load', ajustarAlturaTabela);
 window.addEventListener('resize', ajustarAlturaTabela);
