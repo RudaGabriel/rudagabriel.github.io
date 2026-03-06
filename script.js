@@ -22,6 +22,7 @@ let produtos = JSON.parse(localStorage.getItem("produtos")) || [];
 let ocultarVencidos = false;
 let ignorados = JSON.parse(localStorage.getItem("ignorados")) || [];
 let produtoEditadoIndex = -1;
+let botaodesabilitado;
 
 function limparFormularioProduto() {
 	produtoInput.value = "";
