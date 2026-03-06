@@ -17,12 +17,28 @@ const lista = document.getElementById("lista"),
 	modal = document.getElementById("modal"),
 	modalBody = document.getElementById("modalBody"),
 	confirmarBtn = document.getElementById("confirmar"),
-	cancelarBtn = document.getElementById("cancelar");
+	cancelarBtn = document.getElementById("cancelar"),
+	dadosfirediv = document.getElementById("dadosfirediv"),
+	confirmarDadosFireBtn = document.getElementById("ConfirmarDadosFire"),
+	cancelarDadosFireBtn = document.getElementById("CancelarDadosFire"),
+	suaChaveInput = document.getElementById("SUA_CHAVE"),
+	seuDominioInput = document.getElementById("SEU_DOMINIO"),
+	seuProjetoInput = document.getElementById("SEU_PROJETO"),
+	seuBucketInput = document.getElementById("SEU_BUCKET"),
+	seuIdInput = document.getElementById("SEU_ID"),
+	suaAppIdInput = document.getElementById("SUA_APP_ID");
 let produtos = JSON.parse(localStorage.getItem("produtos")) || [];
 let ocultarVencidos = false;
 let ignorados = JSON.parse(localStorage.getItem("ignorados")) || [];
-let produtoEditadoIndex = -1
-let botaodesabilitado;
+let produtoEditadoIndex = -1;
+
+function limparFormularioProduto() {
+	produtoInput.value = "";
+	quantidadeInput.value = "";
+	vencimentoInput.value = "";
+	codigoBarrasInput.value = "";
+}
+
 function adicionarProduto() {
 	let nome = produtoInput.value.trim(),quantidade = quantidadeInput.value.trim(),vencimento = vencimentoInput.value.trim(),codigoBarras = codigoBarrasInput.value.trim();
 	if (!nome || !quantidade || !vencimento || !codigoBarras) return msg("OK", "", true, "Preencha todos os campos!", () => {}, () => {});
@@ -30,7 +46,7 @@ function adicionarProduto() {
 		let produtoExistente = produtos.find(p => p.codigoBarras === codigoBarras && p.nome === nome && formatarData(p.vencimento) === formatarData(vencimento));
 		if (produtoExistente) {
 			if (produtoExistente.quantidade === quantidade) {
-				produtoInput.value = quantidadeInput.value = vencimentoInput.value = codigoBarrasInput.value = "";
+				limparFormularioProduto();
 				return;
 			}
 			msg("Sim", "Não", false, `Produto ${nome} já adicionado<br>Com o mesmo código de barras e data de vencimento!<br>Deseja atualizar a quantidade deste produto com a nova fornecida?<br>Quantidade anterior: ${produtoExistente.quantidade} | Nova quantidade: ${quantidade}`, function () {
@@ -38,7 +54,7 @@ function adicionarProduto() {
 					modal.style.display = "none";
 					salvarProdutos();
 					atualizarLista();
-					produtoInput.value = quantidadeInput.value = vencimentoInput.value = codigoBarrasInput.value = "";
+					limparFormularioProduto();
 				});
 			return;
 		}
@@ -47,15 +63,22 @@ function adicionarProduto() {
 		Object.assign(produtos[produtoEditadoIndex], { nome, quantidade, vencimento, codigoBarras });
 		produtoEditadoIndex = -1;
 		adicionarBtn.textContent = "Adicionar";
-		if (botaodesabilitado) botaodesabilitado.disabled = false;
 	}
 	filtroVencidosBtn.textContent = "Mostrar produtos vencidos";
 	ocultarVencidos = false;
 	salvarProdutos();
 	atualizarLista();
-	produtoInput.value = quantidadeInput.value = vencimentoInput.value = codigoBarrasInput.value = "";
+	limparFormularioProduto();
 }
-function editarProduto(index, botao) {
+function cancelarEdicao() {
+	if (produtoEditadoIndex === -1) return;
+	produtoEditadoIndex = -1;
+	adicionarBtn.textContent = "Adicionar";
+	limparFormularioProduto();
+	atualizarLista();
+}
+
+function editarProduto(index) {
 	let p = produtos[index];
 	produtoInput.value = p.nome;
 	quantidadeInput.value = p.quantidade;
@@ -63,9 +86,7 @@ function editarProduto(index, botao) {
 	codigoBarrasInput.value = p.codigoBarras;
 	produtoEditadoIndex = index;
 	adicionarBtn.textContent = "Atualizar";
-	if (botaodesabilitado) botaodesabilitado.disabled = false;
-	botaodesabilitado = botao.parentNode.children[1];
-	botaodesabilitado.disabled = true;
+	atualizarLista();
 }
 function atualizarLista() {
 	produtos = JSON.parse(localStorage.getItem("produtos")) || [];
@@ -82,14 +103,18 @@ function atualizarLista() {
 		let proximo = dias >= -1 && dias <= limiteAlerta;
 		let estilo = proximo ? "font-size:1.2em;font-weight:bold;filter:drop-shadow(2px 0px 5px red)" : "";
 		let fontbold = "font-size:1.2em;font-weight:bold;";
+		const emEdicao = produtoEditadoIndex === index;
+		const onClickAcaoSecundaria = emEdicao
+			? "cancelarEdicao()"
+			: `removerProduto('${p.nome}','${formatarData(p.vencimento)}',${p.quantidade ? p.quantidade : undefined})`;
 		tr.innerHTML = `
             <td class="${vencido ? "riscado" : ""}" onclick="selectTudo(this);" style="${estilo}">${p.codigoBarras}</td>
             <td class="${vencido ? "riscado" : ""}" onclick="selectTudo(this);" style="${estilo}">${p.nome}</td>
             <td class="${vencido ? "riscado" : ""}" style="${estilo}">${p.quantidade}</td>
             <td ${proximo ? 'class="back-vermelho"' : ""} class="${vencido ? "riscado" : ""}" style="${proximo ? fontbold : ''}">${formatarData(p.vencimento)}</td>
             <td>
-                <button onclick="editarProduto(${index}, this)">Editar</button>
-                <button onclick="removerProduto('${p.nome}','${formatarData(p.vencimento)}',${p.quantidade ? p.quantidade : undefined})">Remover</button>
+                <button class="${emEdicao ? "btn-editing" : ""}" onclick="editarProduto(${index})">${emEdicao ? "Editando..." : "Editar"}</button>
+                <button class="${emEdicao ? "btn-cancelar-edicao" : ""}" onclick="${onClickAcaoSecundaria}">${emEdicao ? "Cancelar" : "Remover"}</button>
                 ${!vencido && ignorados.includes(p.vencimento + "+" + p.codigoBarras) ? `<button onclick="reverterAlerta('${p.vencimento + "+" + p.codigoBarras}')">Mostrar alerta ao iniciar</button>` : ""}
             </td>
         `;
@@ -98,8 +123,8 @@ function atualizarLista() {
 		else produtosRestantes.push(tr);
 	});
 	produtosProximos.sort((a, b) => {
-		let dataA = new Date(a.children[3].textContent.split('/').reverse().join('-'));
-		let dataB = new Date(b.children[3].textContent.split('/').reverse().join('-'));
+		let dataA = new Date(a.children[3].textContent.split("/").reverse().join("-"));
+		let dataB = new Date(b.children[3].textContent.split("/").reverse().join("-"));
 		return dataA - dataB;
 	});
 	produtosProximos.forEach(tr => (lista.appendChild(tr), piscar(tr.children[3])));
@@ -149,11 +174,11 @@ function verificarVencimento(data) {
 	return diffDias;
 }
 function selectTudo(elemento) {
-	const range = document.createRange()
-	const selection = window.getSelection()
-	range.selectNodeContents(elemento)
-	selection.removeAllRanges()
-	selection.addRange(range)
+	const range = document.createRange();
+	const selection = window.getSelection();
+	range.selectNodeContents(elemento);
+	selection.removeAllRanges();
+	selection.addRange(range);
 }
 ["keydown", "keyup"].forEach(qual => {
 	filtroInput.addEventListener(qual, () => {
@@ -192,13 +217,13 @@ function filtrarProdutos() {
 	});
 }
 function tremerElemento(seletor) {
-    let elemento = document.querySelector(seletor);
-    if (!elemento) return;
-    
-    gsap.fromTo(elemento, 
-        { x: 0 }, 
-        { x: 5, duration: 0.1, repeat: 7, yoyo: true, ease: "power1.inOut" }
-    );
+	let elemento = document.querySelector(seletor);
+	if (!elemento) return;
+
+	gsap.fromTo(elemento,
+		{ x: 0 },
+		{ x: 5, duration: 0.1, repeat: 7, yoyo: true, ease: "power1.inOut" }
+	);
 }
 function removerProduto(nome, vencimento, quantidade) {
 	msg("Sim", "Não", false, `Tem certeza que deseja remover o item<br><b>${nome}</b><br>com vencimento em <b>${vencimento}</b> e quantidade <b>${quantidade}</b>?`, function () {
@@ -208,13 +233,12 @@ function removerProduto(nome, vencimento, quantidade) {
 			if (!colunas.length) continue;
 			let nomeProduto = colunas[1].textContent.trim();
 			let vencimentoProduto = colunas[3].textContent.trim();
-			let qtdProduto = parseInt(colunas[2].textContent.trim());
+			let qtdProduto = parseInt(colunas[2].textContent.trim(), 10);
 
 			if (nomeProduto === nome && formatarData(vencimentoProduto) === formatarData(vencimento) && qtdProduto === quantidade) {
 				linha.remove();
-				let produtos = JSON.parse(localStorage.getItem("produtos")) || [];
-				produtos = produtos.filter(prod => !(prod.nome === nome && formatarData(prod.vencimento) === formatarData(vencimento) && parseInt(prod.quantidade) === quantidade));
-				localStorage.setItem("produtos", JSON.stringify(produtos));
+				produtos = produtos.filter(prod => !(prod.nome === nome && formatarData(prod.vencimento) === formatarData(vencimento) && parseInt(prod.quantidade, 10) === quantidade));
+				salvarProdutos();
 				modal.style.display = "none";
 				filtrarProdutos();
 				break;
@@ -224,12 +248,12 @@ function removerProduto(nome, vencimento, quantidade) {
 }
 function toggleVencidos() {
 	if (filtroInput.value) return tremerElemento("#filtro");
-	if (filtroEsteMesBtn.textContent == "Mostrar Todos") return tremerElemento("#filtroEsteMes");
+	if (filtroEsteMesBtn.textContent === "Mostrar Todos") return tremerElemento("#filtroEsteMes");
 	ocultarVencidos = !ocultarVencidos;
 	filtroVencidosBtn.textContent = ocultarVencidos ? "Mostrar Todos" : "Mostrar produtos vencidos";
 	document.querySelectorAll("#lista tr").forEach(row => {
 		let erisc = row.querySelector(".riscado");
-		if (filtroVencidosBtn.textContent == "Mostrar Todos") {
+		if (filtroVencidosBtn.textContent === "Mostrar Todos") {
 			row.style.display = erisc ? "" : "none";
 		} else {
 			row.style.display = "";
@@ -238,9 +262,9 @@ function toggleVencidos() {
 }
 function toggleEsteMes() {
 	if (filtroInput.value) return tremerElemento("#filtro");
-	if (filtroVencidosBtn.textContent == "Mostrar Todos") return tremerElemento("#filtroVencidos");
+	if (filtroVencidosBtn.textContent === "Mostrar Todos") return tremerElemento("#filtroVencidos");
 	let txt = filtroEsteMesBtn.textContent;
-	filtroEsteMesBtn.textContent = txt == "Mostrar Todos" ? "Mostrar produtos que vão vencer este mês" : "Mostrar Todos";
+	filtroEsteMesBtn.textContent = txt === "Mostrar Todos" ? "Mostrar produtos que vão vencer este mês" : "Mostrar Todos";
 	let mesAtual = new Date().getMonth() + 1;
 	let anoAtual = new Date().getFullYear();
 
@@ -256,7 +280,7 @@ function toggleEsteMes() {
 		if (ano < 100) ano += 2000;
 
 		let venceEsteMes = mes === mesAtual && ano === anoAtual;
-		if (filtroEsteMesBtn.textContent == "Mostrar Todos" && !venceEsteMes) row.style.display = "none";
+		if (filtroEsteMesBtn.textContent === "Mostrar Todos" && !venceEsteMes) row.style.display = "none";
 		else row.style.display = "";
 	});
 }
@@ -303,7 +327,7 @@ function importarLista(event) {
 					// Verifica se já existe um produto com o mesmo nome, data e código de barras
 					let indexExistente = produtos.findIndex(produto =>
 						produto.nome === novoProduto.nome &&
-						produto.data === novoProduto.data &&
+						produto.vencimento === novoProduto.vencimento &&
 						produto.codigoBarras === novoProduto.codigoBarras
 					);
 
@@ -395,12 +419,9 @@ function msg(confText, canctext, cancVis, mensagem, confOnclick = () => {}, canc
 	}
 
 	modalAtivo = true;
-	let confirmar = document.querySelector("#confirmar");
-	let cancelar = document.querySelector("#cancelar");
-	let modalBody = document.querySelector("#modalBody");
-	confirmar.textContent = confText;
-	cancelar.style.display = cancVis ? "none" : "";
-	cancelar.textContent = canctext;
+	confirmarBtn.textContent = confText;
+	cancelarBtn.style.display = cancVis ? "none" : "";
+	cancelarBtn.textContent = canctext;
 	modalBody.innerHTML = mensagem;
 	modal.style.display = "flex";
 
@@ -411,8 +432,8 @@ function msg(confText, canctext, cancVis, mensagem, confOnclick = () => {}, canc
 		exibirProximoModal();
 	};
 
-	confirmar.onclick = () => fecharModal(confOnclick);
-	cancelar.onclick = () => fecharModal(cancOnclick);
+	confirmarBtn.onclick = () => fecharModal(confOnclick);
+	cancelarBtn.onclick = () => fecharModal(cancOnclick);
 }
 adicionarBtn.addEventListener("click", adicionarProduto);
 filtroInput.addEventListener("input", filtrarProdutos);
@@ -424,18 +445,22 @@ importarInput.addEventListener("change", importarLista);
 atualizarLista();
 alertarProdutosProximos();
 const ajustarAlturaTabela = () => {
-	const alturaTela = window.innerHeight;
-	const h1 = document.querySelector('h1');
-	const controls = document.querySelectorAll('.controls');
-	let alturaAcimaDaTabela = 0;
-	if (h1) {
-		alturaAcimaDaTabela += h1.offsetHeight;
+	const tableContainer = document.querySelector(".table-container");
+	if (!tableContainer) return;
+
+	const isMobile = window.innerWidth <= 414;
+	if (isMobile) {
+		tableContainer.style.maxHeight = "none";
+		return;
 	}
-	controls.forEach(control => {
-		alturaAcimaDaTabela += control.offsetHeight;
-	});
-	const alturaTabela = alturaTela - alturaAcimaDaTabela - 80;
-	document.querySelector('.table-container').style.maxHeight = `${alturaTabela}px`;
+
+	const bodyStyle = window.getComputedStyle(document.body);
+	const bodyPaddingBottom = parseFloat(bodyStyle.paddingBottom) || 0;
+	const margemBottom = 10;
+	const topTabela = tableContainer.getBoundingClientRect().top;
+	const alturaDisponivel = window.innerHeight - topTabela - bodyPaddingBottom - margemBottom;
+	const alturaTabela = Math.max(220, Math.min(475, Math.floor(alturaDisponivel)));
+	tableContainer.style.maxHeight = `${alturaTabela}px`;
 };
 window.addEventListener('load', ajustarAlturaTabela);
 window.addEventListener('resize', ajustarAlturaTabela);
@@ -468,7 +493,7 @@ iniciar.addEventListener("click", function () {
 	Quagga.onDetected((res) => {
 		let codigo = res.codeResult.code;
 		if (codigo) {
-			codigoBarras.value = codigo;
+			codigoBarrasInput.value = codigo;
 			containerleitor.classList.add("displaynone");
 			Quagga.stop();
 		}
@@ -478,15 +503,15 @@ pararleitor.addEventListener("click", function () {
 	containerleitor.classList.add("displaynone");
 	Quagga.stop();
 });
-CancelarDadosFire.addEventListener("click", () => {dadosfirediv.style.display = "none";});
-ConfirmarDadosFire.addEventListener("click", () => {
+cancelarDadosFireBtn?.addEventListener("click", () => { dadosfirediv.style.display = "none"; });
+confirmarDadosFireBtn?.addEventListener("click", () => {
 	// Coleta os valores dos campos
-	const chaveValue = SUA_CHAVE?.value;
-	const dominioValue = SEU_DOMINIO?.value;
-	const projetoValue = SEU_PROJETO?.value;
-	const bucketValue = SEU_BUCKET?.value;
-	const idValue = SEU_ID?.value;
-	const appIdValue = SUA_APP_ID?.value;
+	const chaveValue = suaChaveInput?.value;
+	const dominioValue = seuDominioInput?.value;
+	const projetoValue = seuProjetoInput?.value;
+	const bucketValue = seuBucketInput?.value;
+	const idValue = seuIdInput?.value;
+	const appIdValue = suaAppIdInput?.value;
 	// Salva os dados no localStorage
 	localStorage.setItem("chave-fire", chaveValue || "");
 	localStorage.setItem("dominio-fire", dominioValue || "");
@@ -535,12 +560,12 @@ sincronizar.addEventListener("click", () => {
 			// Caso nem todos os valores estejam preenchidos, exibe os inputs
 			dadosfirediv.style.display = "flex";
 			// Preenche os inputs com os valores do localStorage, se existirem
-			if (chaveValue) document.getElementById("SUA_CHAVE").value = chaveValue;
-			if (dominioValue) document.getElementById("SEU_DOMINIO").value = dominioValue;
-			if (projetoValue) document.getElementById("SEU_PROJETO").value = projetoValue;
-			if (bucketValue) document.getElementById("SEU_BUCKET").value = bucketValue;
-			if (idValue) document.getElementById("SEU_ID").value = idValue;
-			if (appIdValue) document.getElementById("SUA_APP_ID").value = appIdValue;
+			if (chaveValue && suaChaveInput) suaChaveInput.value = chaveValue;
+			if (dominioValue && seuDominioInput) seuDominioInput.value = dominioValue;
+			if (projetoValue && seuProjetoInput) seuProjetoInput.value = projetoValue;
+			if (bucketValue && seuBucketInput) seuBucketInput.value = bucketValue;
+			if (idValue && seuIdInput) seuIdInput.value = idValue;
+			if (appIdValue && suaAppIdInput) suaAppIdInput.value = appIdValue;
 		}
 	}
 });
