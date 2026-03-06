@@ -448,12 +448,18 @@ const ajustarAlturaTabela = () => {
 	const tableContainer = document.querySelector(".table-container");
 	if (!tableContainer) return;
 
+	const isMobile = window.innerWidth <= 414;
+	if (isMobile) {
+		tableContainer.style.maxHeight = "none";
+		return;
+	}
+
 	const bodyStyle = window.getComputedStyle(document.body);
 	const bodyPaddingBottom = parseFloat(bodyStyle.paddingBottom) || 0;
 	const margemBottom = 10;
 	const topTabela = tableContainer.getBoundingClientRect().top;
 	const alturaDisponivel = window.innerHeight - topTabela - bodyPaddingBottom - margemBottom;
-	const alturaTabela = Math.max(220, Math.floor(alturaDisponivel));
+	const alturaTabela = Math.max(220, Math.min(475, Math.floor(alturaDisponivel)));
 	tableContainer.style.maxHeight = `${alturaTabela}px`;
 };
 window.addEventListener('load', ajustarAlturaTabela);
