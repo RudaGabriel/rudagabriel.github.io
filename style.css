@@ -344,13 +344,13 @@ tbody tr:hover {
 @media (max-width: 768px) {
 	body {
 		padding: 7px;
-		overflow: auto;
+		overflow: hidden;
 	}
 
 	.page-shell {
-		height: auto;
-		min-height: calc(100dvh - 16px);
-		overflow: visible;
+		height: calc(100dvh - 14px);
+		min-height: 0;
+		overflow: hidden;
 	}
 
 	.hero,
@@ -369,16 +369,66 @@ tbody tr:hover {
 		line-height: 1.35;
 	}
 
-	.controls-grid,
-	.filter-grid,
+	.controls-grid {
+		grid-template-columns: minmax(0, 1.6fr) minmax(0, .8fr) minmax(0, .9fr);
+		gap: 5px;
+	}
+
+	#produto,
+	#quantidade,
+	#vencimento,
+	#codigoBarras,
+	#iniciar,
+	#adicionar {
+		grid-column: auto;
+	}
+
+	#codigoBarras {
+		grid-column: 1 / 2;
+	}
+
+	#iniciar,
+	#adicionar {
+		grid-column: auto;
+	}
+
+	.filter-grid {
+		grid-template-columns: repeat(6, minmax(0, 1fr));
+		gap: 5px;
+	}
+
+	#filtro {
+		grid-column: 1 / -1;
+	}
+
+	#filtroVencidos {
+		grid-column: 1 / 4;
+	}
+
+	#filtroEsteMes {
+		grid-column: 4 / 7;
+	}
+
+	#exportar,
+	#botaoImportar,
+	#sincronizar {
+		grid-column: span 2;
+	}
+
+	.alert-config {
+		grid-column: 1 / -1;
+		display: grid;
+		grid-template-columns: auto 72px 88px auto;
+		gap: 5px;
+		align-items: center;
+		justify-content: start;
+	}
+
 	.firebase-grid {
 		grid-template-columns: 1fr;
 		gap: 5px;
 	}
 
-	#produto,
-	#filtro,
-	.alert-config,
 	.firebase-grid input {
 		grid-column: 1 / -1;
 	}
@@ -397,23 +447,6 @@ tbody tr:hover {
 		min-height: 30px;
 	}
 
-	.alert-config {
-		display: grid;
-		grid-template-columns: 1fr 78px 88px;
-		gap: 5px;
-		align-items: center;
-	}
-
-	.alert-config label {
-		grid-column: 1 / -1;
-		font-size: .64rem;
-		margin-top: 2px;
-	}
-
-	.alert-config span {
-		display: none;
-	}
-
 	.alert-config label,
 	.alert-config span {
 		font-size: .68rem;
@@ -425,11 +458,12 @@ tbody tr:hover {
 
 	.table-container {
 		border-radius: 10px;
-		overflow-x: hidden;
+		overflow: auto;
 	}
 
 	table {
 		table-layout: fixed;
+		min-width: 100%;
 	}
 
 	thead th:first-child,
@@ -478,6 +512,7 @@ tbody tr:hover {
 
 	.page-shell {
 		gap: 8px;
+		height: calc(100dvh - 12px);
 	}
 
 	.hero,
@@ -489,15 +524,48 @@ tbody tr:hover {
 		font-weight: 600;
 	}
 
+	.controls-grid {
+		grid-template-columns: 1fr 1fr;
+	}
+
+	#produto,
+	#codigoBarras {
+		grid-column: 1 / -1;
+	}
+
 	#filtroVencidos,
-	#filtroEsteMes,
+	#filtroEsteMes {
+		font-size: .7rem;
+	}
+
 	#exportar,
 	#botaoImportar,
 	#sincronizar,
 	#iniciar,
 	#adicionar {
-		font-size: .72rem;
+		font-size: .7rem;
 		letter-spacing: .01em;
+	}
+
+	.filter-grid {
+		grid-template-columns: 1fr 1fr 1fr;
+	}
+
+	#filtro,
+	.alert-config {
+		grid-column: 1 / -1;
+	}
+
+	#filtroVencidos,
+	#filtroEsteMes,
+	#exportar,
+	#botaoImportar,
+	#sincronizar {
+		grid-column: auto;
+	}
+
+	.alert-config {
+		grid-template-columns: auto 64px 82px auto;
 	}
 
 	table {
