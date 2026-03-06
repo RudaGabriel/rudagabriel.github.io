@@ -94,14 +94,18 @@ function atualizarLista() {
 		let proximo = dias >= -1 && dias <= limiteAlerta;
 		let estilo = proximo ? "font-size:1.2em;font-weight:bold;filter:drop-shadow(2px 0px 5px red)" : "";
 		let fontbold = "font-size:1.2em;font-weight:bold;";
+		const emEdicao = produtoEditadoIndex === index;
+		const onClickAcaoSecundaria = emEdicao
+			? "cancelarEdicao()"
+			: `removerProduto('${p.nome}','${formatarData(p.vencimento)}',${p.quantidade ? p.quantidade : undefined})`;
 		tr.innerHTML = `
             <td class="${vencido ? "riscado" : ""}" onclick="selectTudo(this);" style="${estilo}">${p.codigoBarras}</td>
             <td class="${vencido ? "riscado" : ""}" onclick="selectTudo(this);" style="${estilo}">${p.nome}</td>
             <td class="${vencido ? "riscado" : ""}" style="${estilo}">${p.quantidade}</td>
             <td ${proximo ? 'class="back-vermelho"' : ""} class="${vencido ? "riscado" : ""}" style="${proximo ? fontbold : ''}">${formatarData(p.vencimento)}</td>
             <td>
-                <button class="${produtoEditadoIndex === index ? "btn-editing" : ""}" onclick="editarProduto(${index})">${produtoEditadoIndex === index ? "Editando..." : "Editar"}</button>
-                <button class="${produtoEditadoIndex === index ? "btn-cancelar-edicao" : ""}" onclick="${produtoEditadoIndex === index ? "cancelarEdicao()" : `removerProduto('${p.nome}','${formatarData(p.vencimento)}',${p.quantidade ? p.quantidade : undefined})`}">${produtoEditadoIndex === index ? "Cancelar" : "Remover"}</button>
+                <button class="${emEdicao ? "btn-editing" : ""}" onclick="editarProduto(${index})">${emEdicao ? "Editando..." : "Editar"}</button>
+                <button class="${emEdicao ? "btn-cancelar-edicao" : ""}" onclick="${onClickAcaoSecundaria}">${emEdicao ? "Cancelar" : "Remover"}</button>
                 ${!vencido && ignorados.includes(p.vencimento + "+" + p.codigoBarras) ? `<button onclick="reverterAlerta('${p.vencimento + "+" + p.codigoBarras}')">Mostrar alerta ao iniciar</button>` : ""}
             </td>
         `;
