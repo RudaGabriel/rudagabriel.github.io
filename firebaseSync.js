@@ -113,7 +113,7 @@ function showCascadeAlert(message) {
 		});
 	};
 })();
-let db, docRef, bloqueioExecucao = false,bloqueioSincronizacao = false, filtroInput = document.getElementById("filtro");
+let db, docRef, bloqueioExecucao = false, bloqueioSincronizacao = false;
 const chavesPermitidas = ["-fire", "produtos", "configAlerta", "ignorados", "syncenviar"];
 if (Object.values(firebaseConfig).some(valor => !valor)) {
 	showCascadeAlert("⚠️ Configuração do Firebase está vazia.");
@@ -196,11 +196,22 @@ async function compararEPrivilegiarDados() {
 			localData[chave] = localStorage.getItem(chave);
 		}
 	});
-	const localSize = Object.keys(localData).length;
-	const firebaseSize = Object.keys(firebaseData).length;
-	// Comparando o comprimento da chave 'produtos'
-	const produtosLocal = Array.isArray(localData.produtos) ? localData.produtos.length : 0;
-	const produtosFirebase = Array.isArray(firebaseData.produtos) ? firebaseData.produtos.length : 0;
+	const produtosLocal = (() => {
+		try {
+			const parsed = JSON.parse(localData.produtos || "[]");
+			return Array.isArray(parsed) ? parsed.length : 0;
+		} catch (_) {
+			return 0;
+		}
+	})();
+	const produtosFirebase = (() => {
+		try {
+			const parsed = firebaseData.produtos ? JSON.parse(firebaseData.produtos) : [];
+			return Array.isArray(parsed) ? parsed.length : 0;
+		} catch (_) {
+			return 0;
+		}
+	})();
 	if (produtosLocal > produtosFirebase) {
 		showCascadeAlert("📤 LocalStorage tem mais itens em 'produtos', será priorizado para exportação.");
 		await salvarLocalStorageOnline();
