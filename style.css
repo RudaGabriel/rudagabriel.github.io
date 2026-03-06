@@ -343,24 +343,37 @@ tbody tr:hover {
 
 @media (max-width: 768px) {
 	body {
-		padding: 10px;
+		padding: 7px;
+		overflow: auto;
 	}
 
 	.page-shell {
-		height: calc(100dvh - 20px);
-		min-height: 0;
+		height: auto;
+		min-height: calc(100dvh - 16px);
+		overflow: visible;
 	}
 
 	.hero,
 	.panel {
-		padding: 10px;
+		padding: 9px 8px;
+		border-radius: 12px;
+	}
+
+	.hero h1 {
+		font-size: 1.1rem;
+		margin-bottom: 4px;
+	}
+
+	.hero p {
+		font-size: .78rem;
+		line-height: 1.35;
 	}
 
 	.controls-grid,
 	.filter-grid,
 	.firebase-grid {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: 8px;
+		grid-template-columns: 1fr;
+		gap: 5px;
 	}
 
 	#produto,
@@ -373,36 +386,78 @@ tbody tr:hover {
 	input,
 	select,
 	button {
-		padding: 8px 10px;
-		font-size: .82rem;
+		padding: 6px 8px;
+		font-size: .72rem;
+		border-radius: 8px;
 	}
 
 	.controls-grid button,
 	.filter-grid button {
 		width: 100%;
+		min-height: 30px;
 	}
 
 	.alert-config {
 		display: grid;
-		grid-template-columns: auto 1fr 1fr auto;
-		gap: 6px;
+		grid-template-columns: 1fr 78px 88px;
+		gap: 5px;
+		align-items: center;
+	}
+
+	.alert-config label {
+		grid-column: 1 / -1;
+		font-size: .64rem;
+		margin-top: 2px;
+	}
+
+	.alert-config span {
+		display: none;
 	}
 
 	.alert-config label,
 	.alert-config span {
-		font-size: .72rem;
+		font-size: .68rem;
+	}
+
+	.table-panel {
+		padding: 8px;
+	}
+
+	.table-container {
+		border-radius: 10px;
+		overflow-x: hidden;
+	}
+
+	table {
+		table-layout: fixed;
+	}
+
+	thead th:first-child,
+	tbody td:first-child {
+		display: none;
 	}
 
 	th,
 	td {
-		font-size: .75rem;
-		padding: 8px 6px;
+		font-size: .68rem;
+		padding: 6px 4px;
+		word-break: break-word;
 	}
 
+	tbody td:nth-child(2) {
+		text-align: left;
+	}
+
+	tbody td:last-child {
+		white-space: normal;
+	}
 
 	.table-container button {
 		display: inline-block;
 		width: auto;
+		font-size: .62rem;
+		padding: 3px 5px;
+		margin: 1px;
 	}
 
 	.firebase-actions,
@@ -413,5 +468,39 @@ tbody tr:hover {
 	.firebase-actions button,
 	.modal-actions button {
 		width: 100%;
+	}
+}
+
+@media (max-width: 520px) {
+	body {
+		padding: 6px;
+	}
+
+	.page-shell {
+		gap: 8px;
+	}
+
+	.hero,
+	.panel {
+		padding: 8px;
+	}
+
+	button {
+		font-weight: 600;
+	}
+
+	#filtroVencidos,
+	#filtroEsteMes,
+	#exportar,
+	#botaoImportar,
+	#sincronizar,
+	#iniciar,
+	#adicionar {
+		font-size: .72rem;
+		letter-spacing: .01em;
+	}
+
+	table {
+		min-width: 100%;
 	}
 }
