@@ -83,6 +83,29 @@ body {
 	font-size: 0.95rem;
 }
 
+
+.content-layout {
+	display: flex;
+	gap: 14px;
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.features-column {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	flex: 0 0 min(460px, 38%);
+	min-width: 320px;
+	min-height: 0;
+}
+
+.form-panel,
+.filter-panel {
+	flex: 0 0 auto;
+}
+
 .panel {
 	background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
 	border: 1px solid var(--line);
@@ -184,7 +207,8 @@ button:hover {
 	padding: clamp(10px, 2vw, 16px);
 	display: flex;
 	flex-direction: column;
-	flex: 1 1 auto;
+	flex: 1 1 0;
+	min-width: 0;
 	min-height: 0;
 }
 
@@ -329,6 +353,15 @@ tbody tr:hover {
 }
 
 @media (max-width: 1100px) {
+	.content-layout {
+		flex-direction: column;
+	}
+
+	.features-column {
+		flex: 0 0 auto;
+		min-width: 0;
+	}
+
 	.controls-grid,
 	.filter-grid {
 		grid-template-columns: 1fr 1fr;
@@ -351,6 +384,14 @@ tbody tr:hover {
 		height: calc(100dvh - 14px);
 		min-height: 0;
 		overflow: hidden;
+	}
+
+	.content-layout {
+		gap: 8px;
+	}
+
+	.features-column {
+		gap: 8px;
 	}
 
 	.hero,
