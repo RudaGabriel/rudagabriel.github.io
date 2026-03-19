@@ -41,54 +41,58 @@
 			<p>Gerencie validade, alertas e sincronização do seu estoque com clareza.</p>
 		</header>
 
-		<section class="panel controls form-panel">
-			<div class="controls controls-grid">
-				<input type="text" id="produto" placeholder="Produto">
-				<input type="number" id="quantidade" placeholder="Quantidade">
-				<input type="date" id="vencimento">
-				<input type="text" id="codigoBarras" placeholder="Código de Barras">
-				<button id="iniciar" class="btn-ghost" title="Ler código de barras">📷 Ler código</button>
-				<button id="adicionar">Adicionar</button>
-			</div>
-		</section>
+		<div class="content-layout">
+			<div class="features-column">
+				<section class="panel controls form-panel">
+					<div class="controls controls-grid">
+						<input type="text" id="produto" placeholder="Produto">
+						<input type="number" id="quantidade" placeholder="Quantidade">
+						<input type="date" id="vencimento">
+						<input type="text" id="codigoBarras" placeholder="Código de Barras">
+						<button id="iniciar" class="btn-ghost" title="Ler código de barras">📷 Ler código</button>
+						<button id="adicionar">Adicionar</button>
+					</div>
+				</section>
 
-		<section class="panel controls filter-panel">
-			<div class="controls filter-grid">
-				<input type="text" id="filtro" placeholder="Filtrar por nome ou código">
-				<button id="filtroVencidos" class="btn-ghost">Mostrar produtos vencidos</button>
-				<button id="filtroEsteMes" class="btn-ghost">Mostrar produtos que vão vencer este mês</button>
-				<button id="exportar">Exportar</button>
-				<input type="file" id="importar" style="display:none;">
-				<button id="botaoImportar">Importar</button>
-				<button id="sincronizar" class="btn-sync">Sincronizar</button>
-				<div class="alert-config">
-					<label for="nAlertar">Alertar com</label>
-					<input type="number" id="nAlertar" placeholder="60">
-					<select id="como">
-						<option value="dias" selected>Dias</option>
-						<option value="meses">Meses</option>
-					</select>
-					<span>restantes</span>
+				<section class="panel controls filter-panel">
+					<div class="controls filter-grid">
+						<input type="text" id="filtro" placeholder="Filtrar por nome ou código">
+						<button id="filtroVencidos" class="btn-ghost">Mostrar produtos vencidos</button>
+						<button id="filtroEsteMes" class="btn-ghost">Mostrar produtos que vão vencer este mês</button>
+						<button id="exportar">Exportar</button>
+						<input type="file" id="importar" style="display:none;">
+						<button id="botaoImportar">Importar</button>
+						<button id="sincronizar" class="btn-sync">Sincronizar</button>
+						<div class="alert-config">
+							<label for="nAlertar">Alertar com</label>
+							<input type="number" id="nAlertar" placeholder="60">
+							<select id="como">
+								<option value="dias" selected>Dias</option>
+								<option value="meses">Meses</option>
+							</select>
+							<span>restantes</span>
+						</div>
+					</div>
+				</section>
+			</div>
+
+			<section class="panel table-panel">
+				<div class="table-container">
+					<table>
+						<thead>
+							<tr>
+								<th>Código de Barras</th>
+								<th>Produto</th>
+								<th>Quantidade</th>
+								<th id="vencimentoHeader">Vencimento</th>
+								<th>Ações</th>
+							</tr>
+						</thead>
+						<tbody id="lista"></tbody>
+					</table>
 				</div>
-			</div>
-		</section>
-
-		<section class="panel table-panel">
-			<div class="table-container">
-				<table>
-					<thead>
-						<tr>
-							<th>Código de Barras</th>
-							<th>Produto</th>
-							<th>Quantidade</th>
-							<th id="vencimentoHeader">Vencimento</th>
-							<th>Ações</th>
-						</tr>
-					</thead>
-					<tbody id="lista"></tbody>
-				</table>
-			</div>
-		</section>
+			</section>
+		</div>
 	</main>
 
 	<div id="containerleitor" class="displaynone">
