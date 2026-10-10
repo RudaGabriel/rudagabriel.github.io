@@ -1,9 +1,12 @@
 /* =========================================================
    Sincronização em nuvem (Firebase Firestore)
    ---------------------------------------------------------
-   Modelo simples: cada lista compartilhada é UM documento
-   em "dados/lista-<nome>" com o campo "itens" (mapa id → produto).
-   - Compatível com as regras antigas (match /dados/{document}).
+   Modelo simples: cada lista compartilhada é UM documento com o
+   campo "itens" (mapa id → produto):
+   - Nuvem do app (modo fácil): "listas/<CÓDIGO>" — código aleatório
+     de 16 caracteres, impossível de adivinhar.
+   - Firebase próprio (avançado): "dados/lista-<nome>" — compatível
+     com as regras antigas (match /dados/{document}).
    - Edições de produtos diferentes nunca se sobrescrevem.
    - Funciona offline: as alterações ficam na fila e são
      enviadas quando a conexão voltar.
@@ -24,12 +27,54 @@ service cloud.firestore {
   }
 }`;
 
+/** Regras para o projeto Firebase da nuvem do app (modo fácil). */
+export const REGRAS_NUVEM_FACIL = `rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /listas/{codigo} {
+      allow get: if codigo.matches('^[A-HJ-NP-Z2-9]{16}$');
+      allow list, delete: if false;
+      allow create, update: if codigo.matches('^[A-HJ-NP-Z2-9]{16}$')
+        && request.resource.data.keys().hasOnly(['itens', 'versao', 'atualizadoEm'])
+        && request.resource.data.itens is map
+        && request.resource.data.itens.size() <= 5000;
+    }
+  }
+}`;
+
+/* ---------- Códigos de lista (modo fácil) ---------- */
+// Sem I, O, 0 e 1 para evitar confusão ao digitar. 32 símbolos × 16 = 80 bits.
+const ALFABETO_CODIGO = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const TAMANHO_CODIGO = 16;
+const RE_CODIGO = /^[A-HJ-NP-Z2-9]{16}$/;
+
+/** Gera um código de lista aleatório e seguro (16 caracteres). */
+export function gerarCodigoLista() {
+	const bytes = new Uint8Array(TAMANHO_CODIGO);
+	if (globalThis.crypto?.getRandomValues) crypto.getRandomValues(bytes);
+	else for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+	// 256 é múltiplo de 32: a distribuição continua uniforme
+	return Array.from(bytes, b => ALFABETO_CODIGO[b & 31]).join("");
+}
+
+/** Limpa o que o usuário digitou/colou. Retorna o código (16 caracteres) ou null. */
+export function normalizarCodigoLista(texto) {
+	const bruto = String(texto ?? "").trim();
+	// Aceita também um link de compartilhamento colado inteiro
+	const doLink = bruto.match(/[#&?]lista=([A-Za-z0-9-]+)/);
+	const limpo = (doLink ? doLink[1] : bruto).toUpperCase().replace(/[^A-Z0-9]/g, "");
+	return RE_CODIGO.test(limpo) ? limpo : null;
+}
+
+/** "ABCDEFGHJKLMNPQR" → "ABCD-EFGH-JKLM-NPQR" */
+export const formatarCodigoLista = codigo => String(codigo || "").match(/.{1,4}/g)?.join("-") || "";
+
 const CHAVES_CONFIG = ["apiKey", "authDomain", "projectId", "storageBucket", "messagingSenderId", "appId"];
 
 /** Normaliza o nome da lista para um identificador seguro (a-z, 0-9, hífen). */
 export function normalizarNomeLista(nome) {
 	const limpo = String(nome ?? "")
-		.normalize("NFD").replace(/[̀-ͯ]/g, "")
+		.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
 		.toLowerCase()
 		.replace(/[^a-z0-9]+/g, "-")
 		.replace(/^-+|-+$/g, "")
@@ -128,7 +173,11 @@ export function criarSync({ aoReceber, aoStatus, aoErro }) {
 		return info;
 	}
 
-	async function conectar({ config, lista }) {
+	/**
+	 * Conecta a um documento de lista.
+	 * @param {{config: object, colecao: string, documento: string}} destino
+	 */
+	async function conectar({ config, colecao, documento }) {
 		await desconectar();
 		const minhaGeracao = ++geracao;
 		recebeuDoServidor = false;
@@ -153,7 +202,7 @@ export function criarSync({ aoReceber, aoStatus, aoErro }) {
 			console.warn("[sync] cache persistente indisponível, usando memória:", e);
 			db = f.initializeFirestore(app, { localCache: f.memoryLocalCache() });
 		}
-		ref = f.doc(db, "dados", `lista-${normalizarNomeLista(lista)}`);
+		ref = f.doc(db, colecao, documento);
 
 		// Se o servidor não responder, avisa (config errada ou sem internet)
 		temporizador = setTimeout(() => {

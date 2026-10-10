@@ -15,12 +15,51 @@ Controle a validade dos seus produtos, receba alertas de vencimento e compartilh
 - Tema claro e escuro, layout próprio para celular
 - Salvar e compartilhar em tempo real (opcional), funcionando também offline
 
-## Salvar e compartilhar (sincronização)
+## Salvar na nuvem e compartilhar
 
-Sem configurar nada, os produtos ficam salvos **apenas no aparelho**. Para usar a mesma lista em vários aparelhos:
+Sem fazer nada, os produtos ficam salvos **apenas no aparelho**. Para usar a mesma lista em vários aparelhos:
 
-1. Crie um projeto gratuito em https://console.firebase.google.com/
-2. Em **Firestore Database**, crie o banco de dados e, na aba **Regras**, publique:
+### Modo fácil (recomendado)
+
+1. Toque no botão de sincronização (topo) → **Criar lista na nuvem**. Pronto: um clique, sem cadastro.
+2. Nos outros aparelhos, abra o **link** ou leia o **QR Code** exibido — ou digite o **código da lista** (ex.: `ABCD-EFGH-JKLM-NPQR`).
+   - **Pode editar:** o aparelho adiciona, altera e remove produtos.
+   - **Só visualizar:** o aparelho apenas acompanha a lista.
+
+> Guarde o código da lista: com ele você recupera os produtos em qualquer aparelho. Quem tiver o link ou o código acessa a lista.
+
+#### Para o dono do site: ativar a nuvem do app (uma única vez)
+
+O modo fácil usa um projeto Firebase do próprio site. Enquanto `config-nuvem.js` estiver com `null`, o app mostra só o modo avançado.
+
+1. Em https://console.firebase.google.com/ crie (ou reutilize) um projeto e, em **Firestore Database**, crie o banco.
+2. Na aba **Regras**, publique:
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /listas/{codigo} {
+      allow get: if codigo.matches('^[A-HJ-NP-Z2-9]{16}$');
+      allow list, delete: if false;
+      allow create, update: if codigo.matches('^[A-HJ-NP-Z2-9]{16}$')
+        && request.resource.data.keys().hasOnly(['itens', 'versao', 'atualizadoEm'])
+        && request.resource.data.itens is map
+        && request.resource.data.itens.size() <= 5000;
+    }
+  }
+}
+```
+
+   Se reutilizar o projeto antigo, mantenha também o bloco `match /dados/{document}` que já existia.
+
+3. Em **Configurações do projeto → Seus apps**, adicione um app Web e copie os valores do `firebaseConfig` para `config-nuvem.js`.
+
+Cada lista fica em `listas/<código>`; o código tem 16 caracteres aleatórios (impossível de adivinhar) e ninguém consegue listar as listas dos outros.
+
+### Modo avançado: usar o próprio Firebase
+
+Em **Avançado: usar meu próprio Firebase**, cole o bloco `firebaseConfig` do seu projeto e escolha um nome de lista. As regras necessárias são:
 
 ```
 rules_version = '2';
@@ -33,15 +72,7 @@ service cloud.firestore {
 }
 ```
 
-3. Em **Configurações do projeto → Seus apps**, adicione um app Web e copie o bloco `firebaseConfig`.
-4. No site, clique no botão de sincronização (topo), **cole o bloco inteiro**, escolha um nome de lista e clique em **Conectar**.
-5. Nos outros aparelhos, basta abrir o **link de compartilhamento** ou ler o **QR Code** exibido — eles se conectam sozinhos.
-   - **Pode editar:** o aparelho adiciona, altera e remove produtos.
-   - **Só visualizar:** o aparelho apenas acompanha a lista.
-
-> O link contém a configuração do projeto. Envie apenas para pessoas de confiança.
-
-Cada lista é salva no documento `dados/lista-<nome>` do Firestore. Quem já usava a versão anterior é migrado automaticamente (produtos, alertas e configuração do Firebase) — os dados antigos continuam guardados.
+Cada lista é salva em `dados/lista-<nome>`. Quem já usava a versão anterior é migrado automaticamente (produtos, alertas e configuração do Firebase) — os dados antigos continuam guardados.
 
 ### Comandos (compatibilidade)
 
