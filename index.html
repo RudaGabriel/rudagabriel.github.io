@@ -55,7 +55,7 @@
 			</div>
 
 			<div class="topo-acoes">
-				<button id="btnSync" class="pilula-sync" type="button" data-estado="local" title="Salvar e compartilhar entre aparelhos">
+				<button id="btnSync" class="pilula-sync" type="button" data-estado="local" title="Salvar na nuvem e compartilhar entre aparelhos">
 					<span class="pilula-ponto"></span>
 					<span id="btnSyncTexto">Apenas neste aparelho</span>
 				</button>
@@ -229,42 +229,74 @@
 
 		<!-- Visão: desconectado -->
 		<div id="syncDesconectado" class="dialogo-corpo">
-			<p class="intro">Hoje seus produtos ficam salvos <strong>apenas neste aparelho</strong>. Conecte uma lista na nuvem (Firebase, gratuito) para usar a mesma lista em vários celulares e computadores, em tempo real.</p>
+			<p class="intro">Hoje seus produtos ficam salvos <strong>apenas neste aparelho</strong>. Salve na nuvem para usar a mesma lista em vários celulares e computadores, em tempo real.</p>
 
-			<ol class="passos">
-				<li><span>1</span><p>Cole abaixo a configuração do seu projeto Firebase.</p></li>
-				<li><span>2</span><p>Escolha um nome para a lista e clique em <strong>Conectar</strong>.</p></li>
-				<li><span>3</span><p>Nos outros aparelhos, basta abrir o <strong>link de compartilhamento</strong> ou ler o QR Code.</p></li>
-			</ol>
+			<!-- Modo fácil: nuvem do app -->
+			<div id="syncFacil" class="sync-facil" hidden>
+				<button type="button" class="opcao-grande" id="btnCriarLista">
+					<span class="opcao-icone"><i data-lucide="cloud-upload"></i></span>
+					<span class="opcao-texto">
+						<strong>Criar lista na nuvem</strong>
+						<small>Um clique. Sem cadastro e sem configurar nada.</small>
+					</span>
+					<i data-lucide="chevron-right"></i>
+				</button>
 
-			<div class="campo">
-				<label for="syncConfig">Configuração do Firebase</label>
-				<textarea id="syncConfig" rows="7" spellcheck="false" placeholder="const firebaseConfig = {&#10;  apiKey: &quot;...&quot;,&#10;  authDomain: &quot;...&quot;,&#10;  projectId: &quot;...&quot;,&#10;  storageBucket: &quot;...&quot;,&#10;  messagingSenderId: &quot;...&quot;,&#10;  appId: &quot;...&quot;&#10;};"></textarea>
-				<small class="ajuda">Pode colar o trecho inteiro copiado do console do Firebase — o app encontra os valores sozinho.</small>
+				<div class="separador"><span>ou entre numa lista que já existe</span></div>
+
+				<div class="campo">
+					<label for="syncCodigo">Código da lista</label>
+					<div class="grupo-entrada">
+						<input type="text" id="syncCodigo" class="entrada-codigo" placeholder="ABCD-EFGH-JKLM-NPQR" maxlength="400" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">
+						<button type="button" class="btn-anexo btn-anexo-texto" id="btnEntrarCodigo">Entrar</button>
+					</div>
+					<small class="ajuda">Dica: no outro aparelho, é só abrir o link ou ler o QR Code — nem precisa digitar.</small>
+				</div>
 			</div>
-			<div class="campo">
-				<label for="syncLista">Nome da lista</label>
-				<input type="text" id="syncLista" value="principal" maxlength="40" placeholder="principal">
-				<small class="ajuda">Aparelhos com o mesmo projeto e o mesmo nome de lista compartilham os produtos.</small>
-			</div>
 
-			<details class="como-obter">
-				<summary><i data-lucide="circle-help"></i>Como obter a configuração?</summary>
-				<ol>
-					<li>Acesse <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer">console.firebase.google.com</a> e crie um projeto.</li>
-					<li>Em <strong>Firestore Database</strong>, clique em <em>Criar banco de dados</em>.</li>
-					<li>Na aba <strong>Regras</strong>, cole as regras abaixo e publique.</li>
-					<li>Em <strong>Configurações do projeto → Seus apps</strong>, adicione um app Web (<code>&lt;/&gt;</code>) e copie o <code>firebaseConfig</code>.</li>
-				</ol>
-				<div class="bloco-codigo">
-					<pre id="regrasFirestore"></pre>
-					<button type="button" class="btn btn-fantasma btn-pequeno" id="btnCopiarRegras"><i data-lucide="copy"></i>Copiar regras</button>
+			<!-- Avançado: Firebase próprio -->
+			<details id="syncAvancado" class="avancado">
+				<summary><i data-lucide="settings-2"></i>Avançado: usar meu próprio Firebase</summary>
+				<div class="avancado-corpo">
+					<ol class="passos">
+						<li><span>1</span><p>Cole abaixo a configuração do seu projeto Firebase.</p></li>
+						<li><span>2</span><p>Escolha um nome para a lista e clique em <strong>Conectar</strong>.</p></li>
+						<li><span>3</span><p>Nos outros aparelhos, basta abrir o <strong>link de compartilhamento</strong> ou ler o QR Code.</p></li>
+					</ol>
+
+					<div class="campo">
+						<label for="syncConfig">Configuração do Firebase</label>
+						<textarea id="syncConfig" rows="7" spellcheck="false" placeholder="const firebaseConfig = {&#10;  apiKey: &quot;...&quot;,&#10;  authDomain: &quot;...&quot;,&#10;  projectId: &quot;...&quot;,&#10;  storageBucket: &quot;...&quot;,&#10;  messagingSenderId: &quot;...&quot;,&#10;  appId: &quot;...&quot;&#10;};"></textarea>
+						<small class="ajuda">Pode colar o trecho inteiro copiado do console do Firebase — o app encontra os valores sozinho.</small>
+					</div>
+					<div class="campo">
+						<label for="syncLista">Nome da lista</label>
+						<input type="text" id="syncLista" value="principal" maxlength="40" placeholder="principal">
+						<small class="ajuda">Aparelhos com o mesmo projeto e o mesmo nome de lista compartilham os produtos.</small>
+					</div>
+
+					<details class="como-obter">
+						<summary><i data-lucide="circle-help"></i>Como obter a configuração?</summary>
+						<ol>
+							<li>Acesse <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer">console.firebase.google.com</a> e crie um projeto.</li>
+							<li>Em <strong>Firestore Database</strong>, clique em <em>Criar banco de dados</em>.</li>
+							<li>Na aba <strong>Regras</strong>, cole as regras abaixo e publique.</li>
+							<li>Em <strong>Configurações do projeto → Seus apps</strong>, adicione um app Web (<code>&lt;/&gt;</code>) e copie o <code>firebaseConfig</code>.</li>
+						</ol>
+						<div class="bloco-codigo">
+							<pre id="regrasFirestore"></pre>
+							<button type="button" class="btn btn-fantasma btn-pequeno" id="btnCopiarRegras"><i data-lucide="copy"></i>Copiar regras</button>
+						</div>
+					</details>
+
+					<div class="avancado-acoes">
+						<button type="button" class="btn btn-primario" id="btnConectar"><i data-lucide="cloud"></i>Conectar</button>
+					</div>
 				</div>
 			</details>
 
 			<div class="dialogo-acoes">
 				<button type="button" class="btn btn-fantasma" data-fechar>Agora não</button>
-				<button type="button" class="btn btn-primario" id="btnConectar"><i data-lucide="cloud"></i>Conectar</button>
 			</div>
 		</div>
 
@@ -276,6 +308,15 @@
 					<strong id="syncStatusTitulo">Conectado</strong>
 					<p id="syncStatusDetalhe">Lista “principal” · projeto</p>
 				</div>
+			</div>
+
+			<div id="caixaCodigo" class="caixa-codigo" hidden>
+				<small>Código da lista</small>
+				<div class="caixa-codigo-linha">
+					<strong id="codigoLista" class="codigo-lista"></strong>
+					<button type="button" class="btn-icone" id="btnCopiarCodigo" title="Copiar código" aria-label="Copiar código"><i data-lucide="copy"></i></button>
+				</div>
+				<small class="ajuda">Guarde este código: com ele você recupera a lista em qualquer aparelho.</small>
 			</div>
 
 			<label class="interruptor">
@@ -302,7 +343,7 @@
 							<button type="button" class="btn-anexo" id="btnCopiarLink" title="Copiar link" aria-label="Copiar link"><i data-lucide="copy"></i></button>
 						</div>
 						<button type="button" class="btn btn-secundario btn-bloco" id="btnCompartilharNativo" hidden><i data-lucide="share"></i>Enviar link…</button>
-						<small class="ajuda">O link contém a configuração do projeto. Envie apenas para pessoas de confiança.</small>
+						<small class="ajuda" id="avisoLink">Quem tiver este link acessa a lista. Envie apenas para pessoas de confiança.</small>
 					</div>
 				</div>
 			</div>

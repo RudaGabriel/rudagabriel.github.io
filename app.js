@@ -1,7 +1,11 @@
 /* =========================================================
    Controle de Vencimento — aplicação principal
    ========================================================= */
-import { criarSync, extrairConfigFirebase, configValida, normalizarNomeLista, explicarErro, REGRAS_FIRESTORE } from "./sync.js";
+import {
+	criarSync, extrairConfigFirebase, configValida, normalizarNomeLista, explicarErro, REGRAS_FIRESTORE,
+	gerarCodigoLista, normalizarCodigoLista, formatarCodigoLista
+} from "./sync.js";
+import { CONFIG_NUVEM_FACIL } from "./config-nuvem.js";
 
 const URL_AUTO_ANIMATE = "https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.10.0/index.mjs";
 const URL_LEITOR = "https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js";
@@ -321,7 +325,7 @@ const estado = {
 	busca: "",
 	ordenacao: "prioridade",
 	editandoId: null,
-	sync: null,              // { config, lista, modo: "edicao"|"leitura", reconciliar }
+	sync: null,              // { tipo: "facil"|"proprio", config, codigo|lista, modo: "edicao"|"leitura", reconciliar }
 	statusSync: "local",
 	detalheSync: "",
 	ultimaSync: null,
@@ -393,7 +397,7 @@ function migrarVersaoAnterior() {
 		const config = configValida(fb);
 		if (config && !armazenamento.lerTexto(CHAVE.sync)) {
 			const modo = armazenamento.lerTexto("syncenviar") === "true" ? "edicao" : "leitura";
-			armazenamento.gravar(CHAVE.sync, { config, lista: "principal", modo, reconciliar: true });
+			armazenamento.gravar(CHAVE.sync, { tipo: "proprio", config, lista: "principal", modo, reconciliar: true });
 		}
 	} catch (e) {
 		console.error("Falha na migração:", e);
@@ -439,6 +443,15 @@ const el = {
 	syncConfig: $("#syncConfig"),
 	syncLista: $("#syncLista"),
 	btnConectar: $("#btnConectar"),
+	syncFacil: $("#syncFacil"),
+	syncAvancado: $("#syncAvancado"),
+	btnCriarLista: $("#btnCriarLista"),
+	syncCodigo: $("#syncCodigo"),
+	btnEntrarCodigo: $("#btnEntrarCodigo"),
+	caixaCodigo: $("#caixaCodigo"),
+	codigoLista: $("#codigoLista"),
+	btnCopiarCodigo: $("#btnCopiarCodigo"),
+	avisoLink: $("#avisoLink"),
 	btnDesconectar: $("#btnDesconectar"),
 	syncPermitirEdicao: $("#syncPermitirEdicao"),
 	syncStatusBox: $(".status-sync"),
@@ -1010,7 +1023,7 @@ async function importarArquivo(arquivo) {
 			confirmar: "Conectar",
 			icone: "question"
 		});
-		if (ok) await conectarNuvem({ config: fbAntigo, lista: "principal", modo: "edicao" });
+		if (ok) await conectarNuvem({ tipo: "proprio", config: fbAntigo, lista: "principal", modo: "edicao" });
 	}
 }
 
@@ -1095,11 +1108,7 @@ const sync = criarSync({
 		estado.itensNuvem = sanitizarLista(itens);
 		if (meta.doServidor) estado.ultimaSync = new Date();
 		if (meta.doServidor || estado.itensNuvem.length) estado.dadosProntos = true;
-		armazenamento.gravar(CHAVE.cacheNuvem, {
-			projeto: estado.sync.config.projectId,
-			lista: estado.sync.lista,
-			itens: estado.itensNuvem
-		});
+		armazenamento.gravar(CHAVE.cacheNuvem, { id: idSync(estado.sync), itens: estado.itensNuvem });
 		render();
 		if (meta.doServidor) {
 			limparSilenciadosOrfaos();
@@ -1119,6 +1128,34 @@ const sync = criarSync({
 	}
 });
 
+/* ---------- Tipos de nuvem ----------
+   "facil":   nuvem do app, identificada por um código aleatório (listas/<CÓDIGO>)
+   "proprio": Firebase do próprio usuário (dados/lista-<nome>)                    */
+const nuvemFacilDisponivel = () => !!configValida(CONFIG_NUVEM_FACIL);
+const ehFacil = s => s?.tipo === "facil";
+const destinoSync = s => ehFacil(s)
+	? { config: s.config, colecao: "listas", documento: s.codigo }
+	: { config: s.config, colecao: "dados", documento: `lista-${s.lista}` };
+const idSync = s => ehFacil(s) ? `facil:${s.codigo}` : `proprio:${s.config.projectId}:${s.lista}`;
+const rotuloSync = s => ehFacil(s) ? `código ${formatarCodigoLista(s.codigo)}` : `lista “${s.lista}”`;
+
+/** Valida uma configuração de sincronização (salva, de link ou de backup). */
+function normalizarSync(bruto) {
+	if (!bruto || typeof bruto !== "object") return null;
+	const modo = bruto.modo === "leitura" ? "leitura" : "edicao";
+	const reconciliar = !!bruto.reconciliar;
+	if (bruto.tipo === "facil") {
+		const codigo = normalizarCodigoLista(bruto.codigo);
+		// Usa sempre a configuração atual do app (permite trocar de projeto sem quebrar listas)
+		const config = configValida(CONFIG_NUVEM_FACIL) || configValida(bruto.config);
+		if (!codigo || !config) return null;
+		return { tipo: "facil", config, codigo, modo, reconciliar };
+	}
+	const config = configValida(bruto.config);
+	if (!config) return null;
+	return { tipo: "proprio", config, lista: normalizarNomeLista(bruto.lista), modo, reconciliar };
+}
+
 function limparSilenciadosOrfaos() {
 	const ids = new Set(itensAtuais().map(i => i.id));
 	let mudou = false;
@@ -1127,7 +1164,7 @@ function limparSilenciadosOrfaos() {
 }
 
 let reconciliando = false;
-/** Ao conectar, oferece enviar os produtos deste aparelho que ainda não estão na nuvem. */
+/** Ao entrar numa lista existente, oferece enviar os produtos deste aparelho que ainda não estão nela. */
 async function reconciliar() {
 	if (!estado.sync?.reconciliar || reconciliando) return;
 	reconciliando = true;
@@ -1146,8 +1183,8 @@ async function reconciliar() {
 		const ok = await confirmar({
 			titulo: "Enviar produtos deste aparelho?",
 			html: vazia
-				? `A lista compartilhada está vazia. Deseja enviar os <b>${faltando.length}</b> produto(s) salvos neste aparelho para ela?`
-				: `Este aparelho tem <b>${faltando.length}</b> produto(s) que não estão na lista compartilhada. Deseja enviá-los?<br><br><small>Se escolher “Agora não”, eles continuam guardados no aparelho e voltam a aparecer se você desconectar.</small>`,
+				? `A lista na nuvem está vazia. Deseja enviar os <b>${faltando.length}</b> produto(s) salvos neste aparelho para ela?`
+				: `Este aparelho tem <b>${faltando.length}</b> produto(s) que não estão na lista da nuvem. Deseja enviá-los?<br><br><small>Se escolher “Agora não”, eles continuam guardados no aparelho e voltam a aparecer se você desconectar.</small>`,
 			confirmar: "Enviar",
 			cancelar: "Agora não",
 			icone: "question"
@@ -1157,7 +1194,7 @@ async function reconciliar() {
 			const ids = new Set(estado.itensNuvem.map(i => i.id));
 			const enviar = faltando.map(i => ids.has(i.id) ? { ...i, id: gerarId() } : i);
 			aplicarAlteracoes({ salvar: enviar });
-			toast("sucesso", `<b>${enviar.length}</b> produto(s) enviados para a lista compartilhada.`);
+			toast("sucesso", `<b>${enviar.length}</b> produto(s) deste aparelho enviados para a nuvem.`);
 		}
 		finalizar();
 	} finally {
@@ -1168,7 +1205,7 @@ async function reconciliar() {
 const TEXTO_STATUS = {
 	local: "Apenas neste aparelho",
 	conectando: "Conectando…",
-	sincronizado: "Sincronizado",
+	sincronizado: "Salvo na nuvem",
 	salvando: "Salvando…",
 	offline: "Offline",
 	erro: "Erro na sincronização"
@@ -1181,31 +1218,36 @@ function atualizarIndicadorSync() {
 	el.btnSync.dataset.estado = st;
 	el.btnSyncTexto.textContent = texto;
 	el.btnSync.title = emNuvem()
-		? `Lista “${estado.sync.lista}” · ${texto}${estado.detalheSync ? " — " + estado.detalheSync : ""}`
-		: "Salvar e compartilhar entre aparelhos";
+		? `${rotuloSync(estado.sync)} · ${texto}${estado.detalheSync ? " — " + estado.detalheSync : ""}`
+		: "Salvar na nuvem e compartilhar entre aparelhos";
 	el.btnSync.setAttribute("aria-label", `Sincronização: ${texto}`);
 
 	if (emNuvem()) {
 		el.syncStatusBox.dataset.estado = st;
-		el.syncStatusTitulo.textContent = st === "sincronizado" ? "Conectado e sincronizado" : texto;
-		const base = `Lista “${estado.sync.lista}” · projeto ${estado.sync.config.projectId}`;
-		el.syncStatusDetalhe.textContent = estado.detalheSync ? `${estado.detalheSync}` : base;
+		el.syncStatusTitulo.textContent = st === "sincronizado" ? "Conectado e salvo na nuvem" : texto;
+		const base = ehFacil(estado.sync)
+			? "Lista na nuvem do app"
+			: `Lista “${estado.sync.lista}” · projeto ${estado.sync.config.projectId}`;
+		el.syncStatusDetalhe.textContent = estado.detalheSync || base;
 		el.syncStatusDetalhe.title = base;
 	}
 }
 
-async function conectarNuvem({ config, lista, modo = "edicao" }) {
-	const cfg = configValida(config);
-	if (!cfg) {
-		toast("erro", "Configuração do Firebase incompleta.");
+/**
+ * Conecta este aparelho a uma lista na nuvem.
+ * @param {object} destino { tipo, config?, codigo?, lista?, modo?, reconciliar? }
+ */
+async function conectarNuvem(destino) {
+	const novo = normalizarSync({
+		...destino,
+		reconciliar: destino.reconciliar ?? (estado.itensLocais.length > 0)
+	});
+	if (!novo) {
+		toast("erro", destino.tipo === "facil" ? "Código de lista inválido ou nuvem do app indisponível." : "Configuração do Firebase incompleta.");
 		return false;
 	}
-	estado.sync = {
-		config: cfg,
-		lista: normalizarNomeLista(lista),
-		modo: modo === "leitura" ? "leitura" : "edicao",
-		reconciliar: estado.itensLocais.length > 0
-	};
+	if (emNuvem()) await sync.desconectar();
+	estado.sync = novo;
 	armazenamento.gravar(CHAVE.sync, estado.sync);
 	armazenamento.remover(CHAVE.cacheNuvem);
 	estado.itensNuvem = [];
@@ -1219,7 +1261,7 @@ async function conectarNuvem({ config, lista, modo = "edicao" }) {
 	atualizarIndicadorSync();
 	atualizarDialogoSync();
 	try {
-		await sync.conectar({ config: cfg, lista: estado.sync.lista });
+		await sync.conectar(destinoSync(estado.sync));
 		return true;
 	} catch (erro) {
 		const info = explicarErro(erro);
@@ -1234,9 +1276,12 @@ async function conectarNuvem({ config, lista, modo = "edicao" }) {
 async function desconectarNuvem() {
 	if (!emNuvem()) return;
 	const qtd = estado.itensNuvem.length;
+	const lembrete = ehFacil(estado.sync)
+		? `<br><br>Para voltar a esta lista depois, guarde o código:<br><b style="font-family:var(--fonte-mono);font-size:1.05rem">${formatarCodigoLista(estado.sync.codigo)}</b>`
+		: "";
 	const { acao } = await dialogo({
 		titulo: "Desconectar este aparelho?",
-		html: `Os produtos continuam salvos na nuvem para os outros aparelhos.${qtd ? `<br><br>Deseja guardar uma cópia dos <b>${qtd}</b> produto(s) da lista compartilhada neste aparelho?` : ""}`,
+		html: `Os produtos continuam salvos na nuvem para os outros aparelhos.${lembrete}${qtd ? `<br><br>Deseja guardar uma cópia dos <b>${qtd}</b> produto(s) da nuvem neste aparelho?` : ""}`,
 		icone: "question",
 		confirmar: qtd ? "Desconectar e guardar cópia" : "Desconectar",
 		negar: qtd ? "Desconectar sem cópia" : undefined,
@@ -1290,20 +1335,33 @@ function decodificarBase64Url(texto) {
 }
 
 function gerarLink(modo) {
+	const base = `${location.origin}${location.pathname}`;
+	if (ehFacil(estado.sync)) {
+		// Link curto: só o código (QR Code fica simples de ler)
+		return `${base}#lista=${estado.sync.codigo}${modo === "leitura" ? "&ver=1" : ""}`;
+	}
 	const c = estado.sync.config;
 	const pacote = { v: 1, a: c.apiKey, p: c.projectId, i: c.appId, l: estado.sync.lista, m: modo === "leitura" ? "r" : "w" };
 	if (c.authDomain && c.authDomain !== `${c.projectId}.firebaseapp.com`) pacote.d = c.authDomain;
-	return `${location.origin}${location.pathname}#conectar=${codificarBase64Url(JSON.stringify(pacote))}`;
+	return `${base}#conectar=${codificarBase64Url(JSON.stringify(pacote))}`;
 }
 
 function lerLink(hash) {
-	const achado = String(hash || "").match(/[#&]conectar=([A-Za-z0-9_-]+)/);
+	const texto = String(hash || "");
+	const facil = texto.match(/[#&]lista=([A-Za-z0-9-]+)/);
+	if (facil) {
+		const codigo = normalizarCodigoLista(facil[1]);
+		if (!codigo) return { invalido: true };
+		if (!nuvemFacilDisponivel()) return { invalido: true, motivo: "A nuvem do app não está configurada nesta versão do site." };
+		return { tipo: "facil", codigo, modo: /[#&]ver=1/.test(texto) ? "leitura" : "edicao" };
+	}
+	const achado = texto.match(/[#&]conectar=([A-Za-z0-9_-]+)/);
 	if (!achado) return null;
 	try {
 		const p = JSON.parse(decodificarBase64Url(achado[1]));
 		const config = configValida({ apiKey: p.a, projectId: p.p, appId: p.i, authDomain: p.d });
 		if (!config) return { invalido: true };
-		return { config, lista: normalizarNomeLista(p.l), modo: p.m === "r" ? "leitura" : "edicao" };
+		return { tipo: "proprio", config, lista: normalizarNomeLista(p.l), modo: p.m === "r" ? "leitura" : "edicao" };
 	} catch {
 		return { invalido: true };
 	}
@@ -1314,28 +1372,43 @@ async function processarLinkCompartilhado() {
 	if (!dados) return;
 	try { history.replaceState(null, "", location.pathname + location.search); } catch { /* ignora */ }
 	if (dados.invalido) {
-		return dialogo({ titulo: "Link inválido", html: "Este link de compartilhamento está incompleto ou corrompido. Peça um novo link.", icone: "error" });
+		return dialogo({ titulo: "Link inválido", html: esc(dados.motivo || "Este link de compartilhamento está incompleto ou corrompido. Peça um novo link."), icone: "error" });
 	}
-	const mesmo = emNuvem() && estado.sync.config.projectId === dados.config.projectId && estado.sync.lista === dados.lista;
-	if (mesmo) {
-		if (estado.sync.modo !== dados.modo) {
-			estado.sync = { ...estado.sync, modo: dados.modo };
+	await entrarEmLista(dados);
+}
+
+/** Entra numa lista existente (via link ou código), pedindo confirmação. */
+async function entrarEmLista(dados) {
+	const novo = normalizarSync(dados);
+	if (!novo) {
+		dialogo({ titulo: "Não foi possível conectar", html: "Código ou configuração inválidos.", icone: "error" });
+		return false;
+	}
+	if (emNuvem() && idSync(estado.sync) === idSync(novo)) {
+		if (estado.sync.modo !== novo.modo) {
+			estado.sync = { ...estado.sync, modo: novo.modo };
 			armazenamento.gravar(CHAVE.sync, estado.sync);
 			render();
 			atualizarIndicadorSync();
+			atualizarDialogoSync();
 		}
-		return toast("info", `Este aparelho já está conectado à lista <b>${esc(dados.lista)}</b>.`);
+		toast("info", "Este aparelho já está conectado a esta lista.");
+		return true;
 	}
-	const trocar = emNuvem() ? `<br><br><small>Este aparelho deixará de usar a lista “${esc(estado.sync.lista)}”.</small>` : "";
+	const trocar = emNuvem() ? `<br><br><small>Este aparelho deixará de usar a ${esc(rotuloSync(estado.sync))}.</small>` : "";
+	const qual = ehFacil(novo)
+		? `Código: <b style="font-family:var(--fonte-mono)">${formatarCodigoLista(novo.codigo)}</b>`
+		: `Lista: <b>${esc(novo.lista)}</b><br>Projeto: <b>${esc(novo.config.projectId)}</b>`;
 	const ok = await confirmar({
-		titulo: "Conectar à lista compartilhada?",
-		html: `Lista: <b>${esc(dados.lista)}</b><br>Projeto: <b>${esc(dados.config.projectId)}</b><br>Permissão: <b>${dados.modo === "leitura" ? "somente visualizar" : "pode editar"}</b>${trocar}`,
+		titulo: "Conectar à lista na nuvem?",
+		html: `${qual}<br>Permissão: <b>${novo.modo === "leitura" ? "somente visualizar" : "pode editar"}</b>${trocar}`,
 		confirmar: "Conectar",
 		icone: "question"
 	});
-	if (!ok) return;
-	if (emNuvem()) await sync.desconectar();
-	if (await conectarNuvem(dados)) toast("sucesso", `Conectado à lista <b>${esc(dados.lista)}</b>.`);
+	if (!ok) return false;
+	const conectou = await conectarNuvem(novo);
+	if (conectou) toast("sucesso", "Conectado! A lista será carregada em instantes.");
+	return conectou;
 }
 
 /* ---------- Diálogo de sincronização ---------- */
@@ -1345,13 +1418,18 @@ async function atualizarCompartilhamento() {
 	const tipo = document.querySelector('input[name="tipoLink"]:checked')?.value || "edicao";
 	const link = gerarLink(tipo);
 	el.linkCompartilhar.value = link;
+	el.caixaCodigo.hidden = !ehFacil(estado.sync);
+	el.avisoLink.textContent = ehFacil(estado.sync)
+		? "Quem tiver este link ou o código acessa a lista. Envie apenas para pessoas de confiança."
+		: "O link contém a configuração do seu Firebase. Envie apenas para pessoas de confiança.";
+	if (ehFacil(estado.sync)) el.codigoLista.textContent = formatarCodigoLista(estado.sync.codigo);
 	if (link === qrUltimoLink) return;
 	qrUltimoLink = link;
 	el.qr.textContent = "Gerando QR Code…";
 	try {
 		await carregarScript(URL_QRCODE);
 		if (qrUltimoLink !== link) return;
-		const qr = window.qrcode(0, "L");
+		const qr = window.qrcode(0, "M");
 		qr.addData(link);
 		qr.make();
 		el.qr.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
@@ -1366,6 +1444,10 @@ function atualizarDialogoSync() {
 	const conectado = emNuvem();
 	el.syncDesconectado.hidden = conectado;
 	el.syncConectado.hidden = !conectado;
+	const facil = nuvemFacilDisponivel();
+	el.syncFacil.hidden = !facil;
+	el.syncAvancado.classList.toggle("sozinho", !facil);
+	if (!facil) el.syncAvancado.open = true;
 	if (conectado) {
 		el.syncPermitirEdicao.checked = estado.sync.modo !== "leitura";
 		atualizarIndicadorSync();
@@ -1378,9 +1460,44 @@ function abrirDialogoSync() {
 	atualizarDialogoSync();
 	if (!el.dlgSync.open) el.dlgSync.showModal();
 	if (emNuvem()) atualizarCompartilhamento();
-	else setTimeout(() => el.syncConfig.focus(), 50);
+	else if (!nuvemFacilDisponivel()) setTimeout(() => el.syncConfig.focus(), 50);
 }
 
+/** Modo fácil: cria uma lista nova na nuvem do app com um clique. */
+async function criarListaFacil() {
+	if (!nuvemFacilDisponivel()) return;
+	el.btnCriarLista.disabled = true;
+	try {
+		const ok = await conectarNuvem({ tipo: "facil", codigo: gerarCodigoLista(), modo: "edicao", reconciliar: false });
+		if (!ok) return;
+		// A lista acabou de ser criada (está vazia): envia já os produtos deste aparelho.
+		// Sem internet, o Firestore guarda na fila e envia quando a conexão voltar.
+		const locais = estado.itensLocais.map(i => ({ ...i }));
+		if (locais.length) aplicarAlteracoes({ salvar: locais });
+		toast("sucesso", `Lista criada na nuvem${locais.length ? ` com <b>${locais.length}</b> produto(s)` : ""}! Use o link ou o QR Code para abrir em outro aparelho.`, 6000);
+	} finally {
+		el.btnCriarLista.disabled = false;
+	}
+}
+
+/** Modo fácil: entra numa lista existente digitando o código. */
+async function entrarPorCodigo() {
+	const codigo = normalizarCodigoLista(el.syncCodigo.value);
+	if (!codigo) {
+		el.syncCodigo.setAttribute("aria-invalid", "true");
+		el.syncCodigo.focus();
+		return toast("erro", "Código inválido. Ele tem 16 letras/números, como <b>ABCD-EFGH-JKLM-NPQR</b>.");
+	}
+	el.syncCodigo.removeAttribute("aria-invalid");
+	el.btnEntrarCodigo.disabled = true;
+	try {
+		if (await entrarEmLista({ tipo: "facil", codigo, modo: "edicao" })) el.syncCodigo.value = "";
+	} finally {
+		el.btnEntrarCodigo.disabled = false;
+	}
+}
+
+/** Avançado: conecta ao Firebase do próprio usuário. */
 async function conectarPeloDialogo() {
 	const { config, faltando } = extrairConfigFirebase(el.syncConfig.value);
 	if (faltando.length) {
@@ -1395,7 +1512,7 @@ async function conectarPeloDialogo() {
 	el.syncConfig.removeAttribute("aria-invalid");
 	el.btnConectar.disabled = true;
 	try {
-		const ok = await conectarNuvem({ config, lista: el.syncLista.value, modo: "edicao" });
+		const ok = await conectarNuvem({ tipo: "proprio", config, lista: el.syncLista.value, modo: "edicao" });
 		if (ok) {
 			el.syncConfig.value = "";
 			toast("sucesso", `Conectado à lista <b>${esc(estado.sync.lista)}</b>.`);
@@ -1571,6 +1688,21 @@ function registrarEventos() {
 
 	// Sincronização
 	el.btnConectar.addEventListener("click", conectarPeloDialogo);
+	el.btnCriarLista.addEventListener("click", criarListaFacil);
+	el.btnEntrarCodigo.addEventListener("click", entrarPorCodigo);
+	el.syncCodigo.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); entrarPorCodigo(); } });
+	el.syncCodigo.addEventListener("input", () => {
+		el.syncCodigo.removeAttribute("aria-invalid");
+		// Formata enquanto digita: ABCD-EFGH-JKLM-NPQR (links colados ficam intactos)
+		const v = el.syncCodigo.value;
+		if (/lista=/.test(v)) return;
+		const limpo = v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16);
+		const formatado = formatarCodigoLista(limpo);
+		if (formatado !== v) el.syncCodigo.value = formatado;
+	});
+	el.btnCopiarCodigo.addEventListener("click", async () => {
+		if (ehFacil(estado.sync)) feedbackBotao(el.btnCopiarCodigo, await copiarTexto(formatarCodigoLista(estado.sync.codigo)));
+	});
 	el.syncConfig.addEventListener("input", () => el.syncConfig.removeAttribute("aria-invalid"));
 	el.btnDesconectar.addEventListener("click", desconectarNuvem);
 	el.syncPermitirEdicao.addEventListener("change", () => {
@@ -1648,19 +1780,13 @@ function iniciar() {
 	aplicarAlertaNaTela();
 	el.regras.textContent = REGRAS_FIRESTORE;
 
+	// Configuração salva (versões anteriores, sem "tipo", são tratadas como Firebase próprio)
 	const syncSalvo = armazenamento.ler(CHAVE.sync, null);
-	const cfg = syncSalvo && configValida(syncSalvo.config);
-	if (cfg) {
-		estado.sync = {
-			config: cfg,
-			lista: normalizarNomeLista(syncSalvo.lista),
-			modo: syncSalvo.modo === "leitura" ? "leitura" : "edicao",
-			reconciliar: !!syncSalvo.reconciliar
-		};
+	const syncValido = normalizarSync(syncSalvo);
+	if (syncValido) {
+		estado.sync = syncValido;
 		const cache = armazenamento.ler(CHAVE.cacheNuvem, null);
-		if (cache && cache.projeto === cfg.projectId && cache.lista === estado.sync.lista) {
-			estado.itensNuvem = sanitizarLista(cache.itens);
-		}
+		if (cache && cache.id === idSync(syncValido)) estado.itensNuvem = sanitizarLista(cache.itens);
 		estado.statusSync = "conectando";
 	} else if (syncSalvo) {
 		armazenamento.remover(CHAVE.sync);
@@ -1676,7 +1802,7 @@ function iniciar() {
 		.catch(() => { /* sem animação */ });
 
 	if (emNuvem()) {
-		sync.conectar({ config: estado.sync.config, lista: estado.sync.lista }).catch(erro => {
+		sync.conectar(destinoSync(estado.sync)).catch(erro => {
 			const info = explicarErro(erro);
 			estado.statusSync = "erro";
 			estado.detalheSync = info.mensagem;
