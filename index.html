@@ -213,11 +213,24 @@
 			<button type="button" class="btn-icone" data-fechar aria-label="Fechar"><i data-lucide="x"></i></button>
 		</div>
 		<div class="leitor-area">
-			<div id="leitor"></div>
-			<div class="leitor-mira" aria-hidden="true"></div>
-			<p id="leitorStatus" class="leitor-status">Iniciando câmera…</p>
+			<video id="leitorVideo" playsinline muted autoplay aria-label="Imagem da câmera"></video>
+			<div class="leitor-mira" id="leitorMira" aria-hidden="true"><span class="leitor-laser"></span></div>
+			<p id="leitorStatus" class="leitor-status" role="status">Iniciando câmera…</p>
+			<div class="leitor-controles">
+				<button type="button" class="btn-redondo" id="btnFlash" aria-pressed="false" title="Ligar flash" aria-label="Ligar flash"><i data-lucide="flashlight"></i></button>
+				<button type="button" class="btn-redondo" id="btnTrocarCamera" title="Trocar câmera" aria-label="Trocar câmera" hidden><i data-lucide="switch-camera"></i></button>
+			</div>
+			<div class="leitor-zoom" id="leitorZoomCaixa" hidden>
+				<i data-lucide="zoom-out"></i>
+				<input type="range" id="leitorZoom" min="1" max="5" step="0.1" value="1" aria-label="Zoom da câmera">
+				<i data-lucide="zoom-in"></i>
+			</div>
 		</div>
-		<p class="dica">Aponte a câmera para o código. A leitura é automática.</p>
+		<div class="leitor-rodape">
+			<p class="dica">Centralize o código na faixa. Se ficar borrado, <strong>afaste um pouco</strong> o celular ou use o zoom.</p>
+			<button type="button" class="btn btn-fantasma btn-bloco" id="btnFotoCodigo"><i data-lucide="camera"></i>Não está lendo? Tirar foto do código</button>
+			<input type="file" id="arquivoFotoCodigo" accept="image/*" capture="environment" hidden>
+		</div>
 	</dialog>
 
 	<!-- ===== Diálogo: salvar e compartilhar ===== -->

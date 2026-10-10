@@ -6,9 +6,9 @@ import {
 	gerarCodigoLista, normalizarCodigoLista, formatarCodigoLista
 } from "./sync.js";
 import { CONFIG_NUVEM_FACIL } from "./config-nuvem.js";
+import { criarLeitor } from "./leitor.js";
 
 const URL_AUTO_ANIMATE = "https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.10.0/index.mjs";
-const URL_LEITOR = "https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js";
 const URL_QRCODE = "https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js";
 
 const CHAVE = {
@@ -437,6 +437,15 @@ const el = {
 	arquivo: $("#arquivoImportar"),
 	dlgLeitor: $("#dlgLeitor"),
 	leitorStatus: $("#leitorStatus"),
+	leitorArea: $(".leitor-area"),
+	leitorVideo: $("#leitorVideo"),
+	leitorMira: $("#leitorMira"),
+	btnFlash: $("#btnFlash"),
+	btnTrocarCamera: $("#btnTrocarCamera"),
+	leitorZoomCaixa: $("#leitorZoomCaixa"),
+	leitorZoom: $("#leitorZoom"),
+	btnFotoCodigo: $("#btnFotoCodigo"),
+	arquivoFotoCodigo: $("#arquivoFotoCodigo"),
 	dlgSync: $("#dlgSync"),
 	syncDesconectado: $("#syncDesconectado"),
 	syncConectado: $("#syncConectado"),
@@ -1028,75 +1037,113 @@ async function importarArquivo(arquivo) {
 }
 
 /* =========================================================
-   Leitor de código de barras (html5-qrcode)
+   Leitor de código de barras (ver leitor.js)
    ========================================================= */
 let leitor = null;
 let leituraConcluida = false;
 
+function obterLeitor() {
+	if (leitor) return leitor;
+	leitor = criarLeitor({
+		video: el.leitorVideo,
+		mira: el.leitorMira,
+		aoLer: (codigo, formato) => leituraOk(codigo, formato),
+		aoStatus: texto => { el.leitorStatus.textContent = texto; },
+		aoCapacidades: cap => {
+			el.btnFlash.classList.toggle("indisponivel", !cap.flash);
+			el.btnFlash.setAttribute("aria-pressed", String(!!cap.flashLigado));
+			const titulo = !cap.flash ? "Flash indisponível neste aparelho/navegador" : cap.flashLigado ? "Desligar flash" : "Ligar flash";
+			el.btnFlash.title = titulo;
+			el.btnFlash.setAttribute("aria-label", titulo);
+			el.btnTrocarCamera.hidden = cap.cameras < 2;
+			el.leitorZoomCaixa.hidden = !cap.zoom;
+			if (cap.zoom) {
+				el.leitorZoom.min = cap.zoom.min;
+				el.leitorZoom.max = cap.zoom.max;
+				el.leitorZoom.step = cap.zoom.passo;
+				el.leitorZoom.value = cap.zoom.valor;
+			}
+		}
+	});
+	return leitor;
+}
+
 async function abrirLeitor() {
 	if (!podeEditar()) return;
-	if (!window.isSecureContext) {
-		return dialogo({ titulo: "Câmera indisponível", html: "A câmera só funciona em páginas seguras (<b>https</b>).", icone: "error" });
-	}
 	leituraConcluida = false;
+	el.leitorArea.classList.remove("lido");
 	el.leitorStatus.textContent = "Iniciando câmera…";
-	el.dlgLeitor.showModal();
+	el.btnFlash.setAttribute("aria-pressed", "false");
+	el.btnFlash.innerHTML = icone("Flashlight");
+	el.btnFlash.classList.remove("indisponivel");
+	el.btnTrocarCamera.hidden = true;
+	el.leitorZoomCaixa.hidden = true;
+	if (!el.dlgLeitor.open) el.dlgLeitor.showModal();
+	const l = obterLeitor();
 	try {
-		await carregarScript(URL_LEITOR);
-		if (!el.dlgLeitor.open) return;
-		const F = window.Html5QrcodeSupportedFormats;
-		const formatos = F ? [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.CODE_93, F.ITF, F.CODABAR, F.QR_CODE].filter(v => v !== undefined) : undefined;
-		leitor = new window.Html5Qrcode("leitor", {
-			verbose: false,
-			formatsToSupport: formatos,
-			experimentalFeatures: { useBarCodeDetectorIfSupported: true }
-		});
-		await leitor.start(
-			{ facingMode: "environment" },
-			{
-				fps: 12,
-				disableFlip: true,
-				qrbox: (w, h) => ({ width: Math.max(60, Math.floor(w * 0.8)), height: Math.max(60, Math.floor(h * 0.36)) })
-			},
-			codigo => leituraOk(codigo),
-			() => { }
-		);
-		if (!el.dlgLeitor.open) return pararLeitor();
-		el.leitorStatus.textContent = "Procurando código…";
+		await l.iniciar();
+		if (!el.dlgLeitor.open) l.parar();
 	} catch (erro) {
 		console.warn("Leitor:", erro);
-		const texto = String(erro?.name || "") + " " + String(erro?.message || erro || "");
-		let mensagem = "Não foi possível iniciar a câmera.";
-		if (/NotAllowed|Permission/i.test(texto)) mensagem = "Permissão da câmera negada. Libere o acesso nas configurações do navegador.";
-		else if (/NotFound|Requested device not found|OverconstrainedError/i.test(texto)) mensagem = "Nenhuma câmera foi encontrada neste aparelho.";
-		else if (/NotReadable|in use|Could not start/i.test(texto)) mensagem = "A câmera está sendo usada por outro aplicativo.";
-		else if (/Falha ao carregar/i.test(texto)) mensagem = "Não foi possível carregar o leitor. Verifique sua internet.";
-		await pararLeitor();
-		if (el.dlgLeitor.open) el.dlgLeitor.close();
-		toast("erro", esc(mensagem));
+		l.parar();
+		if (!el.dlgLeitor.open) return;
+		const mensagem = l.traduzirErro(erro);
+		el.leitorStatus.textContent = "Câmera indisponível — use “Tirar foto do código”";
+		toast("erro", esc(mensagem), 7000);
 	}
 }
 
-async function leituraOk(codigo) {
+function pararLeitor() {
+	leitor?.parar();
+}
+
+function leituraOk(codigo) {
 	if (leituraConcluida) return;
 	const limpo = String(codigo || "").replace(/\s+/g, "").slice(0, 64);
 	if (!limpo) return;
 	leituraConcluida = true;
-	try { navigator.vibrate?.(60); } catch { /* ignora */ }
+	el.leitorArea.classList.add("lido");
+	el.leitorStatus.textContent = `Lido: ${limpo}`;
 	el.codigo.value = limpo;
-	await pararLeitor();
-	if (el.dlgLeitor.open) el.dlgLeitor.close();
-	const reconhecido = autoPreencherPorCodigo();
-	(reconhecido ? el.quantidade : el.nome).focus();
-	toast("sucesso", `Código lido: <b>${esc(limpo)}</b>`, 2500);
+	// Pequena pausa para a pessoa ver a confirmação verde
+	setTimeout(() => {
+		pararLeitor();
+		if (el.dlgLeitor.open) el.dlgLeitor.close();
+		const reconhecido = autoPreencherPorCodigo();
+		(reconhecido ? el.quantidade : el.nome).focus();
+		toast("sucesso", `Código lido: <b>${esc(limpo)}</b>`, 2500);
+	}, 350);
 }
 
-async function pararLeitor() {
-	const atual = leitor;
-	leitor = null;
-	if (!atual) return;
-	try { if (atual.isScanning) await atual.stop(); } catch (e) { console.warn(e); }
-	try { atual.clear(); } catch { /* ignora */ }
+async function alternarFlash() {
+	if (!leitor?.ativo) return;
+	// Tenta mesmo quando o aparelho não anuncia o flash (alguns Android suportam assim mesmo)
+	try {
+		await leitor.alternarFlash();
+	} catch {
+		el.btnFlash.classList.add("indisponivel");
+		toast("aviso", el.btnTrocarCamera.hidden
+			? "Este aparelho/navegador não permite ligar o flash pela página. Toque em <b>Tirar foto do código</b> e use o flash da câmera."
+			: "Não foi possível ligar o flash nesta câmera. Tente <b>trocar de câmera</b> ou use <b>Tirar foto do código</b>.", 7000);
+	}
+}
+
+async function lerFotoDoCodigo(arquivo) {
+	if (!arquivo) return;
+	el.leitorStatus.textContent = "Analisando foto…";
+	try {
+		const r = await obterLeitor().lerFoto(arquivo);
+		if (r) {
+			leituraConcluida = false;
+			leituraOk(r.codigo, r.formato);
+		} else {
+			el.leitorStatus.textContent = leitor?.ativo ? "Procurando código…" : "Nenhum código na foto";
+			toast("aviso", "Não encontrei um código na foto. Tire outra bem de perto, com o código nítido e reto.", 6000);
+		}
+	} catch (e) {
+		console.warn(e);
+		toast("erro", "Não foi possível analisar a foto. Verifique sua internet e tente de novo.");
+	}
 }
 
 /* =========================================================
@@ -1592,6 +1639,26 @@ function registrarEventos() {
 
 	el.btnEscanear.addEventListener("click", abrirLeitor);
 	el.dlgLeitor.addEventListener("close", pararLeitor);
+	el.btnFlash.addEventListener("click", alternarFlash);
+	el.btnTrocarCamera.addEventListener("click", async () => {
+		try {
+			if (!(await leitor?.trocarCamera())) toast("info", "Só há uma câmera disponível.");
+		} catch (e) {
+			console.warn(e);
+			toast("erro", esc(leitor?.traduzirErro(e) || "Não foi possível trocar de câmera."));
+		}
+	});
+	el.leitorZoom.addEventListener("input", debounce(() => leitor?.definirZoom(el.leitorZoom.value), 60));
+	el.btnFotoCodigo.addEventListener("click", () => el.arquivoFotoCodigo.click());
+	el.arquivoFotoCodigo.addEventListener("change", () => {
+		const arquivo = el.arquivoFotoCodigo.files?.[0];
+		el.arquivoFotoCodigo.value = "";
+		lerFotoDoCodigo(arquivo);
+	});
+	// Pausa a câmera se o app for para segundo plano (economiza bateria e libera o flash)
+	document.addEventListener("visibilitychange", () => {
+		if (document.hidden && el.dlgLeitor.open) el.dlgLeitor.close();
+	});
 
 	// Ações da tabela (delegação)
 	el.lista.addEventListener("click", e => {

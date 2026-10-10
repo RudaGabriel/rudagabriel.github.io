@@ -6,7 +6,7 @@ Controle a validade dos seus produtos, receba alertas de vencimento e compartilh
 
 ## Recursos
 
-- Cadastro com código de barras (leitura pela câmera ou leitor USB), produto, quantidade e vencimento
+- Cadastro com código de barras (câmera com flash, zoom e troca de câmera, leitura por foto ou leitor USB), produto, quantidade e vencimento
 - Resumo com filtros rápidos: **Vencendo**, **Vencidos**, **Vencem este mês** e **Em dia**
 - Situação clara em cada item ("Vence em 5 dias", "Venceu há 3 dias")
 - Alerta ao abrir o app, com opção de silenciar por produto
@@ -83,4 +83,4 @@ Digite no campo de busca:
 
 ## Bibliotecas
 
-[Firebase 12](https://firebase.google.com/) · [SweetAlert2](https://sweetalert2.github.io/) · [Notyf](https://carlosroso.com/notyf/) · [Lucide](https://lucide.dev/) · [html5-qrcode](https://github.com/mebjas/html5-qrcode) · [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) · [AutoAnimate](https://auto-animate.formkit.com/)
+[Firebase 12](https://firebase.google.com/) · [SweetAlert2](https://sweetalert2.github.io/) · [Notyf](https://carlosroso.com/notyf/) · [Lucide](https://lucide.dev/) · [barcode-detector / ZXing-C++](https://github.com/Sec-ant/barcode-detector) · [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) · [AutoAnimate](https://auto-animate.formkit.com/)
