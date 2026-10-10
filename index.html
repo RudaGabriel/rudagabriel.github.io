@@ -1,113 +1,318 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-BR" data-tema="escuro">
 
 <head>
 	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 	<title>Controle de Vencimento</title>
-	<link rel="stylesheet" href="style.css">
+	<meta name="description" content="Controle a validade dos seus produtos, receba alertas de vencimento e compartilhe a lista entre aparelhos.">
+	<meta name="theme-color" content="#0b0d12" media="(prefers-color-scheme: dark)">
+	<meta name="theme-color" content="#f5f6fa" media="(prefers-color-scheme: light)">
 	<link rel="icon" href="icon.png" type="image/png">
+	<link rel="apple-touch-icon" href="icon.png">
+
+	<!-- Aplica o tema antes da renderização para evitar "piscar" -->
+	<script>
+		(function () {
+			var escuro = true;
+			try {
+				var salvo = localStorage.getItem("cv2:tema");
+				escuro = salvo ? salvo === "escuro" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+			} catch (e) { /* armazenamento indisponível: mantém escuro */ }
+			document.documentElement.setAttribute("data-tema", escuro ? "escuro" : "claro");
+		})();
+	</script>
+
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+	<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3.10.0/notyf.min.css">
+	<link rel="stylesheet" href="style.css">
+
+	<!-- Bibliotecas (carregadas sem bloquear a página) -->
+	<script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11.26.25/dist/sweetalert2.all.min.js"></script>
+	<script defer src="https://cdn.jsdelivr.net/npm/notyf@3.10.0/notyf.min.js"></script>
+	<script defer src="https://cdn.jsdelivr.net/npm/lucide@1.46.0/dist/umd/lucide.min.js"></script>
+	<script type="module" src="app.js"></script>
+
 	<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2042570332495044" crossorigin="anonymous"></script>
 	<meta name="google-adsense-account" content="ca-pub-2042570332495044">
 </head>
 
 <body>
-	<script type="module" src="firebaseSync.js"></script>
+	<a class="pular" href="#lista-produtos">Pular para a lista</a>
 
-	<div id="dadosfirediv" class="overlay-firebase">
-		<div class="firebase-card">
-			<h2>Configurar sincronização Firebase</h2>
-			<div class="firebase-grid">
-				<input type="text" id="SUA_CHAVE" placeholder="SUA_CHAVE">
-				<input type="text" id="SEU_DOMINIO" placeholder="SEU_DOMINIO.firebaseapp.com">
-				<input type="text" id="SEU_PROJETO" placeholder="SEU_PROJETO">
-				<input type="text" id="SEU_BUCKET" placeholder="SEU_BUCKET">
-				<input type="text" id="SEU_ID" placeholder="SEU_ID">
-				<input type="text" id="SUA_APP_ID" placeholder="SUA_APP_ID">
-			</div>
-			<div class="firebase-actions">
-				<button id="ConfirmarDadosFire">Confirmar</button>
-				<button id="CancelarDadosFire" class="btn-ghost">Cancelar</button>
-			</div>
-		</div>
-	</div>
-
-	<main class="page-shell">
-		<header class="hero">
-			<h1>Controle de Vencimento</h1>
-			<p>Gerencie validade, alertas e sincronização do seu estoque com clareza.</p>
-		</header>
-
-		<section class="panel controls form-panel">
-			<div class="controls controls-grid">
-				<input type="text" id="produto" placeholder="Produto">
-				<input type="number" id="quantidade" placeholder="Quantidade">
-				<input type="date" id="vencimento">
-				<input type="text" id="codigoBarras" placeholder="Código de Barras">
-				<button id="iniciar" class="btn-ghost" title="Ler código de barras">📷 Ler código</button>
-				<button id="adicionar">Adicionar</button>
-			</div>
-		</section>
-
-		<section class="panel controls filter-panel">
-			<div class="controls filter-grid">
-				<input type="text" id="filtro" placeholder="Filtrar por nome ou código">
-				<button id="filtroVencidos" class="btn-ghost">Mostrar produtos vencidos</button>
-				<button id="filtroEsteMes" class="btn-ghost">Mostrar produtos que vão vencer este mês</button>
-				<button id="exportar">Exportar</button>
-				<input type="file" id="importar" style="display:none;">
-				<button id="botaoImportar">Importar</button>
-				<button id="sincronizar" class="btn-sync">Sincronizar</button>
-				<div class="alert-config">
-					<label for="nAlertar">Alertar com</label>
-					<input type="number" id="nAlertar" placeholder="60">
-					<select id="como">
-						<option value="dias" selected>Dias</option>
-						<option value="meses">Meses</option>
-					</select>
-					<span>restantes</span>
+	<!-- ===== Barra superior ===== -->
+	<header class="topo">
+		<div class="topo-conteudo">
+			<div class="marca">
+				<span class="marca-icone"><i data-lucide="calendar-clock"></i></span>
+				<div class="marca-texto">
+					<h1>Controle de Vencimento</h1>
+					<p>Validade, alertas e estoque em um só lugar</p>
 				</div>
 			</div>
+
+			<div class="topo-acoes">
+				<button id="btnSync" class="pilula-sync" type="button" data-estado="local" title="Salvar e compartilhar entre aparelhos">
+					<span class="pilula-ponto"></span>
+					<span id="btnSyncTexto">Apenas neste aparelho</span>
+				</button>
+
+				<button id="btnTema" class="btn-icone" type="button" title="Alternar tema claro/escuro" aria-label="Alternar tema">
+					<i data-lucide="sun-moon"></i>
+				</button>
+
+				<details class="menu" id="menuMais">
+					<summary class="btn-icone" title="Mais opções" aria-label="Mais opções">
+						<i data-lucide="ellipsis-vertical"></i>
+					</summary>
+					<div class="menu-lista" role="menu">
+						<button type="button" role="menuitem" data-acao="exportar-json"><i data-lucide="file-json"></i>Fazer backup (.json)</button>
+						<button type="button" role="menuitem" data-acao="exportar-csv"><i data-lucide="file-spreadsheet"></i>Exportar planilha (.csv)</button>
+						<button type="button" role="menuitem" data-acao="importar"><i data-lucide="upload"></i>Restaurar / importar backup</button>
+						<hr>
+						<button type="button" role="menuitem" data-acao="sincronizar"><i data-lucide="share-2"></i>Salvar e compartilhar</button>
+					</div>
+				</details>
+				<input type="file" id="arquivoImportar" accept=".json,application/json" hidden>
+			</div>
+		</div>
+	</header>
+
+	<main class="pagina">
+		<!-- ===== Resumo / filtros rápidos ===== -->
+		<section class="resumo" aria-label="Resumo e filtros">
+			<button type="button" class="cartao-resumo ativo" data-filtro="todos">
+				<span class="resumo-icone"><i data-lucide="boxes"></i></span>
+				<span class="resumo-info"><strong id="totTodos">0</strong><small>Todos</small></span>
+			</button>
+			<button type="button" class="cartao-resumo tom-alerta" data-filtro="alerta">
+				<span class="resumo-icone"><i data-lucide="hourglass"></i></span>
+				<span class="resumo-info"><strong id="totAlerta">0</strong><small>Vencendo</small></span>
+			</button>
+			<button type="button" class="cartao-resumo tom-perigo" data-filtro="vencidos">
+				<span class="resumo-icone"><i data-lucide="calendar-x"></i></span>
+				<span class="resumo-info"><strong id="totVencidos">0</strong><small>Vencidos</small></span>
+			</button>
+			<button type="button" class="cartao-resumo tom-info" data-filtro="mes">
+				<span class="resumo-icone"><i data-lucide="calendar-range"></i></span>
+				<span class="resumo-info"><strong id="totMes">0</strong><small>Vencem este mês</small></span>
+			</button>
+			<button type="button" class="cartao-resumo tom-ok" data-filtro="ok">
+				<span class="resumo-icone"><i data-lucide="circle-check"></i></span>
+				<span class="resumo-info"><strong id="totOk">0</strong><small>Em dia</small></span>
+			</button>
 		</section>
 
-		<section class="panel table-panel">
-			<div class="table-container">
-				<table>
+		<!-- ===== Formulário ===== -->
+		<section class="cartao" aria-labelledby="tituloForm">
+			<div class="cartao-cabecalho">
+				<h2 id="tituloForm"><i data-lucide="package-plus"></i><span id="tituloFormTexto">Novo produto</span></h2>
+				<p id="avisoLeitura" class="aviso-leitura" hidden><i data-lucide="lock"></i>Somente leitura neste aparelho</p>
+			</div>
+
+			<form id="formProduto" class="form-produto" novalidate autocomplete="off">
+				<div class="campo campo-codigo">
+					<label for="codigoBarras">Código de barras <span class="opcional">(opcional)</span></label>
+					<div class="grupo-entrada">
+						<input type="text" id="codigoBarras" inputmode="numeric" enterkeyhint="next" placeholder="Digite ou escaneie" maxlength="64">
+						<button type="button" id="btnEscanear" class="btn-anexo" title="Ler código com a câmera" aria-label="Ler código com a câmera">
+							<i data-lucide="scan-barcode"></i>
+						</button>
+					</div>
+				</div>
+				<div class="campo campo-nome">
+					<label for="produto">Produto</label>
+					<input type="text" id="produto" placeholder="Ex.: Leite integral 1L" maxlength="120" enterkeyhint="next" list="sugestoesNomes" required>
+					<datalist id="sugestoesNomes"></datalist>
+				</div>
+				<div class="campo campo-qtd">
+					<label for="quantidade">Quantidade</label>
+					<input type="number" id="quantidade" inputmode="numeric" min="0" step="1" placeholder="0" enterkeyhint="next" required>
+				</div>
+				<div class="campo campo-data">
+					<label for="vencimento">Vencimento</label>
+					<input type="date" id="vencimento" min="1900-01-01" max="2200-12-31" enterkeyhint="done" required>
+				</div>
+				<div class="form-acoes">
+					<button type="button" id="btnCancelarEdicao" class="btn btn-fantasma" hidden><i data-lucide="x"></i>Cancelar</button>
+					<button type="submit" id="btnSalvar" class="btn btn-primario"><i data-lucide="plus"></i><span>Adicionar</span></button>
+				</div>
+			</form>
+		</section>
+
+		<!-- ===== Lista ===== -->
+		<section class="cartao cartao-lista" aria-labelledby="tituloLista">
+			<div class="barra-lista">
+				<h2 id="tituloLista" class="sr-only">Produtos</h2>
+				<label class="busca">
+					<i data-lucide="search"></i>
+					<input type="search" id="filtro" placeholder="Buscar por nome ou código" aria-label="Buscar produtos" enterkeyhint="search">
+				</label>
+
+				<div class="config-alerta" title="Produtos dentro deste prazo ficam em destaque">
+					<i data-lucide="bell-ring"></i>
+					<label for="nAlertar">Alertar com</label>
+					<input type="number" id="nAlertar" min="0" max="3650" step="1" inputmode="numeric" value="60">
+					<select id="como" aria-label="Unidade do alerta">
+						<option value="dias">dias</option>
+						<option value="meses">meses</option>
+					</select>
+					<span>de antecedência</span>
+				</div>
+
+				<label class="ordenar">
+					<i data-lucide="arrow-up-down"></i>
+					<select id="ordenacao" aria-label="Ordenar lista">
+						<option value="prioridade">Prioridade</option>
+						<option value="venc-asc">Vencimento ↑</option>
+						<option value="venc-desc">Vencimento ↓</option>
+						<option value="nome">Nome (A–Z)</option>
+						<option value="qtd">Quantidade</option>
+						<option value="recentes">Mais recentes</option>
+					</select>
+				</label>
+			</div>
+
+			<div class="tabela-envoltorio">
+				<table class="tabela" id="lista-produtos">
 					<thead>
 						<tr>
-							<th>Código de Barras</th>
-							<th>Produto</th>
-							<th>Quantidade</th>
-							<th id="vencimentoHeader">Vencimento</th>
-							<th>Ações</th>
+							<th scope="col">Produto</th>
+							<th scope="col">Código</th>
+							<th scope="col" class="num">Qtd.</th>
+							<th scope="col">Vencimento</th>
+							<th scope="col">Situação</th>
+							<th scope="col" class="col-acoes"><span class="sr-only">Ações</span></th>
 						</tr>
 					</thead>
 					<tbody id="lista"></tbody>
 				</table>
+				<div id="vazio" class="vazio" hidden>
+					<span class="vazio-icone"><i data-lucide="package-open"></i></span>
+					<strong id="vazioTitulo">Nenhum produto cadastrado</strong>
+					<p id="vazioTexto">Adicione o primeiro produto usando o formulário acima.</p>
+				</div>
 			</div>
+			<p class="rodape-lista" id="rodapeLista"></p>
 		</section>
 	</main>
 
-	<div id="containerleitor" class="displaynone">
-		<button id="pararleitor">Cancelar leitura</button>
-	</div>
+	<footer class="rodape">
+		<span>Controle de Vencimento</span>
+		<span aria-hidden="true">·</span>
+		<a href="https://github.com/RudaGabriel/rudagabriel.github.io" target="_blank" rel="noopener noreferrer">Código-fonte</a>
+	</footer>
 
-	<div id="modal" class="modal">
-		<div class="modal-content">
-			<p id="modalBody"></p>
-			<div class="modal-actions">
-				<button id="confirmar">Confirmar</button>
-				<button id="cancelar" class="btn-ghost">Cancelar</button>
+	<!-- ===== Diálogo: leitor de código de barras ===== -->
+	<dialog id="dlgLeitor" class="dialogo dialogo-leitor" aria-labelledby="tituloLeitor">
+		<div class="dialogo-cabecalho">
+			<h2 id="tituloLeitor"><i data-lucide="scan-barcode"></i>Ler código de barras</h2>
+			<button type="button" class="btn-icone" data-fechar aria-label="Fechar"><i data-lucide="x"></i></button>
+		</div>
+		<div class="leitor-area">
+			<div id="leitor"></div>
+			<div class="leitor-mira" aria-hidden="true"></div>
+			<p id="leitorStatus" class="leitor-status">Iniciando câmera…</p>
+		</div>
+		<p class="dica">Aponte a câmera para o código. A leitura é automática.</p>
+	</dialog>
+
+	<!-- ===== Diálogo: salvar e compartilhar ===== -->
+	<dialog id="dlgSync" class="dialogo dialogo-sync" aria-labelledby="tituloSync">
+		<div class="dialogo-cabecalho">
+			<h2 id="tituloSync"><i data-lucide="share-2"></i>Salvar e compartilhar</h2>
+			<button type="button" class="btn-icone" data-fechar aria-label="Fechar"><i data-lucide="x"></i></button>
+		</div>
+
+		<!-- Visão: desconectado -->
+		<div id="syncDesconectado" class="dialogo-corpo">
+			<p class="intro">Hoje seus produtos ficam salvos <strong>apenas neste aparelho</strong>. Conecte uma lista na nuvem (Firebase, gratuito) para usar a mesma lista em vários celulares e computadores, em tempo real.</p>
+
+			<ol class="passos">
+				<li><span>1</span><p>Cole abaixo a configuração do seu projeto Firebase.</p></li>
+				<li><span>2</span><p>Escolha um nome para a lista e clique em <strong>Conectar</strong>.</p></li>
+				<li><span>3</span><p>Nos outros aparelhos, basta abrir o <strong>link de compartilhamento</strong> ou ler o QR Code.</p></li>
+			</ol>
+
+			<div class="campo">
+				<label for="syncConfig">Configuração do Firebase</label>
+				<textarea id="syncConfig" rows="7" spellcheck="false" placeholder="const firebaseConfig = {&#10;  apiKey: &quot;...&quot;,&#10;  authDomain: &quot;...&quot;,&#10;  projectId: &quot;...&quot;,&#10;  storageBucket: &quot;...&quot;,&#10;  messagingSenderId: &quot;...&quot;,&#10;  appId: &quot;...&quot;&#10;};"></textarea>
+				<small class="ajuda">Pode colar o trecho inteiro copiado do console do Firebase — o app encontra os valores sozinho.</small>
+			</div>
+			<div class="campo">
+				<label for="syncLista">Nome da lista</label>
+				<input type="text" id="syncLista" value="principal" maxlength="40" placeholder="principal">
+				<small class="ajuda">Aparelhos com o mesmo projeto e o mesmo nome de lista compartilham os produtos.</small>
+			</div>
+
+			<details class="como-obter">
+				<summary><i data-lucide="circle-help"></i>Como obter a configuração?</summary>
+				<ol>
+					<li>Acesse <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer">console.firebase.google.com</a> e crie um projeto.</li>
+					<li>Em <strong>Firestore Database</strong>, clique em <em>Criar banco de dados</em>.</li>
+					<li>Na aba <strong>Regras</strong>, cole as regras abaixo e publique.</li>
+					<li>Em <strong>Configurações do projeto → Seus apps</strong>, adicione um app Web (<code>&lt;/&gt;</code>) e copie o <code>firebaseConfig</code>.</li>
+				</ol>
+				<div class="bloco-codigo">
+					<pre id="regrasFirestore"></pre>
+					<button type="button" class="btn btn-fantasma btn-pequeno" id="btnCopiarRegras"><i data-lucide="copy"></i>Copiar regras</button>
+				</div>
+			</details>
+
+			<div class="dialogo-acoes">
+				<button type="button" class="btn btn-fantasma" data-fechar>Agora não</button>
+				<button type="button" class="btn btn-primario" id="btnConectar"><i data-lucide="cloud"></i>Conectar</button>
 			</div>
 		</div>
-	</div>
 
-	<script src="script.js"></script>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+		<!-- Visão: conectado -->
+		<div id="syncConectado" class="dialogo-corpo" hidden>
+			<div class="status-sync">
+				<span class="status-icone"><i data-lucide="cloud-check"></i></span>
+				<div>
+					<strong id="syncStatusTitulo">Conectado</strong>
+					<p id="syncStatusDetalhe">Lista “principal” · projeto</p>
+				</div>
+			</div>
+
+			<label class="interruptor">
+				<input type="checkbox" id="syncPermitirEdicao" checked>
+				<span class="interruptor-trilho"><span></span></span>
+				<span class="interruptor-texto">
+					<strong>Permitir edição neste aparelho</strong>
+					<small>Desative para que este aparelho apenas visualize a lista.</small>
+				</span>
+			</label>
+
+			<div class="compartilhar">
+				<h3><i data-lucide="link"></i>Conectar outro aparelho</h3>
+				<div class="segmentado" role="radiogroup" aria-label="Tipo de link">
+					<label><input type="radio" name="tipoLink" value="edicao" checked><span>Pode editar</span></label>
+					<label><input type="radio" name="tipoLink" value="leitura"><span>Só visualizar</span></label>
+				</div>
+				<div class="compartilhar-grade">
+					<div id="qrCompartilhar" class="qr" aria-label="QR Code do link de compartilhamento"></div>
+					<div class="compartilhar-link">
+						<p>Abra este link (ou leia o QR Code) no outro aparelho. Ele será conectado automaticamente.</p>
+						<div class="grupo-entrada">
+							<input type="text" id="linkCompartilhar" readonly aria-label="Link de compartilhamento">
+							<button type="button" class="btn-anexo" id="btnCopiarLink" title="Copiar link" aria-label="Copiar link"><i data-lucide="copy"></i></button>
+						</div>
+						<button type="button" class="btn btn-secundario btn-bloco" id="btnCompartilharNativo" hidden><i data-lucide="share"></i>Enviar link…</button>
+						<small class="ajuda">O link contém a configuração do projeto. Envie apenas para pessoas de confiança.</small>
+					</div>
+				</div>
+			</div>
+
+			<div class="dialogo-acoes">
+				<button type="button" class="btn btn-perigo-suave" id="btnDesconectar"><i data-lucide="log-out"></i>Desconectar</button>
+				<button type="button" class="btn btn-primario" data-fechar>Concluído</button>
+			</div>
+		</div>
+	</dialog>
 </body>
 
 </html>
