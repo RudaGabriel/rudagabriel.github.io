@@ -242,23 +242,54 @@
 
 		<!-- Visão: desconectado -->
 		<div id="syncDesconectado" class="dialogo-corpo">
-			<p class="intro">Hoje seus produtos ficam salvos <strong>apenas neste aparelho</strong>. Salve na nuvem para usar a mesma lista em vários celulares e computadores, em tempo real.</p>
+			<p class="intro">Hoje seus produtos ficam salvos <strong>apenas neste aparelho</strong>. Salve na nuvem para ver a mesma lista no celular, no computador ou com sua equipe — em tempo real.</p>
 
-			<!-- Modo fácil: nuvem do app -->
-			<div id="syncFacil" class="sync-facil" hidden>
-				<button type="button" class="opcao-grande" id="btnCriarLista">
+			<!-- Nuvem ainda não ativada pelo dono do site -->
+			<div id="syncIndisponivel" class="aviso-caixa" hidden>
+				<strong><i data-lucide="cloud-off"></i>Nuvem ainda não ativada</strong>
+				<p>O dono do site precisa colar o <b>App ID</b> do InstantDB em <code>config-nuvem.js</code> (veja o README). Enquanto isso, use <b>Fazer backup</b> no menu ⋮ para guardar seus produtos.</p>
+			</div>
+
+			<div id="syncOpcoes" class="sync-facil">
+				<!-- Login por e-mail (recomendado) -->
+				<div class="login-caixa">
+					<div class="login-titulo">
+						<span class="opcao-icone"><i data-lucide="mail"></i></span>
+						<span class="opcao-texto">
+							<strong>Entrar com e-mail</strong>
+							<small>Sem senha: você recebe um código. Use o mesmo e-mail em todos os aparelhos.</small>
+						</span>
+					</div>
+					<div class="campo">
+						<label for="loginEmail" class="sr-only">E-mail</label>
+						<div class="grupo-entrada">
+							<input type="email" id="loginEmail" placeholder="seu@email.com" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" enterkeyhint="send" maxlength="200">
+							<button type="button" class="btn-anexo btn-anexo-texto" id="btnEnviarCodigo">Receber código</button>
+						</div>
+					</div>
+					<div id="loginCodigoCaixa" class="campo" hidden>
+						<label for="loginCodigo">Código enviado para <b id="loginEmailTexto"></b></label>
+						<div class="grupo-entrada">
+							<input type="text" id="loginCodigo" class="entrada-codigo" placeholder="123456" inputmode="numeric" autocomplete="one-time-code" maxlength="10" enterkeyhint="go">
+							<button type="button" class="btn-anexo btn-anexo-texto" id="btnEntrarLogin">Entrar</button>
+						</div>
+						<button type="button" class="link-botao" id="btnTrocarEmail">Usar outro e-mail</button>
+					</div>
+				</div>
+
+				<div class="separador"><span>ou, sem login</span></div>
+
+				<button type="button" class="opcao-grande opcao-secundaria" id="btnCriarLista">
 					<span class="opcao-icone"><i data-lucide="cloud-upload"></i></span>
 					<span class="opcao-texto">
-						<strong>Criar lista na nuvem</strong>
-						<small>Um clique. Sem cadastro e sem configurar nada.</small>
+						<strong>Criar lista com código</strong>
+						<small>Um clique. Compartilhe por link ou QR Code.</small>
 					</span>
 					<i data-lucide="chevron-right"></i>
 				</button>
 
-				<div class="separador"><span>ou entre numa lista que já existe</span></div>
-
 				<div class="campo">
-					<label for="syncCodigo">Código da lista</label>
+					<label for="syncCodigo">Já tem um código?</label>
 					<div class="grupo-entrada">
 						<input type="text" id="syncCodigo" class="entrada-codigo" placeholder="ABCD-EFGH-JKLM-NPQR" maxlength="400" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">
 						<button type="button" class="btn-anexo btn-anexo-texto" id="btnEntrarCodigo">Entrar</button>
@@ -267,44 +298,11 @@
 				</div>
 			</div>
 
-			<!-- Avançado: Firebase próprio -->
-			<details id="syncAvancado" class="avancado">
-				<summary><i data-lucide="settings-2"></i>Avançado: usar meu próprio Firebase</summary>
-				<div class="avancado-corpo">
-					<ol class="passos">
-						<li><span>1</span><p>Cole abaixo a configuração do seu projeto Firebase.</p></li>
-						<li><span>2</span><p>Escolha um nome para a lista e clique em <strong>Conectar</strong>.</p></li>
-						<li><span>3</span><p>Nos outros aparelhos, basta abrir o <strong>link de compartilhamento</strong> ou ler o QR Code.</p></li>
-					</ol>
-
-					<div class="campo">
-						<label for="syncConfig">Configuração do Firebase</label>
-						<textarea id="syncConfig" rows="7" spellcheck="false" placeholder="const firebaseConfig = {&#10;  apiKey: &quot;...&quot;,&#10;  authDomain: &quot;...&quot;,&#10;  projectId: &quot;...&quot;,&#10;  storageBucket: &quot;...&quot;,&#10;  messagingSenderId: &quot;...&quot;,&#10;  appId: &quot;...&quot;&#10;};"></textarea>
-						<small class="ajuda">Pode colar o trecho inteiro copiado do console do Firebase — o app encontra os valores sozinho.</small>
-					</div>
-					<div class="campo">
-						<label for="syncLista">Nome da lista</label>
-						<input type="text" id="syncLista" value="principal" maxlength="40" placeholder="principal">
-						<small class="ajuda">Aparelhos com o mesmo projeto e o mesmo nome de lista compartilham os produtos.</small>
-					</div>
-
-					<details class="como-obter">
-						<summary><i data-lucide="circle-help"></i>Como obter a configuração?</summary>
-						<ol>
-							<li>Acesse <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer">console.firebase.google.com</a> e crie um projeto.</li>
-							<li>Em <strong>Firestore Database</strong>, clique em <em>Criar banco de dados</em>.</li>
-							<li>Na aba <strong>Regras</strong>, cole as regras abaixo e publique.</li>
-							<li>Em <strong>Configurações do projeto → Seus apps</strong>, adicione um app Web (<code>&lt;/&gt;</code>) e copie o <code>firebaseConfig</code>.</li>
-						</ol>
-						<div class="bloco-codigo">
-							<pre id="regrasFirestore"></pre>
-							<button type="button" class="btn btn-fantasma btn-pequeno" id="btnCopiarRegras"><i data-lucide="copy"></i>Copiar regras</button>
-						</div>
-					</details>
-
-					<div class="avancado-acoes">
-						<button type="button" class="btn btn-primario" id="btnConectar"><i data-lucide="cloud"></i>Conectar</button>
-					</div>
+			<details class="como-obter">
+				<summary><i data-lucide="shield-check"></i>Regras de segurança (para o dono do site)</summary>
+				<div class="bloco-codigo">
+					<p class="ajuda">Em instantdb.com/dash → seu app → <b>Permissions</b>, cole:</p>
+					<pre id="regrasNuvem"></pre>
 				</div>
 			</details>
 
@@ -323,7 +321,9 @@
 				</div>
 			</div>
 
-			<div id="caixaCodigo" class="caixa-codigo" hidden>
+			<p id="syncContaLinha" class="conta-linha" hidden><i data-lucide="circle-user"></i>Conta: <b id="syncContaEmail"></b></p>
+
+			<div id="caixaCodigo" class="caixa-codigo">
 				<small>Código da lista</small>
 				<div class="caixa-codigo-linha">
 					<strong id="codigoLista" class="codigo-lista"></strong>

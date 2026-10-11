@@ -13,66 +13,63 @@ Controle a validade dos seus produtos, receba alertas de vencimento e compartilh
 - Busca sem acentos, ordenação, edição, remoção com **Desfazer**
 - Backup/restauração (`.json`) e exportação para planilha (`.csv`)
 - Tema claro e escuro, layout próprio para celular
-- Salvar e compartilhar em tempo real (opcional), funcionando também offline
+- Salvar na nuvem com login por e-mail (sem senha) ou por código, em tempo real e funcionando offline
 
 ## Salvar na nuvem e compartilhar
 
-Sem fazer nada, os produtos ficam salvos **apenas no aparelho**. Para usar a mesma lista em vários aparelhos:
+Sem fazer nada, os produtos ficam salvos **apenas no aparelho**. Para usar a mesma lista em vários aparelhos, toque no botão de nuvem (topo):
 
-### Modo fácil (recomendado)
+- **Entrar com e-mail (recomendado):** digite seu e-mail, receba um código e pronto. Em qualquer outro aparelho, entre com o **mesmo e-mail** e a mesma lista aparece. Sem senha.
+- **Criar lista com código (sem login):** um clique gera um código (ex.: `ABCD-EFGH-JKLM-NPQR`). Nos outros aparelhos, abra o **link**, leia o **QR Code** ou digite o código.
+  - **Pode editar:** o aparelho adiciona, altera e remove produtos.
+  - **Só visualizar:** o aparelho apenas acompanha a lista.
 
-1. Toque no botão de sincronização (topo) → **Criar lista na nuvem**. Pronto: um clique, sem cadastro.
-2. Nos outros aparelhos, abra o **link** ou leia o **QR Code** exibido — ou digite o **código da lista** (ex.: `ABCD-EFGH-JKLM-NPQR`).
-   - **Pode editar:** o aparelho adiciona, altera e remove produtos.
-   - **Só visualizar:** o aparelho apenas acompanha a lista.
+Tudo sincroniza em tempo real e funciona offline (as alterações são enviadas quando a internet voltar).
 
-> Guarde o código da lista: com ele você recupera os produtos em qualquer aparelho. Quem tiver o link ou o código acessa a lista.
+### Para o dono do site: ativar a nuvem (uma vez, ~2 minutos)
 
-#### Para o dono do site: ativar a nuvem do app (uma única vez)
+A nuvem usa o [InstantDB](https://www.instantdb.com/) (gratuito). Só é preciso o **App ID**:
 
-O modo fácil usa um projeto Firebase do próprio site. Enquanto `config-nuvem.js` estiver com `null`, o app mostra só o modo avançado.
+1. Acesse https://instantdb.com/dash e entre com sua conta Google.
+2. Crie um app (**New app**) e copie o **App ID**.
+3. Cole o App ID em [`config-nuvem.js`](config-nuvem.js):
+   ```js
+   export const INSTANT_APP_ID = "seu-app-id-aqui";
+   ```
+4. (Recomendado) Em **Permissions**, cole as regras abaixo — assim cada pessoa só acessa a lista cujo código conhece, e cada conta só vê os próprios dados:
 
-1. Em https://console.firebase.google.com/ crie (ou reutilize) um projeto e, em **Firestore Database**, crie o banco.
-2. Na aba **Regras**, publique:
-
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /listas/{codigo} {
-      allow get: if codigo.matches('^[A-HJ-NP-Z2-9]{16}$');
-      allow list, delete: if false;
-      allow create, update: if codigo.matches('^[A-HJ-NP-Z2-9]{16}$')
-        && request.resource.data.keys().hasOnly(['itens', 'versao', 'atualizadoEm'])
-        && request.resource.data.itens is map
-        && request.resource.data.itens.size() <= 5000;
+```json
+{
+  "produtos": {
+    "bind": [
+      "daLista",
+      "ruleParams.lista != null && data.lista == ruleParams.lista"
+    ],
+    "allow": {
+      "view": "daLista",
+      "create": "daLista",
+      "update": "daLista && newData.lista == ruleParams.lista",
+      "delete": "daLista"
+    }
+  },
+  "contas": {
+    "bind": [
+      "dono",
+      "auth.id != null && data.usuario == auth.id"
+    ],
+    "allow": {
+      "view": "dono",
+      "create": "dono",
+      "update": "dono && newData.usuario == auth.id",
+      "delete": "dono"
     }
   }
 }
 ```
 
-   Se reutilizar o projeto antigo, mantenha também o bloco `match /dados/{document}` que já existia.
+Enquanto o App ID estiver vazio, o app funciona normalmente, salvando apenas no aparelho.
 
-3. Em **Configurações do projeto → Seus apps**, adicione um app Web e copie os valores do `firebaseConfig` para `config-nuvem.js`.
-
-Cada lista fica em `listas/<código>`; o código tem 16 caracteres aleatórios (impossível de adivinhar) e ninguém consegue listar as listas dos outros.
-
-### Modo avançado: usar o próprio Firebase
-
-Em **Avançado: usar meu próprio Firebase**, cole o bloco `firebaseConfig` do seu projeto e escolha um nome de lista. As regras necessárias são:
-
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /dados/{document} {
-      allow read, write: if true;
-    }
-  }
-}
-```
-
-Cada lista é salva em `dados/lista-<nome>`. Quem já usava a versão anterior é migrado automaticamente (produtos, alertas e configuração do Firebase) — os dados antigos continuam guardados.
+> Quem usava a sincronização antiga (Firebase) não perde nada: a última cópia da nuvem fica guardada no aparelho. Basta entrar com e-mail para voltar a sincronizar.
 
 ### Comandos (compatibilidade)
 
@@ -83,4 +80,4 @@ Digite no campo de busca:
 
 ## Bibliotecas
 
-[Firebase 12](https://firebase.google.com/) · [SweetAlert2](https://sweetalert2.github.io/) · [Notyf](https://carlosroso.com/notyf/) · [Lucide](https://lucide.dev/) · [barcode-detector / ZXing-C++](https://github.com/Sec-ant/barcode-detector) · [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) · [AutoAnimate](https://auto-animate.formkit.com/)
+[InstantDB](https://www.instantdb.com/) · [SweetAlert2](https://sweetalert2.github.io/) · [Notyf](https://carlosroso.com/notyf/) · [Lucide](https://lucide.dev/) · [barcode-detector / ZXing-C++](https://github.com/Sec-ant/barcode-detector) · [ZXing JS](https://github.com/zxing-js/library) · [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) · [AutoAnimate](https://auto-animate.formkit.com/)
