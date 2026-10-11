@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Controle de Vencimento">
+	<!-- Ícone original do Controle de Vencimento (livre de direitos de terceiros) -->
+	<defs>
+		<linearGradient id="fundo" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#8b7bff"/>
+			<stop offset="1" stop-color="#4f7cf7"/>
+		</linearGradient>
+		<linearGradient id="brilho" x1="0" y1="0" x2="0" y2="1">
+			<stop offset="0" stop-color="#ffffff" stop-opacity=".2"/>
+			<stop offset=".6" stop-color="#ffffff" stop-opacity="0"/>
+		</linearGradient>
+		<filter id="sombra" x="-20%" y="-20%" width="140%" height="140%">
+			<feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#1b1460" flood-opacity=".35"/>
+		</filter>
+	</defs>
+
+	<!-- Fundo -->
+	<rect width="512" height="512" rx="116" fill="url(#fundo)"/>
+	<rect width="512" height="512" rx="116" fill="url(#brilho)"/>
+
+	<!-- Calendário -->
+	<g filter="url(#sombra)">
+		<rect x="112" y="126" width="288" height="270" rx="48" fill="#ffffff"/>
+		<path d="M112 174a48 48 0 0 1 48-48h192a48 48 0 0 1 48 48v32H112z" fill="#e7e4ff"/>
+		<rect x="170" y="96" width="30" height="68" rx="15" fill="#ffffff"/>
+		<rect x="312" y="96" width="30" height="68" rx="15" fill="#ffffff"/>
+	</g>
+
+	<!-- Marca de conferido -->
+	<path d="M184 296l44 44 96-96" fill="none" stroke="#5b4cf0" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+
+	<!-- Relógio (prazo) -->
+	<g filter="url(#sombra)">
+		<circle cx="378" cy="372" r="74" fill="#ffb020"/>
+		<circle cx="378" cy="372" r="56" fill="#fff6e3"/>
+		<path d="M378 338v36l24 16" fill="none" stroke="#c27a06" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+	</g>
+</svg>

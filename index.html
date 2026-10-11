@@ -8,8 +8,12 @@
 	<meta name="description" content="Controle a validade dos seus produtos, receba alertas de vencimento e compartilhe a lista entre aparelhos.">
 	<meta name="theme-color" content="#0b0d12" media="(prefers-color-scheme: dark)">
 	<meta name="theme-color" content="#f5f6fa" media="(prefers-color-scheme: light)">
-	<link rel="icon" href="icon.png" type="image/png">
-	<link rel="apple-touch-icon" href="icon.png">
+	<link rel="icon" href="icones/icone.svg" type="image/svg+xml">
+	<link rel="icon" href="icones/favicon-32.png" type="image/png" sizes="32x32">
+	<link rel="apple-touch-icon" href="icones/apple-touch-icon.png">
+	<link rel="manifest" href="manifest.webmanifest">
+	<meta name="apple-mobile-web-app-title" content="Vencimentos">
+	<meta name="application-name" content="Controle de Vencimento">
 
 	<!-- Aplica o tema antes da renderização para evitar "piscar" -->
 	<script>
@@ -47,7 +51,7 @@
 	<header class="topo">
 		<div class="topo-conteudo">
 			<div class="marca">
-				<span class="marca-icone"><i data-lucide="calendar-clock"></i></span>
+				<img class="marca-icone" src="icones/icone.svg" width="38" height="38" alt="">
 				<div class="marca-texto">
 					<h1>Controle de Vencimento</h1>
 					<p>Validade, alertas e estoque em um só lugar</p>

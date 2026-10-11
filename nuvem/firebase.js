@@ -86,6 +86,8 @@ export function criarFirebase(configBruta, { aoReceber, aoStatus, aoErro, aoUsua
 				} catch {
 					auth = fb.getAuth(app);
 				}
+				// E-mails de login (link) em português
+				try { auth.languageCode = "pt-BR"; } catch { /* ignora */ }
 				fb.onAuthStateChanged(auth, u => {
 					usuario = u ? { id: u.uid, email: u.email || "", nome: u.displayName || "" } : null;
 					seguro(aoUsuario, usuario);
