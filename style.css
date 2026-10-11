@@ -2718,21 +2718,6 @@ input[type="date"]::-webkit-date-and-time-value {
 		height: 10px;
 	}
 
-	.config-alerta {
-		flex-basis: 100%;
-	}
-
-	.config-alerta select {
-		flex: 1;
-	}
-
-	.ordenar {
-		flex: 1;
-	}
-
-	.ordenar select {
-		width: 100%;
-	}
 }
 
 
@@ -2741,9 +2726,8 @@ input[type="date"]::-webkit-date-and-time-value {
    se estende até o rodapé e a rolagem acontece dentro dele.
    Se a janela for baixa demais, a lista mantém uma altura mínima e a
    página volta a rolar normalmente (nunca esconde conteúdo).
-   No celular a rolagem continua na página (rolagem dentro de rolagem
-   atrapalha o toque). */
-@media (min-width: 761px) and (min-height: 560px) {
+   No celular, o formulário pode ser recolhido para sobrar espaço. */
+@media (min-width: 761px) and (min-height: 560px), (max-width: 760px) and (min-height: 480px) {
 	body {
 		height: 100vh;
 		height: 100dvh;
@@ -2790,5 +2774,243 @@ input[type="date"]::-webkit-date-and-time-value {
 	.rodape {
 		padding-top: 10px;
 		padding-bottom: calc(14px + env(safe-area-inset-bottom));
+	}
+}
+
+/* ---------- Celular: lista ocupa a tela ---------- */
+@media (max-width: 760px) and (min-height: 480px) {
+	.cartao-lista {
+		min-height: 240px;
+	}
+
+	.rodape {
+		padding-top: 8px;
+		padding-bottom: calc(10px + env(safe-area-inset-bottom));
+		font-size: .72rem;
+	}
+}
+
+/* ---------- Formulário recolhível (celular) ---------- */
+.btn-recolher {
+	display: none;
+	margin-left: auto;
+	width: 34px;
+	height: 34px;
+}
+
+.btn-recolher svg {
+	transition: transform 220ms cubic-bezier(.2, .8, .2, 1);
+}
+
+@media (max-width: 760px) {
+	.btn-recolher {
+		display: grid;
+	}
+
+	.cartao-form .cartao-cabecalho {
+		flex-wrap: nowrap;
+		cursor: pointer;
+		-webkit-tap-highlight-color: transparent;
+	}
+
+	.cartao-form.recolhido .cartao-cabecalho {
+		margin-bottom: 0;
+	}
+
+	.cartao-form.recolhido .form-produto {
+		display: none;
+	}
+
+	.cartao-form.recolhido .btn-recolher svg {
+		transform: rotate(-90deg);
+	}
+
+	.cartao-form:not(.recolhido) .form-produto {
+		animation: surgir 200ms cubic-bezier(.2, .8, .2, 1);
+	}
+
+	.cartao-form.recolhido {
+		padding-top: 10px;
+		padding-bottom: 10px;
+	}
+}
+
+/* ---------- Setas do resumo (há mais cartões para o lado) ---------- */
+.resumo-envoltorio {
+	position: relative;
+	min-width: 0;
+}
+
+.resumo-seta {
+	display: none;
+}
+
+@media (max-width: 560px) {
+	.resumo-seta {
+		position: absolute;
+		top: 50%;
+		z-index: 2;
+		display: grid;
+		place-items: center;
+		width: 30px;
+		height: 30px;
+		margin-top: -17px;
+		border-radius: 50%;
+		border: 1px solid var(--borda-forte);
+		background: var(--superficie);
+		color: var(--texto);
+		box-shadow: var(--sombra-flutuante);
+		cursor: pointer;
+		opacity: 0;
+		pointer-events: none;
+		transform: scale(.8);
+		transition: opacity 180ms ease, transform 180ms ease;
+	}
+
+	.resumo-seta svg {
+		width: 16px;
+		height: 16px;
+	}
+
+	.resumo-seta-esq { left: -4px; }
+	.resumo-seta-dir { right: -4px; }
+
+	.resumo-envoltorio.tem-esquerda .resumo-seta-esq,
+	.resumo-envoltorio.tem-direita .resumo-seta-dir {
+		opacity: 1;
+		pointer-events: auto;
+		transform: none;
+	}
+
+	/* Convite discreto: a seta da direita "chama" algumas vezes */
+	.resumo-envoltorio.tem-direita:not(.ja-rolou) .resumo-seta-dir svg {
+		animation: cutucar 1.4s ease-in-out 3;
+	}
+
+	/* Esmaecimento só do lado que ainda tem conteúdo */
+	.resumo-envoltorio .resumo {
+		-webkit-mask-image: none;
+		mask-image: none;
+	}
+
+	.resumo-envoltorio.tem-direita .resumo {
+		-webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent);
+		mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent);
+	}
+
+	.resumo-envoltorio.tem-esquerda .resumo {
+		-webkit-mask-image: linear-gradient(90deg, transparent, #000 44px);
+		mask-image: linear-gradient(90deg, transparent, #000 44px);
+	}
+
+	.resumo-envoltorio.tem-esquerda.tem-direita .resumo {
+		-webkit-mask-image: linear-gradient(90deg, transparent, #000 44px, #000 calc(100% - 44px), transparent);
+		mask-image: linear-gradient(90deg, transparent, #000 44px, #000 calc(100% - 44px), transparent);
+	}
+}
+
+@keyframes cutucar {
+	0%, 100% { transform: none; }
+	50% { transform: translateX(3px); }
+}
+
+/* ---------- Voltar ao topo da lista ---------- */
+.cartao-lista {
+	position: relative;
+}
+
+.btn-topo {
+	position: absolute;
+	right: 16px;
+	bottom: 52px;
+	z-index: 5;
+	display: grid;
+	place-items: center;
+	width: 44px;
+	height: 44px;
+	border-radius: 50%;
+	border: 0;
+	color: var(--primaria-texto);
+	background: linear-gradient(135deg, var(--primaria), var(--primaria-2));
+	box-shadow: 0 10px 24px -8px var(--primaria), var(--sombra-flutuante);
+	cursor: pointer;
+	opacity: 0;
+	transform: translateY(10px) scale(.9);
+	pointer-events: none;
+	transition: opacity 200ms ease, transform 200ms cubic-bezier(.2, .8, .2, 1);
+}
+
+.btn-topo.visivel {
+	opacity: 1;
+	transform: none;
+	pointer-events: auto;
+}
+
+.btn-topo:active {
+	transform: scale(.92);
+}
+
+/* Quando quem rola é a página (janelas baixas), o botão fica preso à tela */
+.btn-topo.fixo {
+	position: fixed;
+	bottom: calc(20px + env(safe-area-inset-bottom));
+}
+
+/* O cartão da lista não tem recuo interno (a barra e as linhas já têm o seu) */
+@media (max-width: 760px) {
+	.cartao.cartao-lista {
+		padding: 0;
+	}
+}
+
+/* ---------- Celular: barra da lista compacta ----------
+   Busca em cima; alerta e ordenação lado a lado (quebram de linha só
+   em telas muito estreitas). Sobra mais espaço para os produtos. */
+@media (max-width: 760px) {
+	.barra-lista {
+		padding: 10px 12px;
+		gap: 8px;
+	}
+
+	.config-alerta {
+		flex: 0 0 auto;
+		gap: 6px;
+	}
+
+	.config-alerta input {
+		width: 48px;
+		height: 38px;
+		padding: 0 4px;
+	}
+
+	.config-alerta select {
+		width: 76px;
+		flex: none;
+		padding-left: 10px;
+		padding-right: 26px;
+		background-position: right 6px center;
+	}
+
+	.ordenar {
+		flex: 1 1 128px;
+		min-width: 128px;
+	}
+
+	.ordenar select {
+		width: 100%;
+		padding-left: 32px;
+		padding-right: 26px;
+		background-position: right 6px center;
+	}
+}
+
+/* Rodapé em uma linha quando a lista ocupa a tela no celular */
+@media (max-width: 760px) and (min-height: 480px) {
+	.rodape > span:first-child {
+		flex-basis: auto;
+	}
+
+	.rodape > span:nth-child(2) {
+		display: inline;
 	}
 }
