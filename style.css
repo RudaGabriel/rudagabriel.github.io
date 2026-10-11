@@ -3269,7 +3269,28 @@ input[type="date"]::-webkit-date-and-time-value {
 	}
 }
 
-/* Com o botão "voltar ao topo" visível, sobra espaço no fim da lista */
-.cartao-lista.com-topo .tabela {
-	margin-bottom: 64px;
+/* "Voltar ao topo" na barra "Mostrando…" (abaixo da lista): não cobre produtos
+   e não deixa espaço sobrando no fim da lista */
+.rodape-lista {
+	line-height: 26px;
+	padding-top: 10px;
+	padding-bottom: 10px;
+	transition: padding-right 280ms ease;
+}
+
+.btn-topo:not(.fixo) {
+	right: 8px;
+	bottom: 6px;
+	width: 34px;
+	height: 34px;
+	box-shadow: 0 6px 16px -6px var(--primaria);
+}
+
+.btn-topo:not(.fixo) svg {
+	width: 18px;
+	height: 18px;
+}
+
+.cartao-lista.topo-visivel .rodape-lista {
+	padding-right: 52px;
 }
