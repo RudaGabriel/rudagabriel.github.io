@@ -221,17 +221,9 @@ svg.lucide,
 	width: 38px;
 	height: 38px;
 	border-radius: 11px;
-	display: grid;
-	place-items: center;
-	color: #fff;
-	background: linear-gradient(135deg, var(--primaria), var(--primaria-2));
-	box-shadow: 0 6px 18px -6px var(--primaria);
 	flex: none;
-}
-
-.marca-icone svg {
-	width: 20px;
-	height: 20px;
+	display: block;
+	box-shadow: 0 6px 18px -8px rgba(91, 76, 240, .7);
 }
 
 .marca-texto {

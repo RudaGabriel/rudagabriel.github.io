@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="icon.png" width="84" alt="Ícone do Controle de Vencimento">
+<img src="icones/icone.svg" width="96" alt="Ícone do Controle de Vencimento">
 
 # Controle de Vencimento
 
@@ -28,6 +28,7 @@
 - [Como usar](#como-usar)
 - [Nuvem e sincronização](#nuvem-e-sincronização)
 - [Configuração da nuvem (dono do site)](#configuração-da-nuvem-dono-do-site)
+- [E-mails de login](#e-mails-de-login)
 - [Anúncios (Google AdSense)](#anúncios-google-adsense)
 - [Privacidade e segurança](#privacidade-e-segurança)
 - [Compatibilidade](#compatibilidade)
@@ -221,6 +222,24 @@ Habilita **Entrar com Dropbox**. Cada pessoa salva os produtos no próprio Dropb
 
 > Apps do Dropbox em modo *Development* aceitam até 500 usuários. Para mais, solicite *Production* no painel.
 
+## E-mails de login
+
+### Firebase (e-mail principal)
+O Firebase não permite trocar o texto do e-mail de login por link, mas permite deixá-lo com a cara do app:
+
+1. **⚙ Configurações do projeto → Geral → Nome exibido publicamente:** `Controle de Vencimento` (é o nome que aparece no assunto e no link do e-mail).
+2. **Authentication → Modelos (Templates)** → no lápis ✏️ de qualquer modelo:
+   - **Nome do remetente:** `Controle de Vencimento`;
+   - **Responder para:** um e-mail seu (opcional).
+3. **Authentication → Modelos → Idioma do modelo:** *Português (Brasil)*. O app também pede os e-mails em português automaticamente.
+4. **Remetente `noreply@seudominio`** (opcional): em *Modelos → Personalizar domínio*, use um domínio próprio (ex.: `controledevencimento.com.br`) e siga a verificação de DNS. Sem domínio próprio, o remetente continua `noreply@<id-do-projeto>.firebaseapp.com`.
+
+### Supabase (e-mail alternativo) — e-mail totalmente personalizado
+1. **Authentication → Emails → Magic Link**:
+   - **Assunto:** `Seu acesso ao Controle de Vencimento`;
+   - **Corpo:** cole o conteúdo de [`docs/email-login.html`](docs/email-login.html) (botão "Entrar no app" + código de 6 dígitos, em português, com o ícone do app).
+2. **Remetente profissional** (recomendado): em *Authentication → SMTP Settings*, configure um SMTP (ex.: Brevo, Resend ou Amazon SES) com remetente `Controle de Vencimento <noreply@seudominio>` — também aumenta o limite de envios.
+
 ## Anúncios (Google AdSense)
 
 O site já está preparado para o AdSense (editor `pub-2042570332495044`):
@@ -270,8 +289,9 @@ O site já está preparado para o AdSense (editor `pub-2042570332495044`):
 ├── config-anuncios.js    # ID de editor e bloco de anúncio
 ├── privacidade.html      # Política de Privacidade
 ├── ads.txt               # Autorização de vendedores do AdSense
-├── docs/                 # Capturas de tela do README
-└── icon.png              # Ícone
+├── docs/                 # Capturas de tela e modelo de e-mail de login
+├── icones/               # Ícone do app (SVG original + PNGs) 
+└── manifest.webmanifest  # Instalação na tela inicial (PWA)
 ```
 
 ## Tecnologias
