@@ -5,7 +5,7 @@
    como um botão de login para quem usa o app. As que ficarem
    como null simplesmente não aparecem.
 
-   Passo a passo de cada uma: veja o README.
+   Passo a passo de cada uma: veja docs/CONFIGURACAO.md.
    ========================================================= */
 
 export const NUVEM = {

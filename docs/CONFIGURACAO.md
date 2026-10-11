@@ -1,0 +1,216 @@
+# Configuração técnica (dono do site)
+
+> Este documento é só para quem mantém o site. Quem usa o app não precisa configurar nada — o guia de uso está no [README](../README.md).
+
+Quando algo de configuração falha, o app mostra ao usuário uma mensagem simples e registra no **console do navegador** uma dica técnica começando com `[nuvem · dono do site]`.
+
+## Nuvem
+
+As opções ficam em [`config-nuvem.js`](../config-nuvem.js). Cada opção preenchida vira um botão no app; as que ficarem `null` não aparecem. Se nada for preenchido, o app continua funcionando, salvando só no aparelho.
+
+> As chaves desse arquivo são **públicas** (feitas para ficar no site). A proteção dos dados vem das **regras de segurança** abaixo, do login de cada pessoa e do código aleatório de cada lista. **Nunca** coloque no site chaves secretas (Firebase *service account*, Supabase *secret/service_role*, Dropbox *App secret* ou *access token*).
+
+### 1) Google — Firebase
+
+Habilita **Entrar com Google**, **Entrar com e-mail (link)** e **listas por código**.
+
+1. Em https://console.firebase.google.com abra (ou crie) o projeto.
+2. **Firestore Database** → *Criar banco de dados* (local: `southamerica-east1`, modo produção) → aba **Regras** → cole e clique em **Publicar**:
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /listas/{codigo} {
+      allow get: if codigo.matches('^[A-HJ-NP-Z2-9]{16}$');
+      allow list, delete: if false;
+      allow create, update: if codigo.matches('^[A-HJ-NP-Z2-9]{16}$')
+        && request.resource.data.keys().hasOnly(['itens', 'versao', 'atualizadoEm'])
+        && request.resource.data.itens is map
+        && request.resource.data.itens.size() <= 5000;
+    }
+    match /contas/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}
+```
+
+3. **Authentication** → *Vamos começar* → **Sign-in method**:
+   - ative **Google** (escolha o e-mail de suporte);
+   - ative **E-mail/senha** e ligue **Link do e-mail (login sem senha)**.
+4. **Authentication → Configurações → Domínios autorizados** → adicione `rudagabriel.github.io`.
+5. **⚙ Configurações do projeto → Seus apps → app Web (`</>`)** → copie o `firebaseConfig` para `firebase: { ... }`.
+
+### 2) E-mail — Supabase (servidor alternativo)
+
+Quando o Firebase também está configurado, o "Entrar com e-mail" usa o Firebase e o Supabase aparece como **"Não chegou? Enviar por outro servidor"** (link ou código de 6 dígitos). Também pode ser usado sozinho.
+
+1. Crie um projeto em https://supabase.com/dashboard (região *South America (São Paulo)*).
+2. **SQL Editor → New query** → cole e clique em **Run** (deve aparecer *"Success. No rows returned"*):
+
+```sql
+-- Controle de Vencimento: rode uma vez em Supabase → SQL Editor → Run
+create table if not exists public.produtos (
+  id uuid primary key,
+  lista text not null check (lista ~ '^[A-HJ-NP-Z2-9]{16}$'),
+  nome text not null,
+  quantidade numeric not null default 0,
+  vencimento date not null,
+  codigo_barras text not null default '',
+  criado_em bigint,
+  atualizado_em bigint
+);
+create index if not exists produtos_lista_idx on public.produtos (lista);
+alter table public.produtos enable row level security; -- sem políticas: acesso só pelas funções abaixo
+
+create or replace function public.cv_listar(p_lista text)
+returns setof public.produtos language sql stable security definer set search_path = public as $$
+  select * from public.produtos where p_lista ~ '^[A-HJ-NP-Z2-9]{16}$' and lista = p_lista;
+$$;
+
+create or replace function public.cv_salvar(p_lista text, p_itens jsonb)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if p_lista !~ '^[A-HJ-NP-Z2-9]{16}$' or jsonb_array_length(p_itens) > 1000 then
+    raise exception 'dados invalidos';
+  end if;
+  insert into public.produtos (id, lista, nome, quantidade, vencimento, codigo_barras, criado_em, atualizado_em)
+  select (x->>'id')::uuid, p_lista, left(x->>'nome', 120), coalesce((x->>'quantidade')::numeric, 0),
+         (x->>'vencimento')::date, left(coalesce(x->>'codigoBarras', ''), 64),
+         (x->>'criadoEm')::bigint, (x->>'atualizadoEm')::bigint
+  from jsonb_array_elements(p_itens) x
+  on conflict (id) do update set
+    nome = excluded.nome, quantidade = excluded.quantidade, vencimento = excluded.vencimento,
+    codigo_barras = excluded.codigo_barras, atualizado_em = excluded.atualizado_em
+  where public.produtos.lista = excluded.lista;
+end $$;
+
+create or replace function public.cv_remover(p_lista text, p_ids uuid[])
+returns void language sql security definer set search_path = public as $$
+  delete from public.produtos where p_lista ~ '^[A-HJ-NP-Z2-9]{16}$' and lista = p_lista and id = any(p_ids);
+$$;
+
+grant execute on function public.cv_listar(text), public.cv_salvar(text, jsonb), public.cv_remover(text, uuid[]) to anon, authenticated;
+
+create table if not exists public.contas (
+  usuario uuid primary key references auth.users on delete cascade,
+  lista text not null,
+  atualizado_em timestamptz not null default now()
+);
+alter table public.contas enable row level security;
+drop policy if exists "dono da conta" on public.contas;
+create policy "dono da conta" on public.contas for all to authenticated
+  using (usuario = auth.uid()) with check (usuario = auth.uid());
+```
+
+3. **Authentication → URL Configuration**: *Site URL* = `https://rudagabriel.github.io/` e, em *Redirect URLs*, adicione `https://rudagabriel.github.io/**`.
+4. *(Opcional)* **Authentication → Emails → Magic Link**: acrescente `Seu código: {{ .Token }}` para o e-mail trazer também um código.
+5. **Project Settings → API Keys** → copie a *Project URL* e a chave **publishable** (`sb_publishable_…`) ou *anon public* para `supabase: { url, chave }`.
+
+> O envio de e-mails gratuito do Supabase tem limite por hora. Para muitos usuários, configure um SMTP próprio em *Authentication → SMTP Settings*.
+
+### 3) Dropbox
+
+Habilita **Entrar com Dropbox**. Cada pessoa salva os produtos no próprio Dropbox (`Aplicativos/<nome do app>/vencimentos.json`).
+
+1. Em https://www.dropbox.com/developers/apps → **Create app** → *Scoped access* → **App folder** → nome único.
+2. Aba **Permissions**: marque `account_info.read`, `files.content.read` e `files.content.write` → **Submit**.
+3. Aba **Settings**: em *OAuth 2 → Redirect URIs* adicione `https://rudagabriel.github.io/`; confirme *Allow public clients (PKCE)* = **Allow**.
+4. Copie **somente o App key** para `dropbox: { appKey: "..." }`.
+
+> Apps do Dropbox em modo *Development* aceitam até 500 usuários. Para mais, solicite *Production* no painel.
+
+## E-mails de login
+
+### Firebase (e-mail principal)
+O Firebase não permite trocar o texto do e-mail de login por link, mas permite deixá-lo com a cara do app:
+
+1. **⚙ Configurações do projeto → Geral → Nome exibido publicamente:** `Controle de Vencimento` (é o nome que aparece no assunto e no link do e-mail).
+2. **Authentication → Modelos (Templates)** → no lápis ✏️ de qualquer modelo:
+   - **Nome do remetente:** `Controle de Vencimento`;
+   - **Responder para:** um e-mail seu (opcional).
+3. **Authentication → Modelos → Idioma do modelo:** *Português (Brasil)*. O app também pede os e-mails em português automaticamente.
+4. **Remetente `noreply@seudominio`** (opcional): em *Modelos → Personalizar domínio*, use um domínio próprio (ex.: `controledevencimento.com.br`) e siga a verificação de DNS. Sem domínio próprio, o remetente continua `noreply@<id-do-projeto>.firebaseapp.com`.
+
+### Supabase (e-mail alternativo) — e-mail totalmente personalizado
+1. **Authentication → Emails → Magic Link**:
+   - **Assunto:** `Seu acesso ao Controle de Vencimento`;
+   - **Corpo:** cole o conteúdo de [`docs/email-login.html`](email-login.html) (botão "Entrar no app" + código de 6 dígitos, em português, com o ícone do app).
+2. **Remetente profissional** (recomendado): em *Authentication → SMTP Settings*, configure um SMTP (ex.: Brevo, Resend ou Amazon SES) com remetente `Controle de Vencimento <noreply@seudominio>` — também aumenta o limite de envios.
+
+## Anúncios (Google AdSense)
+
+O site já está preparado para o AdSense (editor `pub-2042570332495044`):
+
+- [`ads.txt`](../ads.txt) na raiz e script de verificação no `<head>` do `index.html`.
+- **Anúncios automáticos:** em AdSense → **Anúncios → Por site** → `rudagabriel.github.io` → ative **Anúncios automáticos**. O Google posiciona os anúncios sozinho — não é preciso alterar o código.
+- **Bloco fixo (opcional):** crie em AdSense → **Anúncios → Por bloco de anúncios → Anúncios de display** (responsivo) e coloque o número do `data-ad-slot` em [`config-anuncios.js`](../config-anuncios.js) (`blocoRodape`). O espaço aparece no fim da página e **some sozinho** se não houver anúncio ou se houver bloqueador.
+- A [Política de Privacidade](../privacidade.html) (exigida pelo AdSense) explica o uso de cookies de anúncios.
+
+> Os anúncios só aparecem depois que o site é **aprovado** pelo AdSense (*Sites → Status: Pronto*). Pode levar alguns dias.
+
+## Solução de problemas (configuração)
+
+| Mensagem no console | O que fazer |
+|---|---|
+| Domínio não autorizado | Adicione `rudagabriel.github.io` em *Firebase → Authentication → Settings → Authorized domains*. |
+| Provedor de login desativado | Ative **Google** e **E-mail/link** em *Authentication → Sign-in method*. |
+| Acesso recusado | Publique as **regras do Firestore** (acima) ou rode o **script SQL** do Supabase. |
+| Chave inválida | Confira os valores em `config-nuvem.js`. |
+| Tabelas/funções ausentes | Rode o script SQL do Supabase. |
+| Login do Dropbox volta com erro | Confira a *Redirect URI* `https://rudagabriel.github.io/` e as permissões no painel do Dropbox. |
+| Anúncios não aparecem | O site precisa estar aprovado no AdSense, com *Anúncios automáticos* ligados. |
+
+## Estrutura do projeto
+
+```
+├── index.html            # Página do app
+├── style.css             # Design (tema claro/escuro, responsivo)
+├── app.js                # Lógica principal: lista, filtros, alertas, backup, nuvem
+├── leitor.js             # Leitor de código de barras (3 motores, flash, zoom, foto)
+├── nuvem/
+│   ├── comum.js          # Códigos de lista, UUIDs, erros e fila offline
+│   ├── firebase.js       # Google: Firestore, login Google e link no e-mail
+│   ├── supabase.js       # E-mail (alternativo): funções SQL seguras
+│   └── dropbox.js        # Dropbox: OAuth PKCE e arquivo na pasta do app
+├── config-nuvem.js       # Chaves públicas da nuvem (dono do site)
+├── anuncios.js           # Bloco de anúncio responsivo (AdSense)
+├── config-anuncios.js    # ID de editor e bloco de anúncio
+├── privacidade.html      # Política de Privacidade
+├── ads.txt               # Autorização de vendedores do AdSense
+├── docs/                 # Capturas de tela e modelo de e-mail de login
+├── icones/               # Ícone do app (SVG original + PNGs) 
+└── manifest.webmanifest  # Instalação na tela inicial (PWA)
+```
+
+## Tecnologias
+
+Site estático (GitHub Pages), **sem etapa de build** — JavaScript moderno com módulos ES e bibliotecas carregadas de CDN, sob demanda:
+
+| Biblioteca | Uso |
+|---|---|
+| [Firebase 12](https://firebase.google.com/) | Firestore (nuvem) e Authentication (Google e link no e-mail) |
+| [Supabase JS](https://supabase.com/) | Login por e-mail alternativo e funções SQL |
+| [Dropbox API](https://www.dropbox.com/developers) | Login OAuth PKCE e armazenamento do arquivo |
+| [barcode-detector / ZXing-C++](https://github.com/Sec-ant/barcode-detector) · [ZXing JS](https://github.com/zxing-js/library) | Leitura de códigos de barras |
+| [SweetAlert2](https://sweetalert2.github.io/) | Diálogos |
+| [Notyf](https://carlosroso.com/notyf/) | Avisos rápidos |
+| [Lucide](https://lucide.dev/) | Ícones |
+| [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) | QR Code de compartilhamento |
+| [AutoAnimate](https://auto-animate.formkit.com/) | Animações da lista |
+
+## Desenvolvimento local
+
+Não há dependências para instalar. Basta servir a pasta por HTTP:
+
+```bash
+git clone https://github.com/RudaGabriel/rudagabriel.github.io.git
+cd rudagabriel.github.io
+python3 -m http.server 8080
+# abra http://localhost:8080
+```
+
+> A câmera exige **HTTPS** (ou `localhost`). O login com Google/Dropbox só funciona nos domínios autorizados nos painéis (adicione `localhost` se for testar localmente).
+
+Publicação: todo merge na branch `main` é publicado automaticamente pelo GitHub Pages em 1–2 minutos.
