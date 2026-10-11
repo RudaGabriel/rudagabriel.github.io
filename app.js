@@ -216,6 +216,8 @@ function dialogo({ titulo, html, icone: tipoIcone, confirmar = "OK", negar, canc
 			return { acao: window.confirm(mensagem) ? "confirmar" : (negar ? "negar" : "cancelar"), valor: false };
 		}
 		const dialogoAberto = document.querySelector("dialog[open]");
+		// A caixa de seleção vale em qualquer botão (o SweetAlert só a devolve ao confirmar)
+		let caixaMarcada = false;
 		const r = await window.Swal.fire({
 			title: titulo,
 			html,
@@ -234,6 +236,7 @@ function dialogo({ titulo, html, icone: tipoIcone, confirmar = "OK", negar, canc
 			input: checkbox ? "checkbox" : undefined,
 			inputValue: checkbox ? 0 : undefined,
 			inputPlaceholder: checkbox || undefined,
+			willClose: checkbox ? popup => { caixaMarcada = !!popup.querySelector(".swal2-checkbox input")?.checked; } : undefined,
 			customClass: {
 				popup: "sw-popup",
 				confirmButton: perigo ? "btn btn-perigo" : "btn btn-primario",
@@ -242,7 +245,7 @@ function dialogo({ titulo, html, icone: tipoIcone, confirmar = "OK", negar, canc
 			}
 		});
 		const acao = r.isConfirmed ? "confirmar" : r.isDenied ? "negar" : "cancelar";
-		return { acao, valor: checkbox ? !!r.value : r.value };
+		return { acao, valor: checkbox ? (caixaMarcada || !!r.value) : r.value };
 	};
 	const promessa = filaDialogos.then(executar, executar);
 	filaDialogos = promessa.catch(() => { });
@@ -898,21 +901,49 @@ async function alertaInicial() {
 
 	const MAX = 25;
 	const linhas = proximos.slice(0, MAX).map(({ item, sit }) =>
-		`<li><span>${esc(item.nome)} <small>· ${fmtNumero.format(item.quantidade)} un.</small></span><span class="selo selo-alerta">${esc(sit.texto)}</span></li>`
+		`<li data-id="${esc(item.id)}"><span>${esc(item.nome)} <small>· ${fmtNumero.format(item.quantidade)} un.</small></span><span class="selo selo-alerta">${esc(sit.texto)}</span>` +
+		`<button type="button" class="acao alerta-silenciar" data-silenciar-alerta="${esc(item.id)}" aria-pressed="false" title="Não alertar sobre este produto" aria-label="Não alertar sobre ${esc(item.nome)}">${icone("BellOff")}</button></li>`
 	).join("");
 	const extra = proximos.length > MAX ? `<p style="margin-top:8px">…e mais ${proximos.length - MAX}.</p>` : "";
-	const { acao, valor } = await dialogo({
-		titulo: `${proximos.length} produto${proximos.length > 1 ? "s" : ""} perto do vencimento`,
-		html: `<ul class="lista-alerta">${linhas}</ul>${extra}`,
-		icone: "warning",
-		confirmar: "Ver produtos",
-		cancelar: "Fechar",
-		checkbox: "Não alertar novamente sobre estes produtos"
-	});
+
+	// Silenciar item a item, direto no alerta (vale na hora; tocar de novo desfaz)
+	const silenciadosAgora = new Set();
+	const aoClicar = e => {
+		const botao = e.target.closest?.("[data-silenciar-alerta]");
+		if (!botao) return;
+		e.preventDefault();
+		const id = botao.dataset.silenciarAlerta;
+		const silenciar = !estado.silenciados.has(id);
+		if (silenciar) { estado.silenciados.add(id); silenciadosAgora.add(id); }
+		else { estado.silenciados.delete(id); silenciadosAgora.delete(id); }
+		salvarSilenciados();
+		botao.setAttribute("aria-pressed", String(silenciar));
+		botao.classList.toggle("acao-ativa", silenciar);
+		botao.title = silenciar ? "Voltar a alertar sobre este produto" : "Não alertar sobre este produto";
+		botao.closest("li")?.classList.toggle("silenciado", silenciar);
+	};
+	document.addEventListener("click", aoClicar, true);
+
+	let resposta;
+	try {
+		resposta = await dialogo({
+			titulo: `${proximos.length} produto${proximos.length > 1 ? "s" : ""} perto do vencimento`,
+			html: `<p class="dica-alerta">Toque no sino de um produto para não ser avisado sobre ele.</p><ul class="lista-alerta">${linhas}</ul>${extra}`,
+			icone: "warning",
+			confirmar: "Ver produtos",
+			cancelar: "Fechar",
+			checkbox: "Não alertar novamente sobre nenhum destes produtos"
+		});
+	} finally {
+		document.removeEventListener("click", aoClicar, true);
+	}
+	const { acao, valor } = resposta;
 	if (valor) {
 		proximos.forEach(c => estado.silenciados.add(c.item.id));
 		salvarSilenciados();
 		toast("info", "Pronto! Você pode reativar o alerta pelo ícone do sino.");
+	} else if (silenciadosAgora.size) {
+		toast("info", `${silenciadosAgora.size} produto${silenciadosAgora.size > 1 ? "s" : ""} não ${silenciadosAgora.size > 1 ? "serão mais alertados" : "será mais alertado"}. Reative pelo ícone do sino na lista.`);
 	}
 	if (acao === "confirmar") {
 		estado.filtro = "alerta";
