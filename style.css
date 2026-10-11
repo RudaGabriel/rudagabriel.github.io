@@ -2090,11 +2090,12 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 .lista-alerta li {
-	display: flex;
-	justify-content: space-between;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto auto;
 	align-items: center;
-	gap: 10px;
-	padding: 9px 12px;
+	gap: 8px;
+	padding: 6px 6px 6px 12px;
+	transition: opacity var(--transicao), background var(--transicao);
 	border-radius: var(--raio-sm);
 	background: var(--superficie-2);
 	border: 1px solid var(--borda);
@@ -2107,6 +2108,49 @@ input[type="number"]::-webkit-inner-spin-button {
 	white-space: nowrap;
 	color: var(--texto);
 	font-weight: 600;
+}
+
+.lista-alerta li.silenciado {
+	opacity: .55;
+}
+
+.lista-alerta li.silenciado .selo-alerta::before {
+	animation: none;
+}
+
+.lista-alerta .alerta-silenciar {
+	width: 32px;
+	height: 32px;
+}
+
+/* Celular: nome inteiro em cima, situação embaixo e o sino à direita */
+@media (max-width: 520px) {
+	.lista-alerta li {
+		grid-template-columns: minmax(0, 1fr) auto;
+		row-gap: 4px;
+	}
+
+	.lista-alerta li > span:first-child {
+		grid-column: 1;
+		white-space: normal;
+		overflow-wrap: anywhere;
+	}
+
+	.lista-alerta li > .selo {
+		grid-column: 1;
+		grid-row: 2;
+		justify-self: start;
+	}
+
+	.lista-alerta li > .alerta-silenciar {
+		grid-column: 2;
+		grid-row: 1 / 3;
+	}
+}
+
+.dica-alerta {
+	font-size: .82rem;
+	color: var(--texto-fraco);
 }
 
 .lista-alerta small {
