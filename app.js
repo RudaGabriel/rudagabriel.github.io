@@ -1783,10 +1783,34 @@ function processarComando(valor) {
 /* =========================================================
    Tema
    ========================================================= */
-function alternarTema() {
+function alternarTema(evento) {
 	const novo = document.documentElement.dataset.tema === "escuro" ? "claro" : "escuro";
-	document.documentElement.dataset.tema = novo;
+	const aplicar = () => {
+		document.documentElement.dataset.tema = novo;
+		// A barra do navegador acompanha o tema escolhido
+		document.querySelectorAll('meta[name="theme-color"]').forEach(m => m.setAttribute("content", novo === "escuro" ? "#0b0d12" : "#f5f6fa"));
+	};
 	armazenamento.gravarTexto(CHAVE.tema, novo);
+
+	const semMovimento = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+	if (semMovimento || typeof document.startViewTransition !== "function") return aplicar();
+
+	// Transição circular a partir do botão (View Transitions API, com recuo simples)
+	const r = evento?.currentTarget?.getBoundingClientRect?.();
+	const x = r ? r.left + r.width / 2 : innerWidth - 40;
+	const y = r ? r.top + r.height / 2 : 30;
+	const raio = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+	try {
+		const transicao = document.startViewTransition(aplicar);
+		transicao.ready.then(() => {
+			document.documentElement.animate(
+				{ clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${raio}px at ${x}px ${y}px)`] },
+				{ duration: 420, easing: "cubic-bezier(.4, 0, .2, 1)", pseudoElement: "::view-transition-new(root)" }
+			);
+		}).catch(() => { /* transição ignorada: o tema já foi aplicado */ });
+	} catch {
+		aplicar();
+	}
 }
 
 function aplicarAlertaNaTela() {
