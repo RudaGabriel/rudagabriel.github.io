@@ -244,65 +244,82 @@
 		<div id="syncDesconectado" class="dialogo-corpo">
 			<p class="intro">Hoje seus produtos ficam salvos <strong>apenas neste aparelho</strong>. Salve na nuvem para ver a mesma lista no celular, no computador ou com sua equipe — em tempo real.</p>
 
-			<!-- Nuvem ainda não ativada pelo dono do site -->
+			<!-- Nenhuma opção de nuvem ativada pelo dono do site -->
 			<div id="syncIndisponivel" class="aviso-caixa" hidden>
 				<strong><i data-lucide="cloud-off"></i>Nuvem ainda não ativada</strong>
-				<p>O dono do site precisa colar o <b>App ID</b> do InstantDB em <code>config-nuvem.js</code> (veja o README). Enquanto isso, use <b>Fazer backup</b> no menu ⋮ para guardar seus produtos.</p>
+				<p>O dono do site precisa preencher pelo menos uma opção em <code>config-nuvem.js</code> (veja o README). Enquanto isso, use <b>Fazer backup</b> no menu ⋮ para guardar seus produtos.</p>
 			</div>
 
 			<div id="syncOpcoes" class="sync-facil">
-				<!-- Login por e-mail (recomendado) -->
-				<div class="login-caixa">
-					<div class="login-titulo">
-						<span class="opcao-icone"><i data-lucide="mail"></i></span>
-						<span class="opcao-texto">
-							<strong>Entrar com e-mail</strong>
-							<small>Sem senha: você recebe um código. Use o mesmo e-mail em todos os aparelhos.</small>
-						</span>
-					</div>
-					<div class="campo">
-						<label for="loginEmail" class="sr-only">E-mail</label>
-						<div class="grupo-entrada">
-							<input type="email" id="loginEmail" placeholder="seu@email.com" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" enterkeyhint="send" maxlength="200">
-							<button type="button" class="btn-anexo btn-anexo-texto" id="btnEnviarCodigo">Receber código</button>
+				<p class="rotulo-opcoes">Entrar e sincronizar</p>
+				<div class="botoes-login">
+					<button type="button" class="btn-login btn-login-google" id="btnLoginGoogle" hidden>
+						<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C36.9 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>
+						<span>Entrar com Google</span>
+					</button>
+
+					<div id="blocoEmail" class="bloco-email" hidden>
+						<button type="button" class="btn-login" id="btnLoginEmail">
+							<i data-lucide="mail"></i>
+							<span>Entrar com e-mail</span>
+						</button>
+						<div id="caixaEmail" class="caixa-email" hidden>
+							<div class="campo">
+								<label for="loginEmail" class="sr-only">E-mail</label>
+								<div class="grupo-entrada">
+									<input type="email" id="loginEmail" placeholder="seu@email.com" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" enterkeyhint="send" maxlength="200">
+									<button type="button" class="btn-anexo btn-anexo-texto" id="btnEnviarCodigo">Receber link</button>
+								</div>
+								<small class="ajuda">Sem senha: você recebe um link de acesso por e-mail. Abra o link <b>neste aparelho</b>.</small>
+							</div>
+							<div id="loginCodigoCaixa" class="campo" hidden>
+								<label for="loginCodigo">Recebeu um código em <b id="loginEmailTexto"></b>? Digite aqui:</label>
+								<div class="grupo-entrada">
+									<input type="text" id="loginCodigo" class="entrada-codigo" placeholder="123456" inputmode="numeric" autocomplete="one-time-code" maxlength="10" enterkeyhint="go">
+									<button type="button" class="btn-anexo btn-anexo-texto" id="btnEntrarLogin">Entrar</button>
+								</div>
+								<button type="button" class="link-botao" id="btnTrocarEmail">Usar outro e-mail</button>
+							</div>
 						</div>
 					</div>
-					<div id="loginCodigoCaixa" class="campo" hidden>
-						<label for="loginCodigo">Código enviado para <b id="loginEmailTexto"></b></label>
-						<div class="grupo-entrada">
-							<input type="text" id="loginCodigo" class="entrada-codigo" placeholder="123456" inputmode="numeric" autocomplete="one-time-code" maxlength="10" enterkeyhint="go">
-							<button type="button" class="btn-anexo btn-anexo-texto" id="btnEntrarLogin">Entrar</button>
-						</div>
-						<button type="button" class="link-botao" id="btnTrocarEmail">Usar outro e-mail</button>
-					</div>
+
+					<button type="button" class="btn-login btn-login-dropbox" id="btnLoginDropbox" hidden>
+						<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#0061FF" d="M6 2 0 5.9l6 3.9 6-3.9L6 2zm12 0-6 3.9 6 3.9 6-3.9L18 2zM0 13.7l6 3.9 6-3.9-6-3.9-6 3.9zm18-3.9-6 3.9 6 3.9 6-3.9-6-3.9zM6 18.9l6 3.9 6-3.9-6-3.9-6 3.9z"/></svg>
+						<span>Entrar com Dropbox</span>
+					</button>
 				</div>
+				<small class="ajuda">Entre com a mesma conta em todos os seus aparelhos para ver a mesma lista.</small>
 
-				<div class="separador"><span>ou, sem login</span></div>
+				<div class="separador" id="separadorSemLogin"><span>ou, sem login</span></div>
 
-				<button type="button" class="opcao-grande opcao-secundaria" id="btnCriarLista">
-					<span class="opcao-icone"><i data-lucide="cloud-upload"></i></span>
-					<span class="opcao-texto">
-						<strong>Criar lista com código</strong>
-						<small>Um clique. Compartilhe por link ou QR Code.</small>
-					</span>
-					<i data-lucide="chevron-right"></i>
-				</button>
+				<div id="blocoCodigo" class="sync-facil">
+					<button type="button" class="opcao-grande opcao-secundaria" id="btnCriarLista">
+						<span class="opcao-icone"><i data-lucide="cloud-upload"></i></span>
+						<span class="opcao-texto">
+							<strong>Criar lista com código</strong>
+							<small>Um clique. Compartilhe com a equipe por link ou QR Code.</small>
+						</span>
+						<i data-lucide="chevron-right"></i>
+					</button>
 
-				<div class="campo">
-					<label for="syncCodigo">Já tem um código?</label>
-					<div class="grupo-entrada">
-						<input type="text" id="syncCodigo" class="entrada-codigo" placeholder="ABCD-EFGH-JKLM-NPQR" maxlength="400" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">
-						<button type="button" class="btn-anexo btn-anexo-texto" id="btnEntrarCodigo">Entrar</button>
+					<div class="campo">
+						<label for="syncCodigo">Já tem um código?</label>
+						<div class="grupo-entrada">
+							<input type="text" id="syncCodigo" class="entrada-codigo" placeholder="ABCD-EFGH-JKLM-NPQR" maxlength="400" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">
+							<button type="button" class="btn-anexo btn-anexo-texto" id="btnEntrarCodigo">Entrar</button>
+						</div>
+						<small class="ajuda">Dica: no outro aparelho, é só abrir o link ou ler o QR Code — nem precisa digitar.</small>
 					</div>
-					<small class="ajuda">Dica: no outro aparelho, é só abrir o link ou ler o QR Code — nem precisa digitar.</small>
 				</div>
 			</div>
 
 			<details class="como-obter">
-				<summary><i data-lucide="shield-check"></i>Regras de segurança (para o dono do site)</summary>
+				<summary><i data-lucide="shield-check"></i>Configuração (para o dono do site)</summary>
 				<div class="bloco-codigo">
-					<p class="ajuda">Em instantdb.com/dash → seu app → <b>Permissions</b>, cole:</p>
-					<pre id="regrasNuvem"></pre>
+					<p class="ajuda">Passo a passo completo no README. Regras do <b>Firestore</b> (Google/Firebase):</p>
+					<pre id="regrasFirebase"></pre>
+					<p class="ajuda">Script SQL do <b>Supabase</b> (e-mail) — rode uma vez no SQL Editor:</p>
+					<pre id="sqlSupabase"></pre>
 				</div>
 			</details>
 
@@ -341,7 +358,7 @@
 				</span>
 			</label>
 
-			<div class="compartilhar">
+			<div class="compartilhar" id="blocoCompartilhar">
 				<h3><i data-lucide="link"></i>Conectar outro aparelho</h3>
 				<div class="segmentado" role="radiogroup" aria-label="Tipo de link">
 					<label><input type="radio" name="tipoLink" value="edicao" checked><span>Pode editar</span></label>

@@ -1,16 +1,31 @@
 /* =========================================================
-   Nuvem do app (InstantDB) — configuração única
+   Nuvem — configuração única (feita pelo dono do site)
    ---------------------------------------------------------
-   Para ativar o "Salvar na nuvem" (login por e-mail e listas
-   compartilhadas), cole aqui o App ID do seu app no InstantDB:
+   Preencha UMA ou MAIS opções. Cada opção preenchida aparece
+   como um botão de login para quem usa o app. As que ficarem
+   como null simplesmente não aparecem.
 
-   1. Acesse https://instantdb.com/dash e entre (com Google ou e-mail).
-   2. Crie um app (botão "New app") e copie o "App ID".
-   3. Cole o App ID abaixo, entre as aspas.
-   4. (Recomendado) Em "Permissions", cole as regras do README.
-
-   Enquanto ficar vazio, o app funciona normalmente, salvando
-   só no aparelho.
+   Passo a passo de cada uma: veja o README.
    ========================================================= */
 
-export const INSTANT_APP_ID = "";
+export const NUVEM = {
+	/* 1) Google (Firebase) — "Entrar com Google" + listas por código.
+	   Cole aqui o objeto firebaseConfig do seu projeto. Exemplo:
+	   firebase: {
+	     apiKey: "AIza...",
+	     authDomain: "seu-projeto.firebaseapp.com",
+	     projectId: "seu-projeto",
+	     storageBucket: "seu-projeto.appspot.com",
+	     messagingSenderId: "123456789",
+	     appId: "1:123456789:web:abc123"
+	   }, */
+	firebase: null,
+
+	/* 2) E-mail (Supabase) — "Entrar com e-mail" (sem senha) + listas por código.
+	   supabase: { url: "https://xxxx.supabase.co", chave: "sua anon/public key" }, */
+	supabase: null,
+
+	/* 3) Dropbox — "Entrar com Dropbox" (os dados ficam no Dropbox de cada pessoa).
+	   dropbox: { appKey: "sua app key" }, */
+	dropbox: null
+};
