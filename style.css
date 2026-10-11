@@ -11,6 +11,9 @@
 	--raio-lg: 18px;
 	--altura-topo: 64px;
 	--transicao: 160ms cubic-bezier(.4, 0, .2, 1);
+	/* Largura do conteúdo: acompanha a tela (só limita em monitores muito largos) */
+	--largura-pagina: 2200px;
+	--margem-pagina: clamp(16px, 2.6vw, 48px);
 
 	/* Tema escuro (padrão) */
 	--fundo: #0b0d12;
@@ -200,10 +203,10 @@ svg.lucide,
 }
 
 .topo-conteudo {
-	max-width: 1240px;
+	max-width: var(--largura-pagina);
 	margin: 0 auto;
 	height: var(--altura-topo);
-	padding: 0 20px;
+	padding: 0 var(--margem-pagina);
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -395,9 +398,9 @@ svg.lucide,
 /* ---------- Página ---------- */
 .pagina {
 	width: 100%;
-	max-width: 1240px;
+	max-width: var(--largura-pagina);
 	margin: 0 auto;
-	padding: 22px 20px 32px;
+	padding: 22px var(--margem-pagina) 32px;
 	display: flex;
 	flex-direction: column;
 	gap: 18px;
