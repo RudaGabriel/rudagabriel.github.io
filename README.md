@@ -8,6 +8,21 @@
 
 [**▶ Abrir o app**](https://rudagabriel.github.io/) · [Privacidade](https://rudagabriel.github.io/privacidade.html) · [Reportar problema](https://github.com/RudaGabriel/rudagabriel.github.io/issues)
 
+![Gratuito](https://img.shields.io/badge/pre%C3%A7o-gratuito-22c55e)
+![PWA](https://img.shields.io/badge/PWA-instal%C3%A1vel-5A0FC8?logo=pwa&logoColor=white)
+![Offline](https://img.shields.io/badge/funciona-offline-0ea5e9)
+![Idioma](https://img.shields.io/badge/idioma-pt--BR-009c3b)
+![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-blue)
+
+![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)
+![CSS3](https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-ES2022-F7DF1E?logo=javascript&logoColor=black)
+![Firebase](https://img.shields.io/badge/Firebase-FFCA28?logo=firebase&logoColor=black)
+![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?logo=supabase&logoColor=white)
+![Dropbox](https://img.shields.io/badge/Dropbox-0061FF?logo=dropbox&logoColor=white)
+![ZXing](https://img.shields.io/badge/ZXing-leitor%20de%20c%C3%B3digos-555)
+![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-222?logo=githubpages&logoColor=white)
+
 Gratuito · Funciona no celular e no computador · Sem instalação · Sem cadastro obrigatório
 
 </div>
@@ -17,6 +32,7 @@ Gratuito · Funciona no celular e no computador · Sem instalação · Sem cadas
 ## Sumário
 
 - [O que é](#o-que-é)
+- [Destaques](#destaques)
 - [Capturas de tela](#capturas-de-tela)
 - [Primeiros passos](#primeiros-passos)
 - [Cadastrar produtos](#cadastrar-produtos)
@@ -27,9 +43,11 @@ Gratuito · Funciona no celular e no computador · Sem instalação · Sem cadas
 - [Compartilhar com a equipe](#compartilhar-com-a-equipe)
 - [Backup e planilha](#backup-e-planilha)
 - [Personalizar](#personalizar)
+- [Nome da sua loja](#nome-da-sua-loja)
 - [Instalar como aplicativo](#instalar-como-aplicativo)
 - [Privacidade](#privacidade)
 - [Onde funciona](#onde-funciona)
+- [Tecnologias e bibliotecas](#tecnologias-e-bibliotecas)
 - [Perguntas e problemas comuns](#perguntas-e-problemas-comuns)
 
 ---
@@ -44,6 +62,21 @@ O **Controle de Vencimento** ajuda a não perder produtos por validade. Ele foi 
 - se quiser, use a **mesma lista no celular e no computador**, ou com a sua equipe.
 
 Por padrão, tudo fica salvo **no seu próprio aparelho**. Nada é enviado para a internet, a menos que você ative a nuvem.
+
+## Destaques
+
+| | Recurso | Por que importa |
+|:---:|---|---|
+| 📷 | **Leitor de código de barras** com flash, zoom e foto | Cadastro em segundos, inclusive no iPhone. |
+| ⏰ | **Alertas de vencimento** com prazo ajustável | Você age antes de perder o produto. |
+| 🧭 | **Resumo com filtros** (vencendo, vencidos, do mês, em dia) | Visão do estoque em um toque. |
+| ☁️ | **Nuvem com Google, e-mail ou Dropbox** | A mesma lista no celular, no computador e na equipe. |
+| 🔗 | **Compartilhamento por link ou QR Code** | A equipe entra sem criar conta, com acesso de edição ou só leitura. |
+| 📶 | **Funciona sem internet** | Continue usando; tudo sincroniza quando a conexão voltar. |
+| 🏪 | **Nome da sua loja** no topo do app | O app com a cara do seu negócio. |
+| 💾 | **Backup e planilha** (.json e .csv) | Seus dados sempre com você, abrindo no Excel ou no Google Planilhas. |
+| 🌗 | **Tema claro e escuro**, layout responsivo | Confortável em qualquer tela, de 320 px a monitores largos. |
+| 📲 | **Instalável como aplicativo** | Ícone na tela inicial, abrindo em tela cheia. |
 
 ## Capturas de tela
 
@@ -169,6 +202,7 @@ No menu **⋮** (canto superior direito):
 | **Exportar planilha (.csv)** | Baixa a lista para abrir no **Excel** ou no **Google Planilhas**. |
 | **Restaurar / importar backup** | Carrega um backup feito antes (também aceita backups de versões antigas do app). |
 | **Salvar e compartilhar** | Abre as opções de nuvem. |
+| **Nome da loja** | Mostra o nome da sua loja antes de "Controle de Vencimento" (veja abaixo). |
 
 > Se você usa o app **sem nuvem**, faça backup de vez em quando: limpar os dados do navegador apaga a lista do aparelho.
 
@@ -177,6 +211,21 @@ No menu **⋮** (canto superior direito):
 - **Tema claro ou escuro:** toque no ícone de sol/lua no topo. Na primeira visita, o app segue o tema do seu aparelho.
 - **Prazo de alerta** e **ordenação** ficam salvos para a próxima vez.
 - **Avisos silenciados** (sino) ficam salvos por produto.
+
+## Nome da sua loja
+
+Deixe o app com o nome do seu negócio:
+
+1. Toque no menu **⋮** → **Nome da loja**.
+2. Digite o nome (até 60 caracteres), por exemplo *Mercado São José*, e toque em **Salvar**.
+
+O nome passa a aparecer:
+- no **topo do app**, antes do nome do app: **Mercado São José** - Controle de Vencimento;
+- no **título da aba** do navegador (ex.: *Mercado São José - Controle de Vencimento*);
+- no **nome dos arquivos** de backup e planilha (ex.: `vencimentos-mercado-sao-jose-2026-10-11.csv`);
+- dentro do **backup**: ao restaurá-lo em um aparelho sem nome definido, o nome vem junto.
+
+Para tirar o nome da loja, abra **Nome da loja** de novo e toque em **Usar nome padrão**. O nome fica salvo em cada aparelho; defina-o em cada um que usar.
 
 ## Instalar como aplicativo
 
@@ -207,6 +256,26 @@ Detalhes completos na [Política de Privacidade](https://rudagabriel.github.io/p
 | Zoom e troca de câmera | depende do aparelho | ✅ | depende da webcam |
 
 > Navegadores **dentro de outros apps** (Instagram, WhatsApp, Facebook etc.) podem bloquear a câmera. Abra o link no **Safari** ou no **Chrome**, ou use **Tirar foto do código**.
+
+## Tecnologias e bibliotecas
+
+O app é um site estático, rápido e sem instalação. As bibliotecas abaixo são carregadas **sob demanda** (só quando você usa o recurso), para o app abrir rápido até em conexões lentas.
+
+| Biblioteca | O que faz por você |
+|---|---|
+| [Firebase](https://firebase.google.com/) (Google) | Login com Google ou link no e-mail e a nuvem principal, com sincronização em tempo real e funcionamento offline. |
+| [Supabase](https://supabase.com/) | Servidor alternativo de login por e-mail e de listas com código. |
+| [Dropbox API](https://www.dropbox.com/developers) | Guarda sua lista em um arquivo dentro do **seu** Dropbox. |
+| [barcode-detector](https://github.com/Sec-ant/barcode-detector) · [ZXing-C++](https://github.com/zxing-cpp/zxing-cpp) | Leitura rápida de códigos de barras (WebAssembly), inclusive no iPhone. |
+| [ZXing JS](https://github.com/zxing-js/library) | Leitor reserva para aparelhos e navegadores mais antigos. |
+| [SweetAlert2](https://sweetalert2.github.io/) | Janelas de confirmação claras e acessíveis. |
+| [Notyf](https://carlosroso.com/notyf/) | Avisos rápidos, como "Produto adicionado" e "Desfazer". |
+| [Lucide](https://lucide.dev/) | Ícones nítidos em qualquer tela. |
+| [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) | QR Code para compartilhar a lista com a equipe. |
+| [AutoAnimate](https://auto-animate.formkit.com/) | Animações suaves ao adicionar, remover e reordenar produtos. |
+| [Inter](https://rsms.me/inter/) · [JetBrains Mono](https://www.jetbrains.com/lp/mono/) | Tipografia legível para nomes e códigos de barras. |
+
+Recursos modernos do navegador também entram em ação: **BarcodeDetector** (leitor nativo do aparelho), **View Transitions** (troca de tema suave), **container queries** (layout que se ajusta a cada cartão) e **PWA** (instalação na tela inicial).
 
 ## Perguntas e problemas comuns
 

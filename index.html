@@ -25,6 +25,11 @@
 			} catch (e) { /* armazenamento indisponível: mantém escuro */ }
 			document.documentElement.setAttribute("data-tema", escuro ? "escuro" : "claro");
 			try {
+				// Nome da loja no título da aba desde o primeiro instante
+				var loja = (localStorage.getItem("cv2:loja") || "").replace(/\s+/g, " ").trim().slice(0, 60);
+				if (loja) document.title = loja + " - Controle de Vencimento";
+			} catch (e) { /* ignora */ }
+			try {
 				var metas = document.querySelectorAll('meta[name="theme-color"]');
 				for (var i = 0; i < metas.length; i++) metas[i].setAttribute("content", escuro ? "#0b0d12" : "#f5f6fa");
 			} catch (e) { /* ignora */ }
@@ -82,6 +87,7 @@
 						<button type="button" role="menuitem" data-acao="importar"><i data-lucide="upload"></i>Restaurar / importar backup</button>
 						<hr>
 						<button type="button" role="menuitem" data-acao="sincronizar"><i data-lucide="share-2"></i>Salvar e compartilhar</button>
+						<button type="button" role="menuitem" data-acao="loja"><i data-lucide="store"></i>Nome da loja</button>
 					</div>
 				</details>
 				<input type="file" id="arquivoImportar" accept=".json,application/json" hidden>
@@ -335,9 +341,6 @@
 				</div>
 			</div>
 
-			<div class="dialogo-acoes">
-				<button type="button" class="btn btn-fantasma" data-fechar>Agora não</button>
-			</div>
 		</div>
 
 		<!-- Visão: conectado -->

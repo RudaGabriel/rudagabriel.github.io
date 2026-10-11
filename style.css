@@ -11,6 +11,9 @@
 	--raio-lg: 18px;
 	--altura-topo: 64px;
 	--transicao: 160ms cubic-bezier(.4, 0, .2, 1);
+	/* Largura do conteúdo: acompanha a tela (só limita em monitores muito largos) */
+	--largura-pagina: 2200px;
+	--margem-pagina: clamp(16px, 2.6vw, 48px);
 
 	/* Tema escuro (padrão) */
 	--fundo: #0b0d12;
@@ -200,10 +203,10 @@ svg.lucide,
 }
 
 .topo-conteudo {
-	max-width: 1240px;
+	max-width: var(--largura-pagina);
 	margin: 0 auto;
 	height: var(--altura-topo);
-	padding: 0 20px;
+	padding: 0 var(--margem-pagina);
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
@@ -395,9 +398,9 @@ svg.lucide,
 /* ---------- Página ---------- */
 .pagina {
 	width: 100%;
-	max-width: 1240px;
+	max-width: var(--largura-pagina);
 	margin: 0 auto;
-	padding: 22px 20px 32px;
+	padding: 22px var(--margem-pagina) 32px;
 	display: flex;
 	flex-direction: column;
 	gap: 18px;
@@ -2685,5 +2688,67 @@ input[type="date"]::-webkit-date-and-time-value {
 
 	.ordenar select {
 		width: 100%;
+	}
+}
+
+/* ---------- Nome da loja no cabeçalho ---------- */
+.marca-loja {
+	color: var(--primaria);
+}
+
+/* ---------- Lista ocupa a tela até o rodapé ----------
+   Em telas com espaço suficiente a página não rola: o cartão da lista
+   se estende até o rodapé e a rolagem acontece dentro dele.
+   Se a janela for baixa demais, a lista mantém uma altura mínima e a
+   página volta a rolar normalmente (nunca esconde conteúdo).
+   No celular a rolagem continua na página (rolagem dentro de rolagem
+   atrapalha o toque). */
+@media (min-width: 761px) and (min-height: 560px) {
+	body {
+		height: 100vh;
+		height: 100dvh;
+	}
+
+	/* Resumo, formulário e anúncio mantêm o tamanho; só a lista estica */
+	.pagina > * {
+		flex-shrink: 0;
+	}
+
+	.cartao-lista {
+		flex: 1 1 0;
+		min-height: 300px;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.cartao-lista > .barra-lista,
+	.cartao-lista > .rodape-lista {
+		flex: none;
+	}
+
+	.tabela-envoltorio {
+		flex: 1 1 0;
+		min-height: 0;
+		overflow-y: auto;
+		overflow-x: hidden;
+		overscroll-behavior: contain;
+		scrollbar-gutter: stable;
+	}
+
+	/* O cabeçalho da tabela fica fixo no topo da área que rola */
+	.tabela thead th {
+		top: 0;
+	}
+
+	/* Lista vazia: mensagem centralizada no espaço disponível */
+	.tabela-envoltorio:has(.vazio:not([hidden])) {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+	}
+
+	.rodape {
+		padding-top: 10px;
+		padding-bottom: calc(14px + env(safe-area-inset-bottom));
 	}
 }

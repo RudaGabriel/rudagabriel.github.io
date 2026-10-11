@@ -23,6 +23,7 @@ const CHAVE = {
 	cacheNuvem: "cv2:cacheNuvem",
 	migrado: "cv2:migrado",
 	tema: "cv2:tema",
+	loja: "cv2:loja",
 	loginPendente: "cv2:loginPendente"
 };
 
@@ -323,6 +324,7 @@ const estado = {
 	itensLocais: [],
 	itensNuvem: [],
 	silenciados: new Set(),
+	loja: "",
 	alerta: { valor: 60, unidade: "dias" },
 	filtro: "todos",
 	busca: "",
@@ -934,6 +936,96 @@ function baixarArquivo(conteudo, nome, tipo) {
 	setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
 
+/* =========================================================
+   Nome da loja (personaliza o cabeçalho e o título da aba)
+   ========================================================= */
+const NOME_APP = "Controle de Vencimento";
+const LIMITE_NOME_LOJA = 60;
+
+/** Limpa o nome digitado: sem caracteres de controle, espaços repetidos ou excesso de tamanho. */
+function limparNomeLoja(valor) {
+	return Array.from(String(valor ?? "")
+		.replace(/[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u2028-\u202E\u2066-\u2069\uFEFF]/g, "")
+		.replace(/\s+/g, " ")
+		.trim())
+		.slice(0, LIMITE_NOME_LOJA)
+		.join("")
+		.trim();
+}
+
+/** "Nome da loja - Controle de Vencimento" (ou só o nome do app, sem loja definida). */
+const tituloCompleto = loja => loja ? `${loja} - ${NOME_APP}` : NOME_APP;
+
+function aplicarNomeLoja() {
+	const loja = estado.loja;
+	const titulo = $(".marca h1");
+	if (titulo) {
+		// Monta com nós de texto (nunca HTML): a loja em destaque antes do nome do app
+		titulo.replaceChildren();
+		if (loja) {
+			const destaque = document.createElement("span");
+			destaque.className = "marca-loja";
+			destaque.textContent = loja;
+			titulo.append(destaque, ` - ${NOME_APP}`);
+		} else {
+			titulo.textContent = NOME_APP;
+		}
+		titulo.title = tituloCompleto(loja);
+	}
+	document.title = tituloCompleto(loja);
+	$('meta[name="apple-mobile-web-app-title"]')?.setAttribute("content", loja || "Vencimentos");
+}
+
+function definirNomeLoja(valor, { salvar = true } = {}) {
+	estado.loja = limparNomeLoja(valor);
+	if (salvar) {
+		if (estado.loja) armazenamento.gravarTexto(CHAVE.loja, estado.loja);
+		else armazenamento.remover(CHAVE.loja);
+	}
+	aplicarNomeLoja();
+}
+
+async function configurarNomeLoja() {
+	const atual = estado.loja;
+	let valor;
+	if (!window.Swal) {
+		const v = window.prompt(`Nome da sua loja (até ${LIMITE_NOME_LOJA} caracteres). Deixe em branco para usar o nome padrão:`, atual);
+		if (v === null) return;
+		valor = v;
+	} else {
+		const r = await window.Swal.fire({
+			title: "Nome da loja",
+			html: "Aparece antes de <b>Controle de Vencimento</b>, no topo do app e no título da aba. Fica salvo neste aparelho.",
+			input: "text",
+			inputValue: atual,
+			inputPlaceholder: "Ex.: Mercado São José",
+			inputAttributes: { maxlength: String(LIMITE_NOME_LOJA), autocomplete: "organization", autocapitalize: "words", spellcheck: "false", enterkeyhint: "done" },
+			showCancelButton: true,
+			showDenyButton: !!atual,
+			confirmButtonText: "Salvar",
+			denyButtonText: "Usar nome padrão",
+			cancelButtonText: "Cancelar",
+			reverseButtons: true,
+			buttonsStyling: false,
+			heightAuto: false,
+			customClass: { popup: "sw-popup", confirmButton: "btn btn-primario", denyButton: "btn btn-secundario", cancelButton: "btn btn-fantasma", input: "sw-input" }
+		});
+		if (r.isDenied) valor = "";
+		else if (r.isConfirmed) valor = String(r.value ?? "");
+		else return;
+	}
+	const limpo = limparNomeLoja(valor);
+	if (limpo === atual) return;
+	definirNomeLoja(limpo);
+	toast("sucesso", limpo ? `Nome da loja definido: <b>${esc(limpo)}</b>.` : "Nome padrão restaurado.");
+}
+
+/** Parte do nome dos arquivos exportados (ex.: "mercado-sao-jose"). */
+const sufixoArquivoLoja = () => {
+	const slug = normalizar(estado.loja).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+	return slug ? `${slug}-` : "";
+};
+
 function exportarJSON() {
 	const dados = {
 		app: "controle-de-vencimento",
@@ -941,9 +1033,10 @@ function exportarJSON() {
 		exportadoEm: new Date().toISOString(),
 		itens: itensAtuais(),
 		alerta: estado.alerta,
-		silenciados: [...estado.silenciados]
+		silenciados: [...estado.silenciados],
+		loja: estado.loja || undefined
 	};
-	baixarArquivo(JSON.stringify(dados, null, 2), `vencimentos-${hojeISO()}.json`, "application/json");
+	baixarArquivo(JSON.stringify(dados, null, 2), `vencimentos-${sufixoArquivoLoja()}${hojeISO()}.json`, "application/json");
 	toast("sucesso", `Backup gerado com <b>${dados.itens.length}</b> produto(s).`);
 }
 
@@ -958,7 +1051,7 @@ function exportarCSV() {
 	ordenar(itensAtuais().map(item => ({ item, sit: situacao(item, limite) })), "venc-asc").forEach(({ item, sit }) => {
 		linhas.push([item.nome, item.codigoBarras, fmtNumero.format(item.quantidade), formatarData(item.vencimento), sit.texto].map(celula).join(";"));
 	});
-	baixarArquivo("﻿" + linhas.join("\r\n"), `vencimentos-${hojeISO()}.csv`, "text/csv;charset=utf-8");
+	baixarArquivo("﻿" + linhas.join("\r\n"), `vencimentos-${sufixoArquivoLoja()}${hojeISO()}.csv`, "text/csv;charset=utf-8");
 	toast("sucesso", "Planilha exportada.");
 }
 
@@ -1015,6 +1108,8 @@ async function importarArquivo(arquivo) {
 		armazenamento.gravar(CHAVE.alerta, estado.alerta);
 		aplicarAlertaNaTela();
 	}
+	// Nome da loja do backup: só aplica se este aparelho ainda não tem um
+	if (!estado.loja && typeof dados.loja === "string" && limparNomeLoja(dados.loja)) definirNomeLoja(dados.loja);
 	if (Array.isArray(dados.silenciados)) {
 		const ids = new Set(itensAtuais().map(i => i.id));
 		dados.silenciados.map(normalizarId).filter(id => id && ids.has(id)).forEach(id => estado.silenciados.add(id));
@@ -1936,6 +2031,7 @@ function registrarEventos() {
 			case "exportar-csv": exportarCSV(); break;
 			case "importar": el.arquivo.click(); break;
 			case "sincronizar": abrirDialogoSync(); break;
+			case "loja": configurarNomeLoja(); break;
 		}
 	});
 	document.addEventListener("click", e => { if (el.menu.open && !el.menu.contains(e.target)) el.menu.open = false; });
@@ -2028,6 +2124,8 @@ function registrarEventos() {
 		} else if (e.key === CHAVE.silenciados) {
 			estado.silenciados = new Set((armazenamento.ler(CHAVE.silenciados, []) || []).map(normalizarId).filter(Boolean));
 			render();
+		} else if (e.key === CHAVE.loja || e.key === null) {
+			definirNomeLoja(armazenamento.lerTexto(CHAVE.loja), { salvar: false });
 		}
 	});
 
@@ -2054,6 +2152,7 @@ function iniciar() {
 
 	estado.itensLocais = sanitizarLista(armazenamento.ler(CHAVE.itens, []));
 	estado.silenciados = new Set((armazenamento.ler(CHAVE.silenciados, []) || []).map(normalizarId).filter(Boolean));
+	definirNomeLoja(armazenamento.lerTexto(CHAVE.loja), { salvar: false });
 	const alerta = armazenamento.ler(CHAVE.alerta, null);
 	if (alerta && Number.isFinite(Number(alerta.valor))) {
 		estado.alerta = { valor: Math.max(0, Math.min(3650, Math.floor(Number(alerta.valor)))), unidade: alerta.unidade === "meses" ? "meses" : "dias" };
