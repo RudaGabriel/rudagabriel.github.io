@@ -2735,10 +2735,6 @@ input[type="date"]::-webkit-date-and-time-value {
 	}
 }
 
-/* ---------- Nome da loja no cabeçalho ---------- */
-.marca-loja {
-	color: var(--primaria);
-}
 
 /* ---------- Lista ocupa a tela até o rodapé ----------
    Em telas com espaço suficiente a página não rola: o cartão da lista
