@@ -27,7 +27,7 @@
 			try {
 				// Nome da loja no título da aba desde o primeiro instante
 				var loja = (localStorage.getItem("cv2:loja") || "").replace(/\s+/g, " ").trim().slice(0, 60);
-				if (loja) document.title = loja + " · Controle de Vencimento";
+				if (loja) document.title = loja + " - Controle de Vencimento";
 			} catch (e) { /* ignora */ }
 			try {
 				var metas = document.querySelectorAll('meta[name="theme-color"]');

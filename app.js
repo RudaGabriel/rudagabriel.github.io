@@ -940,7 +940,6 @@ function baixarArquivo(conteudo, nome, tipo) {
    Nome da loja (personaliza o cabeçalho e o título da aba)
    ========================================================= */
 const NOME_APP = "Controle de Vencimento";
-const SUBTITULO_APP = "Validade, alertas e estoque em um só lugar";
 const LIMITE_NOME_LOJA = 60;
 
 /** Limpa o nome digitado: sem caracteres de controle, espaços repetidos ou excesso de tamanho. */
@@ -954,12 +953,26 @@ function limparNomeLoja(valor) {
 		.trim();
 }
 
+/** "Nome da loja - Controle de Vencimento" (ou só o nome do app, sem loja definida). */
+const tituloCompleto = loja => loja ? `${loja} - ${NOME_APP}` : NOME_APP;
+
 function aplicarNomeLoja() {
 	const loja = estado.loja;
-	const titulo = $(".marca h1"), sub = $(".marca p");
-	if (titulo) { titulo.textContent = loja || NOME_APP; titulo.title = loja || NOME_APP; }
-	if (sub) sub.textContent = loja ? NOME_APP : SUBTITULO_APP;
-	document.title = loja ? `${loja} · ${NOME_APP}` : NOME_APP;
+	const titulo = $(".marca h1");
+	if (titulo) {
+		// Monta com nós de texto (nunca HTML): a loja em destaque antes do nome do app
+		titulo.replaceChildren();
+		if (loja) {
+			const destaque = document.createElement("span");
+			destaque.className = "marca-loja";
+			destaque.textContent = loja;
+			titulo.append(destaque, ` - ${NOME_APP}`);
+		} else {
+			titulo.textContent = NOME_APP;
+		}
+		titulo.title = tituloCompleto(loja);
+	}
+	document.title = tituloCompleto(loja);
 	$('meta[name="apple-mobile-web-app-title"]')?.setAttribute("content", loja || "Vencimentos");
 }
 
@@ -982,7 +995,7 @@ async function configurarNomeLoja() {
 	} else {
 		const r = await window.Swal.fire({
 			title: "Nome da loja",
-			html: "Aparece no topo do app e no título da aba. Fica salvo neste aparelho.",
+			html: "Aparece antes de <b>Controle de Vencimento</b>, no topo do app e no título da aba. Fica salvo neste aparelho.",
 			input: "text",
 			inputValue: atual,
 			inputPlaceholder: "Ex.: Mercado São José",

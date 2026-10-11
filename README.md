@@ -202,7 +202,7 @@ No menu **⋮** (canto superior direito):
 | **Exportar planilha (.csv)** | Baixa a lista para abrir no **Excel** ou no **Google Planilhas**. |
 | **Restaurar / importar backup** | Carrega um backup feito antes (também aceita backups de versões antigas do app). |
 | **Salvar e compartilhar** | Abre as opções de nuvem. |
-| **Nome da loja** | Personaliza o nome que aparece no topo do app (veja abaixo). |
+| **Nome da loja** | Mostra o nome da sua loja antes de "Controle de Vencimento" (veja abaixo). |
 
 > Se você usa o app **sem nuvem**, faça backup de vez em quando: limpar os dados do navegador apaga a lista do aparelho.
 
@@ -220,12 +220,12 @@ Deixe o app com o nome do seu negócio:
 2. Digite o nome (até 60 caracteres), por exemplo *Mercado São José*, e toque em **Salvar**.
 
 O nome passa a aparecer:
-- no **topo do app**, no lugar de "Controle de Vencimento";
-- no **título da aba** do navegador (ex.: *Mercado São José · Controle de Vencimento*);
+- no **topo do app**, antes do nome do app: **Mercado São José** - Controle de Vencimento;
+- no **título da aba** do navegador (ex.: *Mercado São José - Controle de Vencimento*);
 - no **nome dos arquivos** de backup e planilha (ex.: `vencimentos-mercado-sao-jose-2026-10-11.csv`);
 - dentro do **backup**: ao restaurá-lo em um aparelho sem nome definido, o nome vem junto.
 
-Para voltar ao nome original, abra **Nome da loja** de novo e toque em **Usar nome padrão**. O nome fica salvo em cada aparelho; defina-o em cada um que usar.
+Para tirar o nome da loja, abra **Nome da loja** de novo e toque em **Usar nome padrão**. O nome fica salvo em cada aparelho; defina-o em cada um que usar.
 
 ## Instalar como aplicativo
 

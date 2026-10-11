@@ -2690,3 +2690,65 @@ input[type="date"]::-webkit-date-and-time-value {
 		width: 100%;
 	}
 }
+
+/* ---------- Nome da loja no cabeçalho ---------- */
+.marca-loja {
+	color: var(--primaria);
+}
+
+/* ---------- Lista ocupa a tela até o rodapé ----------
+   Em telas com espaço suficiente a página não rola: o cartão da lista
+   se estende até o rodapé e a rolagem acontece dentro dele.
+   Se a janela for baixa demais, a lista mantém uma altura mínima e a
+   página volta a rolar normalmente (nunca esconde conteúdo).
+   No celular a rolagem continua na página (rolagem dentro de rolagem
+   atrapalha o toque). */
+@media (min-width: 761px) and (min-height: 560px) {
+	body {
+		height: 100vh;
+		height: 100dvh;
+	}
+
+	/* Resumo, formulário e anúncio mantêm o tamanho; só a lista estica */
+	.pagina > * {
+		flex-shrink: 0;
+	}
+
+	.cartao-lista {
+		flex: 1 1 0;
+		min-height: 300px;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.cartao-lista > .barra-lista,
+	.cartao-lista > .rodape-lista {
+		flex: none;
+	}
+
+	.tabela-envoltorio {
+		flex: 1 1 0;
+		min-height: 0;
+		overflow-y: auto;
+		overflow-x: hidden;
+		overscroll-behavior: contain;
+		scrollbar-gutter: stable;
+	}
+
+	/* O cabeçalho da tabela fica fixo no topo da área que rola */
+	.tabela thead th {
+		top: 0;
+	}
+
+	/* Lista vazia: mensagem centralizada no espaço disponível */
+	.tabela-envoltorio:has(.vazio:not([hidden])) {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+	}
+
+	.rodape {
+		padding-top: 10px;
+		padding-bottom: calc(14px + env(safe-area-inset-bottom));
+	}
+}
