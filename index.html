@@ -142,7 +142,10 @@
 				</div>
 				<div class="campo campo-data">
 					<label for="vencimento">Vencimento</label>
-					<input type="date" id="vencimento" min="1900-01-01" max="2200-12-31" enterkeyhint="done" required>
+					<div class="data-envoltorio">
+						<input type="date" id="vencimento" min="1900-01-01" max="2200-12-31" enterkeyhint="done" required>
+						<span class="data-dica" aria-hidden="true">dd/mm/aaaa</span>
+					</div>
 				</div>
 				<div class="form-acoes">
 					<button type="button" id="btnCancelarEdicao" class="btn btn-fantasma" hidden><i data-lucide="x"></i>Cancelar</button>

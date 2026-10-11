@@ -2201,9 +2201,53 @@ input[type="radio"] {
 	white-space: nowrap;
 }
 
+/* Campo de data: nunca passa da largura do cartão */
+.data-envoltorio {
+	position: relative;
+	min-width: 0;
+}
+
+input[type="date"] {
+	display: block;
+	min-width: 0;
+	max-width: 100%;
+}
+
 /* iOS: alinha a data à esquerda e evita o zoom automático ao focar campos */
 input[type="date"]::-webkit-date-and-time-value {
 	text-align: left;
+	margin: 0;
+}
+
+.data-dica {
+	display: none;
+}
+
+/* Só no Safari do iPhone/iPad: o campo de data vazio fica em branco, então
+   corrigimos a largura e mostramos a dica "dd/mm/aaaa" enquanto não há data */
+@supports (-webkit-touch-callout: none) {
+	input[type="date"] {
+		-webkit-appearance: none;
+		appearance: none;
+		width: 100%;
+		line-height: 40px;
+		text-align: left;
+	}
+
+	.data-dica {
+		position: absolute;
+		left: 13px;
+		top: 50%;
+		transform: translateY(-50%);
+		color: var(--texto-fraco);
+		pointer-events: none;
+		font-size: 16px;
+	}
+
+	/* Vazio = inválido só por falta de valor (não por data fora do limite) e sem foco */
+	input[type="date"]:invalid:not(:out-of-range):not(:focus) + .data-dica {
+		display: block;
+	}
 }
 
 @media (pointer: coarse) {
