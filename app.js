@@ -453,6 +453,9 @@ const el = {
 	regrasFirebase: $("#regrasFirebase"),
 	sqlSupabase: $("#sqlSupabase"),
 	loginEmail: $("#loginEmail"),
+	emailEnviadoMsg: $("#emailEnviadoMsg"),
+	emailEnviadoPara: $("#emailEnviadoPara"),
+	btnEmailAlternativo: $("#btnEmailAlternativo"),
 	btnEnviarCodigo: $("#btnEnviarCodigo"),
 	loginCodigoCaixa: $("#loginCodigoCaixa"),
 	loginEmailTexto: $("#loginEmailTexto"),
@@ -1489,7 +1492,7 @@ function atualizarDialogoSync() {
 	el.syncIndisponivel.hidden = nuvemDisponivel();
 	el.syncOpcoes.hidden = !nuvemDisponivel();
 	el.btnLoginGoogle.hidden = !provedores.firebase.disponivel;
-	el.blocoEmail.hidden = !provedores.supabase.disponivel;
+	el.blocoEmail.hidden = !(provedores.firebase.disponivel || provedores.supabase.disponivel);
 	el.btnLoginDropbox.hidden = !provedores.dropbox.disponivel;
 	const algumLogin = provedores.firebase.disponivel || provedores.supabase.disponivel || provedores.dropbox.disponivel;
 	el.separadorSemLogin.hidden = !algumLogin || !provedorDeCodigo();
@@ -1566,27 +1569,40 @@ async function loginDropbox() {
 const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 let emailPendente = "";
 
-async function enviarCodigoLogin() {
+/** Serviço usado para o login por e-mail: o link do Firebase é o principal; o Supabase é a alternativa. */
+const provedorEmail = alternativo => {
+	const ordem = alternativo ? ["supabase", "firebase"] : ["firebase", "supabase"];
+	return ordem.map(id => provedores[id]).find(p => p.disponivel) || null;
+};
+
+async function enviarCodigoLogin(alternativo = false) {
 	const email = el.loginEmail.value.trim().toLowerCase();
 	if (!RE_EMAIL.test(email)) {
 		el.loginEmail.setAttribute("aria-invalid", "true");
 		el.loginEmail.focus();
 		return toast("erro", "Digite um e-mail válido.");
 	}
+	const prov = provedorEmail(alternativo === true);
+	if (!prov) return;
 	el.loginEmail.removeAttribute("aria-invalid");
 	el.btnEnviarCodigo.disabled = true;
 	el.btnEnviarCodigo.textContent = "Enviando…";
 	try {
-		armazenamento.gravarTexto(CHAVE.loginPendente, "supabase");
-		await provedores.supabase.enviarCodigo(email);
+		armazenamento.gravarTexto(CHAVE.loginPendente, prov.id);
+		if (prov.id === "firebase") await prov.enviarLinkEmail(email);
+		else await prov.enviarCodigo(email);
 		emailPendente = email;
-		el.loginCodigoCaixa.hidden = false;
+		el.emailEnviadoPara.textContent = email;
+		el.emailEnviadoMsg.hidden = false;
+		// O Supabase também aceita o código de 6 dígitos (se o modelo de e-mail tiver {{ .Token }})
+		el.loginCodigoCaixa.hidden = prov.id !== "supabase";
 		el.loginEmailTexto.textContent = email;
 		el.loginCodigo.value = "";
-		toast("sucesso", `Enviamos um e-mail para <b>${esc(email)}</b>. Toque no link do e-mail (ou digite o código, se houver). Confira também o spam.`, 9000);
+		// Oferece o outro servidor caso o e-mail não chegue
+		el.btnEmailAlternativo.hidden = !(prov.id === "firebase" && provedores.supabase.disponivel);
 	} catch (e) {
 		armazenamento.remover(CHAVE.loginPendente);
-		toast("erro", esc(explicarErro(e).mensagem));
+		toast("erro", esc(explicarErro(e).mensagem), 8000);
 	} finally {
 		el.btnEnviarCodigo.disabled = false;
 		el.btnEnviarCodigo.textContent = "Receber link";
@@ -1621,6 +1637,29 @@ async function confirmarCodigoLogin() {
 	}
 }
 
+/** Pede o e-mail quando o link de login foi aberto em outro aparelho/navegador. */
+async function dialogoEmail() {
+	if (!window.Swal) {
+		const v = window.prompt("Confirme seu e-mail para entrar:");
+		return { acao: v ? "confirmar" : "cancelar", valor: (v || "").trim().toLowerCase() };
+	}
+	const r = await window.Swal.fire({
+		title: "Confirme seu e-mail",
+		html: "Você abriu o link em outro aparelho ou navegador. Digite o mesmo e-mail usado para pedir o link:",
+		input: "email",
+		inputPlaceholder: "seu@email.com",
+		showCancelButton: true,
+		confirmButtonText: "Entrar",
+		cancelButtonText: "Cancelar",
+		reverseButtons: true,
+		buttonsStyling: false,
+		heightAuto: false,
+		validationMessage: "Digite um e-mail válido.",
+		customClass: { popup: "sw-popup", confirmButton: "btn btn-primario", cancelButton: "btn btn-fantasma", input: "sw-input" }
+	});
+	return { acao: r.isConfirmed ? "confirmar" : "cancelar", valor: String(r.value || "").trim().toLowerCase() };
+}
+
 /** Conclui logins que voltam por redirecionamento (link do e-mail ou Dropbox). */
 async function concluirLoginsPendentes() {
 	const pendente = armazenamento.lerTexto(CHAVE.loginPendente);
@@ -1637,6 +1676,28 @@ async function concluirLoginsPendentes() {
 			armazenamento.remover(CHAVE.loginPendente);
 			const info = explicarErro(e);
 			if (info.tipo !== "cancelado") toast("erro", `Dropbox: ${esc(info.mensagem)}`, 8000);
+			return;
+		}
+	}
+	// Firebase: o link do e-mail volta com ?mode=signIn&oobCode=…
+	if (provedores.firebase.disponivel && provedores.firebase.ehRetornoLinkEmail()) {
+		try {
+			let r = await provedores.firebase.concluirLinkEmail();
+			if (r?.precisaEmail) {
+				// Link aberto em outro aparelho: confirma o e-mail por segurança
+				const { acao, valor } = await dialogoEmail();
+				if (acao === "confirmar" && valor) r = await provedores.firebase.concluirLinkEmail(valor);
+				else r = null;
+			}
+			if (r?.id) {
+				armazenamento.remover(CHAVE.loginPendente);
+				await aposLogin("firebase", r);
+				return;
+			}
+		} catch (e) {
+			armazenamento.remover(CHAVE.loginPendente);
+			try { history.replaceState(null, "", location.pathname + location.hash); } catch { /* ignora */ }
+			toast("erro", `Login por e-mail: ${esc(explicarErro(e).mensagem)}`, 8000);
 			return;
 		}
 	}
@@ -1881,8 +1942,9 @@ function registrarEventos() {
 		el.caixaEmail.hidden = !el.caixaEmail.hidden;
 		if (!el.caixaEmail.hidden) setTimeout(() => el.loginEmail.focus(), 30);
 	});
-	el.btnEnviarCodigo.addEventListener("click", enviarCodigoLogin);
-	el.loginEmail.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); enviarCodigoLogin(); } });
+	el.btnEnviarCodigo.addEventListener("click", () => enviarCodigoLogin(false));
+	el.btnEmailAlternativo.addEventListener("click", () => enviarCodigoLogin(true));
+	el.loginEmail.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); enviarCodigoLogin(false); } });
 	el.loginEmail.addEventListener("input", () => el.loginEmail.removeAttribute("aria-invalid"));
 	el.btnEntrarLogin.addEventListener("click", confirmarCodigoLogin);
 	el.loginCodigo.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); confirmarCodigoLogin(); } });
@@ -1890,6 +1952,8 @@ function registrarEventos() {
 	el.btnTrocarEmail.addEventListener("click", () => {
 		emailPendente = "";
 		el.loginCodigoCaixa.hidden = true;
+		el.emailEnviadoMsg.hidden = true;
+		el.btnEmailAlternativo.hidden = true;
 		el.loginEmail.focus();
 	});
 	el.btnCriarLista.addEventListener("click", () => criarListaNova());

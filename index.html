@@ -272,6 +272,11 @@
 								</div>
 								<small class="ajuda">Sem senha: você recebe um link de acesso por e-mail. Abra o link <b>neste aparelho</b>.</small>
 							</div>
+							<div id="emailEnviadoMsg" class="aviso-ok" hidden>
+								<i data-lucide="mail-check"></i>
+								<span>Link enviado para <b id="emailEnviadoPara"></b>. Abra seu e-mail <b>neste aparelho</b> e toque no link para entrar. Confira também o spam.</span>
+							</div>
+							<button type="button" class="link-botao" id="btnEmailAlternativo" hidden>Não chegou? Enviar por outro servidor</button>
 							<div id="loginCodigoCaixa" class="campo" hidden>
 								<label for="loginCodigo">Recebeu um código em <b id="loginEmailTexto"></b>? Digite aqui:</label>
 								<div class="grupo-entrada">
