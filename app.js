@@ -991,16 +991,8 @@ function aplicarNomeLoja() {
 	const loja = estado.loja;
 	const titulo = $(".marca h1");
 	if (titulo) {
-		// Monta com nós de texto (nunca HTML): a loja em destaque antes do nome do app
-		titulo.replaceChildren();
-		if (loja) {
-			const destaque = document.createElement("span");
-			destaque.className = "marca-loja";
-			destaque.textContent = loja;
-			titulo.append(destaque, ` - ${NOME_APP}`);
-		} else {
-			titulo.textContent = NOME_APP;
-		}
+		// textContent: o nome digitado nunca vira HTML
+		titulo.textContent = tituloCompleto(loja);
 		titulo.title = tituloCompleto(loja);
 	}
 	document.title = tituloCompleto(loja);
