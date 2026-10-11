@@ -1,46 +1,127 @@
 /* =========================================================
    Leitor de código de barras
    ---------------------------------------------------------
-   - Usa o detector nativo do aparelho (Android/Chrome) quando
-     existe; senão, o ZXing-C++ em WebAssembly (iPhone, PC…).
-   - Câmera traseira principal em alta resolução, com foco
-     contínuo, flash (lanterna), zoom e troca de câmera.
-   - Analisa a faixa central (onde fica a mira) em resolução
-     cheia e, de vez em quando, a imagem inteira.
-   - Confirma a leitura: EAN/UPC pelo dígito verificador;
-     outros formatos precisam de duas leituras iguais.
-   - Também lê códigos a partir de uma foto.
+   Funciona em qualquer aparelho, com 3 motores de leitura
+   (usa o primeiro que funcionar):
+     1. Detector nativo do aparelho (Android/Chrome).
+     2. ZXing-C++ em WebAssembly (navegadores modernos).
+     3. ZXing em JavaScript puro (iPhones/navegadores antigos).
+   A câmera abre independente do motor, com várias tentativas
+   de configuração. Se a câmera ao vivo não estiver disponível,
+   "Tirar foto do código" sempre funciona.
    ========================================================= */
 
-const URL_ZXING = "https://cdn.jsdelivr.net/npm/barcode-detector@3.2.2/dist/iife/ponyfill.js";
+const URL_ZXING_WASM = "https://cdn.jsdelivr.net/npm/barcode-detector@3.2.2/dist/iife/ponyfill.js";
+const URL_ZXING_JS = "https://cdn.jsdelivr.net/npm/@zxing/library@0.23.0/umd/index.min.js";
 
 const FORMATOS_DESEJADOS = [
 	"ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "code_93",
 	"itf", "codabar", "qr_code", "data_matrix"
 ];
 const FORMATOS_COM_DIGITO = new Set(["ean_13", "ean_8", "upc_a"]);
-const INTERVALO_MIN_MS = { nativo: 60, zxing: 110 };
+const INTERVALO_MIN_MS = { nativo: 60, wasm: 110, js: 180 };
+const LIMITE_PIXELS = { nativo: 1600, wasm: 1600, js: 1000 };
 const CHAVE_CAMERA = "cv2:camera";
 
-/* ---------- Utilitários ---------- */
-let promessaZxing = null;
-function carregarZxing() {
-	if (window.BarcodeDetectionAPI?.BarcodeDetector) return Promise.resolve(window.BarcodeDetectionAPI);
-	if (promessaZxing) return promessaZxing;
-	promessaZxing = new Promise((resolve, reject) => {
+export const ehIOS = () => /iP(hone|ad|od)/.test(navigator.userAgent || "")
+	|| (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+const esperar = ms => new Promise(r => setTimeout(r, ms));
+
+/* ---------- Carregamento de scripts ---------- */
+const scripts = new Map();
+function carregarScript(url, verificar) {
+	if (verificar()) return Promise.resolve();
+	if (scripts.has(url)) return scripts.get(url);
+	const p = new Promise((resolve, reject) => {
 		const s = document.createElement("script");
-		s.src = URL_ZXING;
+		s.src = url;
 		s.async = true;
 		s.crossOrigin = "anonymous";
-		s.onload = () => window.BarcodeDetectionAPI?.BarcodeDetector
-			? resolve(window.BarcodeDetectionAPI)
-			: reject(new Error("Leitor indisponível"));
+		s.onload = () => (verificar() ? resolve() : reject(new Error("Falha ao carregar o leitor")));
 		s.onerror = () => { s.remove(); reject(new Error("Falha ao carregar o leitor")); };
 		document.head.appendChild(s);
-	}).catch(e => { promessaZxing = null; throw e; });
-	return promessaZxing;
+	}).catch(e => { scripts.delete(url); throw e; });
+	scripts.set(url, p);
+	return p;
 }
 
+/** O ZXing em WebAssembly precisa de SIMD (Safari 16.4+, Chrome 91+). */
+function suportaWasmSimd() {
+	try {
+		return typeof WebAssembly === "object" && WebAssembly.validate(new Uint8Array([
+			0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11
+		]));
+	} catch {
+		return false;
+	}
+}
+
+/* ---------- Motores de leitura ---------- */
+async function criarMotorNativo() {
+	if (!("BarcodeDetector" in window)) throw new Error("sem nativo");
+	const suportados = await window.BarcodeDetector.getSupportedFormats();
+	const formatos = FORMATOS_DESEJADOS.filter(f => suportados.includes(f));
+	if (!formatos.includes("ean_13") || !formatos.includes("code_128")) throw new Error("nativo incompleto");
+	const det = new window.BarcodeDetector({ formats: formatos });
+	return { tipo: "nativo", detect: fonte => det.detect(fonte) };
+}
+
+async function criarMotorWasm() {
+	if (!suportaWasmSimd()) throw new Error("sem wasm simd");
+	await carregarScript(URL_ZXING_WASM, () => !!window.BarcodeDetectionAPI?.BarcodeDetector);
+	const api = window.BarcodeDetectionAPI;
+	await api.prepareZXingModule({ fireImmediately: true });
+	const suportados = await api.BarcodeDetector.getSupportedFormats();
+	const det = new api.BarcodeDetector({ formats: FORMATOS_DESEJADOS.filter(f => suportados.includes(f)) });
+	return { tipo: "wasm", detect: fonte => det.detect(fonte) };
+}
+
+async function criarMotorJs() {
+	await carregarScript(URL_ZXING_JS, () => !!window.ZXing?.MultiFormatReader);
+	const ZX = window.ZXing;
+	const F = ZX.BarcodeFormat;
+	const dicas = new Map();
+	dicas.set(ZX.DecodeHintType.POSSIBLE_FORMATS, [
+		F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.CODE_39, F.CODE_93, F.ITF, F.CODABAR, F.QR_CODE, F.DATA_MATRIX
+	]);
+	dicas.set(ZX.DecodeHintType.TRY_HARDER, true);
+	const leitor = new ZX.MultiFormatReader();
+	leitor.setHints(dicas);
+	return {
+		tipo: "js",
+		async detect(fonte) {
+			try {
+				const luz = new ZX.HTMLCanvasElementLuminanceSource(fonte);
+				const r = leitor.decode(new ZX.BinaryBitmap(new ZX.HybridBinarizer(luz)));
+				const nome = String(F[r.getBarcodeFormat()] || "").toLowerCase();
+				return [{ rawValue: r.getText(), format: nome }];
+			} catch {
+				return []; // nenhum código neste quadro
+			} finally {
+				try { leitor.reset(); } catch { /* ignora */ }
+			}
+		}
+	};
+}
+
+/** Tenta os motores em ordem e devolve o primeiro que funcionar. */
+async function criarMotor(pular = new Set()) {
+	const tentativas = [["nativo", criarMotorNativo], ["wasm", criarMotorWasm], ["js", criarMotorJs]];
+	let ultimoErro = null;
+	for (const [tipo, criar] of tentativas) {
+		if (pular.has(tipo)) continue;
+		try {
+			return await criar();
+		} catch (e) {
+			ultimoErro = e;
+			if (!/sem nativo|sem wasm/.test(String(e?.message))) console.warn(`[leitor] motor ${tipo} indisponível:`, e);
+		}
+	}
+	throw ultimoErro || new Error("Falha ao carregar o leitor");
+}
+
+/* ---------- Utilitários ---------- */
 /** Valida o dígito verificador de EAN-8, EAN-13, UPC-A (GTIN). */
 export function digitoVerificadorValido(codigo) {
 	if (!/^(\d{8}|\d{12}|\d{13}|\d{14})$/.test(codigo)) return false;
@@ -72,32 +153,49 @@ function bipar() {
 	} catch { /* sem som */ }
 }
 
-/** Escolhe a melhor câmera traseira para ler códigos de perto. */
+/** Escolhe a câmera traseira principal (Android). */
 function escolherCameraTraseira(cameras) {
-	const traseiras = cameras.filter(c => /back|rear|traseira|environment|facing back/i.test(c.label));
+	const traseiras = cameras.filter(c => /back|rear|traseira|environment/i.test(c.label));
 	if (!traseiras.length) return null;
-	// iPhone: câmeras virtuais (Triple/Dual Wide) trocam sozinhas para macro ao aproximar
-	const prioridadeIos = [/triple/i, /dual wide/i, /dual/i];
-	for (const re of prioridadeIos) {
-		const achada = traseiras.find(c => re.test(c.label));
-		if (achada) return achada;
-	}
-	// Android: "camera2 0, facing back" costuma ser a principal; evita ultra-wide/tele
-	const normais = traseiras.filter(c => !/ultra|tele|wide angle|grande angular|depth|profundidade/i.test(c.label));
+	const normais = traseiras.filter(c => !/ultra|tele|wide angle|grande.?angular|depth|profundidade|macro/i.test(c.label));
 	const lista = normais.length ? normais : traseiras;
 	const numero = c => { const m = c.label.match(/camera2?\s*(\d+)/i); return m ? Number(m[1]) : 99; };
 	return [...lista].sort((a, b) => numero(a) - numero(b))[0];
 }
 
-function traduzirErroCamera(erro) {
-	const texto = `${erro?.name || ""} ${erro?.message || erro || ""}`;
-	if (/NotAllowed|Permission|denied/i.test(texto)) return "Permissão da câmera negada. Libere o acesso à câmera nas configurações do navegador e tente de novo.";
-	if (/NotFound|DevicesNotFound|Requested device not found/i.test(texto)) return "Nenhuma câmera foi encontrada neste aparelho.";
-	if (/NotReadable|TrackStart|in use|Could not start/i.test(texto)) return "A câmera está sendo usada por outro aplicativo. Feche-o e tente novamente.";
-	if (/Overconstrained/i.test(texto)) return "A câmera não aceitou as configurações. Tente trocar de câmera.";
-	if (/carregar o leitor|indisponível/i.test(texto)) return "Não foi possível carregar o leitor. Verifique sua internet.";
-	if (/secure|https/i.test(texto)) return "A câmera só funciona em páginas seguras (https).";
-	return "Não foi possível iniciar a câmera.";
+/** Mensagem amigável + detalhe técnico (ajuda a diagnosticar). */
+export function traduzirErroCamera(erro) {
+	const nome = erro?.name || "";
+	const texto = `${nome} ${erro?.message || erro || ""}`;
+	const detalhe = `${nome || "Erro"}: ${erro?.message || String(erro || "")}`.slice(0, 160);
+	let mensagem = "Não foi possível iniciar a câmera.";
+	if (/sem-camera-api/.test(texto)) mensagem = "Este navegador não libera a câmera ao vivo (comum em navegadores dentro de apps). Use “Tirar foto do código” ou abra o site no Safari/Chrome.";
+	else if (/NotAllowed|Permission|denied/i.test(texto)) mensagem = ehIOS()
+		? "Permissão da câmera negada. No iPhone: Ajustes → Safari → Câmera → Permitir (ou toque em “aA” na barra de endereço → Ajustes do Site → Câmera)."
+		: "Permissão da câmera negada. Libere o acesso à câmera nas configurações do navegador e tente de novo.";
+	else if (/NotFound|DevicesNotFound|Requested device not found/i.test(texto)) mensagem = "Nenhuma câmera foi encontrada neste aparelho.";
+	else if (/NotReadable|TrackStart|in use|Could not start|AbortError|I\/O/i.test(texto)) mensagem = "A câmera está ocupada por outro app ou não respondeu. Feche outros apps que usam a câmera e tente de novo.";
+	else if (/Overconstrained/i.test(texto)) mensagem = "A câmera não aceitou as configurações. Tente trocar de câmera.";
+	else if (/secure|https/i.test(texto)) mensagem = "A câmera só funciona em páginas seguras (https).";
+	return { mensagem, detalhe };
+}
+
+async function carregarImagem(arquivo) {
+	try {
+		return await createImageBitmap(arquivo, { imageOrientation: "from-image" });
+	} catch { /* tenta sem opções */ }
+	try {
+		return await createImageBitmap(arquivo);
+	} catch { /* Safari antigo: usa <img> */ }
+	const url = URL.createObjectURL(arquivo);
+	try {
+		const img = new Image();
+		img.src = url;
+		await (img.decode ? img.decode() : new Promise((ok, falha) => { img.onload = ok; img.onerror = falha; }));
+		return img;
+	} finally {
+		setTimeout(() => URL.revokeObjectURL(url), 1000);
+	}
 }
 
 /* =========================================================
@@ -106,16 +204,17 @@ function traduzirErroCamera(erro) {
 /**
  * @param {object} op
  * @param {HTMLVideoElement} op.video
- * @param {HTMLElement} op.mira          elemento que marca a área de leitura
+ * @param {HTMLElement} op.mira
  * @param {(codigo: string, formato: string) => void} op.aoLer
  * @param {(texto: string) => void} op.aoStatus
- * @param {(cap: {flash: boolean, flashLigado: boolean, zoom: null|{min:number,max:number,passo:number,valor:number}, cameras: number}) => void} op.aoCapacidades
+ * @param {(cap: object) => void} op.aoCapacidades
  */
 export function criarLeitor({ video, mira, aoLer, aoStatus, aoCapacidades }) {
 	let stream = null;
 	let trilha = null;
-	let detector = null;
-	let tipoDetector = "";
+	let motor = null;
+	let promessaMotor = null;
+	const motoresFalhos = new Set();
 	let rodando = false;
 	let ocupado = false;
 	let quadro = 0;
@@ -130,57 +229,56 @@ export function criarLeitor({ video, mira, aoLer, aoStatus, aoCapacidades }) {
 
 	const status = t => { try { aoStatus?.(t); } catch { /* ignora */ } };
 
-	let nativoFalhou = false;
-
-	async function criarDetector() {
-		if (detector) return detector;
-		// 1) Detector nativo, se suportar os formatos principais
-		if (!nativoFalhou && "BarcodeDetector" in window) {
-			try {
-				const suportados = await window.BarcodeDetector.getSupportedFormats();
-				const formatos = FORMATOS_DESEJADOS.filter(f => suportados.includes(f));
-				if (formatos.includes("ean_13") && formatos.includes("code_128")) {
-					detector = new window.BarcodeDetector({ formats: formatos });
-					tipoDetector = "nativo";
-					return detector;
-				}
-			} catch (e) { console.warn("[leitor] detector nativo indisponível:", e); }
+	function obterMotor() {
+		if (motor) return Promise.resolve(motor);
+		if (!promessaMotor) {
+			promessaMotor = criarMotor(motoresFalhos)
+				.then(m => { motor = m; return m; })
+				.finally(() => { promessaMotor = null; });
 		}
-		// 2) ZXing-C++ (WebAssembly)
-		status("Preparando leitor…");
-		const api = await carregarZxing();
-		try { await api.prepareZXingModule?.({ fireImmediately: true }); } catch (e) { console.warn("[leitor] wasm:", e); }
-		const suportados = await api.BarcodeDetector.getSupportedFormats();
-		detector = new api.BarcodeDetector({ formats: FORMATOS_DESEJADOS.filter(f => suportados.includes(f)) });
-		tipoDetector = "zxing";
-		return detector;
+		return promessaMotor;
 	}
 
-	function restricoes(deviceId) {
-		const video = {
-			width: { ideal: 1920 },
-			height: { ideal: 1080 },
-			frameRate: { ideal: 30 }
-		};
-		if (deviceId) video.deviceId = { exact: deviceId };
-		else video.facingMode = { ideal: "environment" };
-		return { audio: false, video };
+	function restricoesTentativas(deviceId) {
+		const alvo = deviceId ? { deviceId: { exact: deviceId } } : { facingMode: { ideal: "environment" } };
+		return [
+			{ audio: false, video: { ...alvo, width: { ideal: 1920 }, height: { ideal: 1080 } } },
+			{ audio: false, video: { ...alvo } },
+			{ audio: false, video: deviceId ? { deviceId: { exact: deviceId } } : true }
+		];
 	}
 
+	/** Abre a câmera tentando configurações cada vez mais simples. */
 	async function abrirCamera(deviceId) {
+		const tinhaStream = !!stream;
 		pararStream();
-		stream = await navigator.mediaDevices.getUserMedia(restricoes(deviceId));
+		if (tinhaStream) await esperar(ehIOS() ? 350 : 120); // o iPhone precisa de um tempo para liberar a câmera
+		let ultimoErro = null;
+		for (const restricoes of restricoesTentativas(deviceId)) {
+			try {
+				stream = await navigator.mediaDevices.getUserMedia(restricoes);
+				break;
+			} catch (e) {
+				ultimoErro = e;
+				// Permissão negada ou página insegura: não adianta insistir
+				if (/NotAllowed|Security|Permission/i.test(`${e?.name} ${e?.message}`)) throw e;
+				console.warn("[leitor] tentativa de câmera falhou:", e);
+				await esperar(200);
+			}
+		}
+		if (!stream) throw ultimoErro || new Error("Não foi possível abrir a câmera");
 		trilha = stream.getVideoTracks()[0] || null;
 		cameraAtualId = trilha?.getSettings?.().deviceId || deviceId || null;
-		video.srcObject = stream;
 		video.setAttribute("playsinline", "");
+		video.setAttribute("muted", "");
 		video.muted = true;
-		await video.play().catch(() => { /* alguns navegadores tocam sozinhos */ });
+		video.srcObject = stream;
+		try { await video.play(); } catch (e) { console.warn("[leitor] play:", e); }
 		if (!video.videoWidth) {
 			await new Promise(r => {
 				const fim = () => { video.removeEventListener("loadedmetadata", fim); r(); };
 				video.addEventListener("loadedmetadata", fim);
-				setTimeout(fim, 2500);
+				setTimeout(fim, 3000);
 			});
 		}
 	}
@@ -193,7 +291,6 @@ export function criarLeitor({ video, mira, aoLer, aoStatus, aoCapacidades }) {
 		return cameras;
 	}
 
-	/** Foco contínuo e capacidades (flash/zoom). Alguns aparelhos só informam após um instante. */
 	async function configurarTrilha() {
 		if (!trilha) return;
 		const cap = trilha.getCapabilities?.() || {};
@@ -216,28 +313,21 @@ export function criarLeitor({ video, mira, aoLer, aoStatus, aoCapacidades }) {
 			zoom = { min: cap.zoom.min, max, passo: cap.zoom.step || 0.1, valor: ajustes.zoom ?? cap.zoom.min };
 		}
 		try {
-			aoCapacidades?.({
-				flash: !!cap.torch || "torch" in ajustes,
-				flashLigado,
-				zoom,
-				cameras: cameras.length
-			});
+			aoCapacidades?.({ flash: !!cap.torch || "torch" in ajustes, flashLigado, zoom, cameras: cameras.length });
 		} catch { /* ignora */ }
 	}
 
 	/** Região da mira em coordenadas do vídeo (considerando object-fit: cover). */
 	function regiaoMira() {
 		const vw = video.videoWidth, vh = video.videoHeight;
-		const caixaVideo = video.getBoundingClientRect();
-		if (!vw || !vh || !caixaVideo.width || !caixaVideo.height || !mira) return { x: 0, y: 0, w: vw, h: vh };
-		const escala = Math.max(caixaVideo.width / vw, caixaVideo.height / vh);
-		const visivelW = caixaVideo.width / escala, visivelH = caixaVideo.height / escala;
-		const origemX = (vw - visivelW) / 2, origemY = (vh - visivelH) / 2;
+		const caixa = video.getBoundingClientRect();
+		if (!vw || !vh || !caixa.width || !caixa.height || !mira) return { x: 0, y: 0, w: vw, h: vh };
+		const escala = Math.max(caixa.width / vw, caixa.height / vh);
+		const origemX = (vw - caixa.width / escala) / 2, origemY = (vh - caixa.height / escala) / 2;
 		const m = mira.getBoundingClientRect();
-		// Margem extra de 25% na altura e 6% na largura para tolerar mão tremendo
 		const margemY = m.height * 0.25, margemX = m.width * 0.06;
-		let x = origemX + (m.left - margemX - caixaVideo.left) / escala;
-		let y = origemY + (m.top - margemY - caixaVideo.top) / escala;
+		let x = origemX + (m.left - margemX - caixa.left) / escala;
+		let y = origemY + (m.top - margemY - caixa.top) / escala;
 		let w = (m.width + 2 * margemX) / escala;
 		let h = (m.height + 2 * margemY) / escala;
 		x = Math.max(0, Math.min(vw - 1, x));
@@ -247,21 +337,20 @@ export function criarLeitor({ video, mira, aoLer, aoStatus, aoCapacidades }) {
 		return { x, y, w, h };
 	}
 
-	function desenhar(regiao, limite) {
+	function desenhar(fonte, regiao, limite) {
 		const escala = Math.min(1, limite / Math.max(regiao.w, regiao.h));
 		const w = Math.max(1, Math.round(regiao.w * escala));
 		const h = Math.max(1, Math.round(regiao.h * escala));
 		if (canvas.width !== w) canvas.width = w;
 		if (canvas.height !== h) canvas.height = h;
-		ctx.drawImage(video, regiao.x, regiao.y, regiao.w, regiao.h, 0, 0, w, h);
+		ctx.drawImage(fonte, regiao.x, regiao.y, regiao.w, regiao.h, 0, 0, w, h);
 		return canvas;
 	}
 
-	/** Decide se a leitura é confiável o suficiente para aceitar. */
 	function confirmar(codigo, formato) {
 		const agora = performance.now();
 		if (FORMATOS_COM_DIGITO.has(formato) && digitoVerificadorValido(codigo)) return true;
-		if (formato === "qr_code" || formato === "data_matrix") return true; // possuem correção de erros
+		if (formato === "qr_code" || formato === "data_matrix") return true;
 		if (candidato.codigo === codigo && agora - candidato.quando < 2500) {
 			candidato.vezes++;
 			candidato.quando = agora;
@@ -272,20 +361,18 @@ export function criarLeitor({ video, mira, aoLer, aoStatus, aoCapacidades }) {
 	}
 
 	async function analisarQuadro(minhaGeracao) {
-		if (!rodando || minhaGeracao !== geracao || ocupado || video.readyState < 2) return;
+		if (!rodando || minhaGeracao !== geracao || ocupado || !motor || video.readyState < 2 || !video.videoWidth) return;
 		const agora = performance.now();
-		if (agora - ultimoTempo < INTERVALO_MIN_MS[tipoDetector || "zxing"]) return;
+		if (agora - ultimoTempo < INTERVALO_MIN_MS[motor.tipo]) return;
 		ultimoTempo = agora;
 		ocupado = true;
+		const motorAtual = motor;
 		try {
 			quadro++;
-			// Na maior parte dos quadros, só a faixa da mira (mais rápido e preciso);
-			// a cada 4 quadros, a imagem inteira (caso o código esteja fora da mira).
 			const inteira = quadro % 4 === 0;
-			const fonte = inteira
-				? desenhar({ x: 0, y: 0, w: video.videoWidth, h: video.videoHeight }, 1280)
-				: desenhar(regiaoMira(), 1600);
-			const resultados = await detector.detect(fonte);
+			const regiao = inteira ? { x: 0, y: 0, w: video.videoWidth, h: video.videoHeight } : regiaoMira();
+			const fonte = desenhar(video, regiao, inteira ? Math.min(1280, LIMITE_PIXELS[motorAtual.tipo]) : LIMITE_PIXELS[motorAtual.tipo]);
+			const resultados = await motorAtual.detect(fonte);
 			if (!rodando || minhaGeracao !== geracao) return;
 			for (const r of resultados || []) {
 				const codigo = String(r.rawValue || "").trim();
@@ -299,16 +386,14 @@ export function criarLeitor({ video, mira, aoLer, aoStatus, aoCapacidades }) {
 				}
 			}
 		} catch (e) {
-			// Detector nativo pode falhar em alguns aparelhos: troca para o ZXing
-			if (tipoDetector === "nativo") {
-				console.warn("[leitor] nativo falhou, usando ZXing:", e);
-				detector = null;
-				tipoDetector = "";
-				nativoFalhou = true;
-				try { await criarDetector(); } catch (erro) { console.error(erro); }
-			} else {
-				console.warn("[leitor]", e);
-			}
+			// O motor falhou durante o uso: passa para o próximo da lista
+			console.warn(`[leitor] motor ${motorAtual.tipo} falhou, trocando:`, e);
+			motoresFalhos.add(motorAtual.tipo);
+			if (motor === motorAtual) motor = null;
+			obterMotor().catch(erro => {
+				console.error(erro);
+				if (minhaGeracao === geracao) status("Leitor indisponível — use “Tirar foto do código”");
+			});
 		} finally {
 			ocupado = false;
 		}
@@ -323,41 +408,50 @@ export function criarLeitor({ video, mira, aoLer, aoStatus, aoCapacidades }) {
 
 	async function iniciar() {
 		const minhaGeracao = ++geracao;
-		if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
-			throw new Error("secure: a câmera exige https");
-		}
+		if (!window.isSecureContext) throw Object.assign(new Error("A câmera exige https (secure)"), { name: "SecurityError" });
+		if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error("sem-camera-api"), { name: "NotSupportedError" });
 		status("Iniciando câmera…");
 		flashLigado = false;
 		candidato = { codigo: "", vezes: 0, quando: 0 };
 
-		// Carrega o detector e abre a câmera em paralelo
-		const salvo = (() => { try { return localStorage.getItem(CHAVE_CAMERA); } catch { return null; } })();
-		await Promise.all([
-			criarDetector(),
-			abrirCamera(salvo).catch(async e => {
-				if (salvo && /Overconstrained|NotFound/i.test(e?.name || "")) {
-					try { localStorage.removeItem(CHAVE_CAMERA); } catch { /* ignora */ }
-					return abrirCamera(null);
-				}
-				throw e;
-			})
-		]);
-		if (minhaGeracao !== geracao) return;
+		// O motor de leitura carrega em segundo plano; a câmera não depende dele
+		const motorPronto = obterMotor().catch(e => { console.error("[leitor] nenhum motor:", e); return null; });
 
-		// Com a permissão concedida, os nomes das câmeras ficam disponíveis:
-		// troca para a melhor câmera traseira se a atual não for ela.
+		const salvo = (() => { try { return localStorage.getItem(CHAVE_CAMERA); } catch { return null; } })();
+		try {
+			await abrirCamera(salvo);
+		} catch (e) {
+			if (!salvo) throw e;
+			try { localStorage.removeItem(CHAVE_CAMERA); } catch { /* ignora */ }
+			await abrirCamera(null);
+		}
+		if (minhaGeracao !== geracao) return pararStream();
+
+		// Android: com a permissão concedida, troca para a câmera traseira principal.
+		// No iPhone isso não é feito (reabrir a câmera em seguida costuma falhar).
 		await listarCameras();
-		if (!salvo) {
+		if (!salvo && !ehIOS()) {
 			const melhor = escolherCameraTraseira(cameras);
-			if (melhor && melhor.deviceId && melhor.deviceId !== cameraAtualId) {
-				try { await abrirCamera(melhor.deviceId); } catch (e) { console.warn("[leitor] mantendo câmera padrão:", e); await abrirCamera(null); }
+			if (melhor?.deviceId && melhor.deviceId !== cameraAtualId) {
+				try { await abrirCamera(melhor.deviceId); } catch (e) {
+					console.warn("[leitor] mantendo câmera padrão:", e);
+					if (!stream) await abrirCamera(null);
+				}
 			}
 		}
 		if (minhaGeracao !== geracao) return pararStream();
 
 		await configurarTrilha();
 		setTimeout(() => { if (minhaGeracao === geracao) informarCapacidades(); }, 700);
+
 		rodando = true;
+		status(motor ? "Procurando código…" : "Preparando leitor…");
+		const m = await motorPronto;
+		if (minhaGeracao !== geracao) return;
+		if (!m) {
+			status("Leitor indisponível — use “Tirar foto do código”");
+			return;
+		}
 		status("Procurando código…");
 		agendar(minhaGeracao);
 	}
@@ -377,7 +471,7 @@ export function criarLeitor({ video, mira, aoLer, aoStatus, aoCapacidades }) {
 	}
 
 	async function alternarFlash() {
-		if (!trilha) return false;
+		if (!trilha) throw new Error("flash");
 		const novo = !flashLigado;
 		try {
 			await trilha.applyConstraints({ advanced: [{ torch: novo }] });
@@ -414,41 +508,37 @@ export function criarLeitor({ video, mira, aoLer, aoStatus, aoCapacidades }) {
 		await configurarTrilha();
 		rodando = true;
 		status(proxima.label ? `Câmera: ${proxima.label}` : "Procurando código…");
-		agendar(minhaGeracao);
+		if (motor || await obterMotor().catch(() => null)) agendar(minhaGeracao);
 		return true;
 	}
 
-	/** Lê o código de uma foto (útil quando a câmera ao vivo não foca bem). */
+	/** Lê o código de uma foto (funciona mesmo sem câmera ao vivo). */
 	async function lerFoto(arquivo) {
-		await criarDetector();
-		let bitmap;
+		const m = await obterMotor();
+		const imagem = await carregarImagem(arquivo);
+		const largura = imagem.width || imagem.naturalWidth, altura = imagem.height || imagem.naturalHeight;
 		try {
-			bitmap = await createImageBitmap(arquivo, { imageOrientation: "from-image" });
-		} catch {
-			bitmap = await createImageBitmap(arquivo);
-		}
-		const tentativas = [0, 90];
-		try {
-			for (const graus of tentativas) {
-				const limite = 2000;
-				const escala = Math.min(1, limite / Math.max(bitmap.width, bitmap.height));
-				const w = Math.round(bitmap.width * escala), h = Math.round(bitmap.height * escala);
-				const c = document.createElement("canvas");
-				const x = c.getContext("2d");
-				if (graus === 90) {
-					c.width = h; c.height = w;
-					x.translate(h, 0);
-					x.rotate(Math.PI / 2);
-				} else {
-					c.width = w; c.height = h;
+			for (const limite of [m.tipo === "js" ? 1200 : 2000, 800]) {
+				for (const graus of [0, 90]) {
+					const escala = Math.min(1, limite / Math.max(largura, altura));
+					const w = Math.max(1, Math.round(largura * escala)), h = Math.max(1, Math.round(altura * escala));
+					const c = document.createElement("canvas");
+					const x = c.getContext("2d", { willReadFrequently: true });
+					if (graus === 90) {
+						c.width = h; c.height = w;
+						x.translate(h, 0);
+						x.rotate(Math.PI / 2);
+					} else {
+						c.width = w; c.height = h;
+					}
+					x.drawImage(imagem, 0, 0, w, h);
+					const resultados = await m.detect(c);
+					const r = (resultados || []).find(r => String(r.rawValue || "").trim());
+					if (r) return { codigo: String(r.rawValue).trim(), formato: r.format };
 				}
-				x.drawImage(bitmap, 0, 0, w, h);
-				const resultados = await detector.detect(c);
-				const r = (resultados || []).find(r => String(r.rawValue || "").trim());
-				if (r) return { codigo: String(r.rawValue).trim(), formato: r.format };
 			}
 		} finally {
-			bitmap.close?.();
+			imagem.close?.();
 		}
 		return null;
 	}
@@ -461,6 +551,7 @@ export function criarLeitor({ video, mira, aoLer, aoStatus, aoCapacidades }) {
 		trocarCamera,
 		lerFoto,
 		traduzirErro: traduzirErroCamera,
-		get ativo() { return rodando; }
+		get ativo() { return rodando; },
+		get motor() { return motor?.tipo || ""; }
 	};
 }

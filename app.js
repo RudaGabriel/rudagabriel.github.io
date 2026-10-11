@@ -2,10 +2,12 @@
    Controle de Vencimento — aplicação principal
    ========================================================= */
 import {
-	criarSync, extrairConfigFirebase, configValida, normalizarNomeLista, explicarErro, REGRAS_FIRESTORE,
-	gerarCodigoLista, normalizarCodigoLista, formatarCodigoLista
-} from "./sync.js";
-import { CONFIG_NUVEM_FACIL } from "./config-nuvem.js";
+	explicarErro, ehUuid, uuidAleatorio, uuidDeTexto, gerarCodigoLista, normalizarCodigoLista, formatarCodigoLista
+} from "./nuvem/comum.js";
+import { criarFirebase, REGRAS_FIREBASE } from "./nuvem/firebase.js";
+import { criarSupabase, SQL_SUPABASE } from "./nuvem/supabase.js";
+import { criarDropbox } from "./nuvem/dropbox.js";
+import { NUVEM } from "./config-nuvem.js";
 import { criarLeitor } from "./leitor.js";
 
 const URL_AUTO_ANIMATE = "https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.10.0/index.mjs";
@@ -19,7 +21,8 @@ const CHAVE = {
 	sync: "cv2:sync",
 	cacheNuvem: "cv2:cacheNuvem",
 	migrado: "cv2:migrado",
-	tema: "cv2:tema"
+	tema: "cv2:tema",
+	loginPendente: "cv2:loginPendente"
 };
 
 /* =========================================================
@@ -67,12 +70,11 @@ const normalizar = texto => String(texto ?? "")
 	.normalize("NFD").replace(/[̀-ͯ]/g, "")
 	.toLowerCase().replace(/\s+/g, " ").trim();
 
-function gerarId() {
-	const aleatorio = (globalThis.crypto?.getRandomValues)
-		? Array.from(crypto.getRandomValues(new Uint32Array(2)), n => n.toString(36)).join("")
-		: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-	return (Date.now().toString(36) + aleatorio).replace(/[^a-z0-9]/g, "").slice(0, 24);
-}
+/** Ids são UUIDs (exigência da nuvem). */
+const gerarId = () => uuidAleatorio();
+
+/** Ids antigos (versões anteriores) viram UUIDs determinísticos: o mesmo id antigo gera sempre o mesmo UUID. */
+const normalizarId = id => (ehUuid(id) ? id.toLowerCase() : typeof id === "string" && id ? uuidDeTexto(`id:${id}`) : null);
 
 function debounce(fn, ms) {
 	let t;
@@ -282,7 +284,7 @@ function sanitizarItem(bruto) {
 	let quantidade = Number(String(bruto.quantidade ?? 0).replace(",", "."));
 	if (!Number.isFinite(quantidade) || quantidade < 0) quantidade = 0;
 	quantidade = Math.round(quantidade * 1000) / 1000;
-	const id = typeof bruto.id === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(bruto.id) ? bruto.id : gerarId();
+	const id = (typeof bruto.id === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(bruto.id) && normalizarId(bruto.id)) || gerarId();
 	const agora = Date.now();
 	const criadoEm = Number.isFinite(Number(bruto.criadoEm)) && Number(bruto.criadoEm) > 0 ? Number(bruto.criadoEm) : agora;
 	const atualizadoEm = Number.isFinite(Number(bruto.atualizadoEm)) && Number(bruto.atualizadoEm) > 0 ? Number(bruto.atualizadoEm) : criadoEm;
@@ -326,6 +328,7 @@ const estado = {
 	ordenacao: "prioridade",
 	editandoId: null,
 	sync: null,              // { tipo: "facil"|"proprio", config, codigo|lista, modo: "edicao"|"leitura", reconciliar }
+	usuarios: {},            // conta logada em cada provedor de nuvem
 	statusSync: "local",
 	detalheSync: "",
 	ultimaSync: null,
@@ -373,7 +376,7 @@ function migrarVersaoAnterior() {
 
 			const ignorados = armazenamento.ler("ignorados", []);
 			if (Array.isArray(ignorados) && ignorados.length) {
-				const ids = itens.filter(i => ignorados.includes(`${i.vencimento}+${i.codigoBarras}`)).map(i => i.id);
+				const ids = itens.filter(i => ignorados.includes(`${i.vencimento}+${i.codigoBarras}`)).map(i => i.id); // já são UUIDs
 				armazenamento.gravar(CHAVE.silenciados, ids);
 			}
 		}
@@ -386,19 +389,6 @@ function migrarVersaoAnterior() {
 			});
 		}
 
-		const fb = {
-			apiKey: armazenamento.lerTexto("chave-fire"),
-			authDomain: armazenamento.lerTexto("dominio-fire"),
-			projectId: armazenamento.lerTexto("projeto-fire"),
-			storageBucket: armazenamento.lerTexto("bucket-fire"),
-			messagingSenderId: armazenamento.lerTexto("id-fire"),
-			appId: armazenamento.lerTexto("appid-fire")
-		};
-		const config = configValida(fb);
-		if (config && !armazenamento.lerTexto(CHAVE.sync)) {
-			const modo = armazenamento.lerTexto("syncenviar") === "true" ? "edicao" : "leitura";
-			armazenamento.gravar(CHAVE.sync, { tipo: "proprio", config, lista: "principal", modo, reconciliar: true });
-		}
 	} catch (e) {
 		console.error("Falha na migração:", e);
 	}
@@ -449,15 +439,31 @@ const el = {
 	dlgSync: $("#dlgSync"),
 	syncDesconectado: $("#syncDesconectado"),
 	syncConectado: $("#syncConectado"),
-	syncConfig: $("#syncConfig"),
-	syncLista: $("#syncLista"),
-	btnConectar: $("#btnConectar"),
-	syncFacil: $("#syncFacil"),
-	syncAvancado: $("#syncAvancado"),
+	syncIndisponivel: $("#syncIndisponivel"),
+	syncOpcoes: $("#syncOpcoes"),
+	btnLoginGoogle: $("#btnLoginGoogle"),
+	btnLoginDropbox: $("#btnLoginDropbox"),
+	btnLoginEmail: $("#btnLoginEmail"),
+	blocoEmail: $("#blocoEmail"),
+	caixaEmail: $("#caixaEmail"),
+	separadorSemLogin: $("#separadorSemLogin"),
+	blocoCodigo: $("#blocoCodigo"),
+	caixaCodigo: $("#caixaCodigo"),
+	blocoCompartilhar: $("#blocoCompartilhar"),
+	regrasFirebase: $("#regrasFirebase"),
+	sqlSupabase: $("#sqlSupabase"),
+	loginEmail: $("#loginEmail"),
+	btnEnviarCodigo: $("#btnEnviarCodigo"),
+	loginCodigoCaixa: $("#loginCodigoCaixa"),
+	loginEmailTexto: $("#loginEmailTexto"),
+	loginCodigo: $("#loginCodigo"),
+	btnEntrarLogin: $("#btnEntrarLogin"),
+	btnTrocarEmail: $("#btnTrocarEmail"),
 	btnCriarLista: $("#btnCriarLista"),
+	syncContaLinha: $("#syncContaLinha"),
+	syncContaEmail: $("#syncContaEmail"),
 	syncCodigo: $("#syncCodigo"),
 	btnEntrarCodigo: $("#btnEntrarCodigo"),
-	caixaCodigo: $("#caixaCodigo"),
 	codigoLista: $("#codigoLista"),
 	btnCopiarCodigo: $("#btnCopiarCodigo"),
 	avisoLink: $("#avisoLink"),
@@ -469,9 +475,7 @@ const el = {
 	linkCompartilhar: $("#linkCompartilhar"),
 	btnCopiarLink: $("#btnCopiarLink"),
 	btnCompartilharNativo: $("#btnCompartilharNativo"),
-	qr: $("#qrCompartilhar"),
-	regras: $("#regrasFirestore"),
-	btnCopiarRegras: $("#btnCopiarRegras")
+	qr: $("#qrCompartilhar")
 };
 
 /* =========================================================
@@ -657,8 +661,9 @@ function aplicarAlteracoes({ salvar = [], remover = [] }) {
 
 	if (emNuvem()) {
 		estado.itensNuvem = nova;   // atualização otimista
-		if (salvar.length) sync.salvarVarios(salvar).catch(() => { });
-		if (remover.length) sync.removerVarios(remover).catch(() => { });
+		const prov = provAtual();
+		if (salvar.length) prov?.salvarVarios(salvar).catch(() => { });
+		if (remover.length) prov?.removerVarios(remover).catch(() => { });
 	} else {
 		estado.itensLocais = nova;
 		armazenamento.gravar(CHAVE.itens, nova);
@@ -1010,7 +1015,7 @@ async function importarArquivo(arquivo) {
 	}
 	if (Array.isArray(dados.silenciados)) {
 		const ids = new Set(itensAtuais().map(i => i.id));
-		dados.silenciados.filter(id => ids.has(id)).forEach(id => estado.silenciados.add(id));
+		dados.silenciados.map(normalizarId).filter(id => id && ids.has(id)).forEach(id => estado.silenciados.add(id));
 		salvarSilenciados();
 	}
 	render();
@@ -1018,22 +1023,6 @@ async function importarArquivo(arquivo) {
 	const resumo = [`<b>${adicionados}</b> adicionado(s)`, `<b>${atualizados}</b> atualizado(s)`];
 	if (invalidos > 0) resumo.push(`<b>${invalidos}</b> ignorado(s) por dados inválidos`);
 	toast(adicionados || atualizados ? "sucesso" : "info", `Importação concluída: ${resumo.join(", ")}.`, 6000);
-
-	// Backup antigo com configuração do Firebase
-	const fbAntigo = dados.firebaseConfig && configValida({
-		apiKey: dados.firebaseConfig.chavefire, authDomain: dados.firebaseConfig.dominiofire,
-		projectId: dados.firebaseConfig.projetofire, storageBucket: dados.firebaseConfig.bucketfire,
-		messagingSenderId: dados.firebaseConfig.idfire, appId: dados.firebaseConfig.appidfire
-	});
-	if (fbAntigo && !emNuvem()) {
-		const ok = await confirmar({
-			titulo: "Conectar à nuvem?",
-			html: `Este backup contém a configuração de sincronização do projeto <b>${esc(fbAntigo.projectId)}</b>. Deseja conectar este aparelho a ela?`,
-			confirmar: "Conectar",
-			icone: "question"
-		});
-		if (ok) await conectarNuvem({ tipo: "proprio", config: fbAntigo, lista: "principal", modo: "edicao" });
-	}
 }
 
 /* =========================================================
@@ -1072,6 +1061,7 @@ async function abrirLeitor() {
 	if (!podeEditar()) return;
 	leituraConcluida = false;
 	el.leitorArea.classList.remove("lido");
+	el.btnFotoCodigo.classList.remove("destaque");
 	el.leitorStatus.textContent = "Iniciando câmera…";
 	el.btnFlash.setAttribute("aria-pressed", "false");
 	el.btnFlash.innerHTML = icone("Flashlight");
@@ -1087,9 +1077,10 @@ async function abrirLeitor() {
 		console.warn("Leitor:", erro);
 		l.parar();
 		if (!el.dlgLeitor.open) return;
-		const mensagem = l.traduzirErro(erro);
+		const { mensagem, detalhe } = l.traduzirErro(erro);
 		el.leitorStatus.textContent = "Câmera indisponível — use “Tirar foto do código”";
-		toast("erro", esc(mensagem), 7000);
+		el.btnFotoCodigo.classList.add("destaque");
+		toast("erro", `${esc(mensagem)}<br><small style="opacity:.8">${esc(detalhe)}</small>`, 9000);
 	}
 }
 
@@ -1149,65 +1140,91 @@ async function lerFotoDoCodigo(arquivo) {
 /* =========================================================
    Sincronização / compartilhamento
    ========================================================= */
-const sync = criarSync({
-	aoReceber(itens, meta) {
-		if (!emNuvem()) return;
-		estado.itensNuvem = sanitizarLista(itens);
-		if (meta.doServidor) estado.ultimaSync = new Date();
-		if (meta.doServidor || estado.itensNuvem.length) estado.dadosProntos = true;
-		armazenamento.gravar(CHAVE.cacheNuvem, { id: idSync(estado.sync), itens: estado.itensNuvem });
-		render();
-		if (meta.doServidor) {
-			limparSilenciadosOrfaos();
-			reconciliar();
-			alertaInicial();
+/* ---------- Provedores de nuvem ----------
+   firebase → "Entrar com Google" + listas por código
+   supabase → "Entrar com e-mail" + listas por código
+   dropbox  → "Entrar com Dropbox" (lista da conta)            */
+const CODIGO_CONTA = "CONTA"; // o Dropbox não usa código: a lista é a da conta
+
+function eventosDe(id) {
+	const ativo = () => estado.sync?.provedor === id;
+	return {
+		aoReceber(itens, meta) {
+			if (!ativo()) return;
+			estado.itensNuvem = sanitizarLista(itens);
+			if (meta.doServidor) estado.ultimaSync = new Date();
+			if (meta.doServidor || estado.itensNuvem.length) estado.dadosProntos = true;
+			armazenamento.gravar(CHAVE.cacheNuvem, { id: idSync(estado.sync), itens: estado.itensNuvem });
+			render();
+			if (meta.doServidor) {
+				limparSilenciadosOrfaos();
+				setTimeout(reconciliar, 1200);
+				alertaInicial();
+			}
+		},
+		aoStatus(status, detalhe) {
+			if (!ativo()) return;
+			estado.statusSync = status;
+			estado.detalheSync = detalhe || "";
+			atualizarIndicadorSync();
+			if (!itensAtuais().length) render();
+		},
+		aoErro(info) {
+			if (info.tipo === "rede" || info.tipo === "cancelado") return;
+			toastUnico("erro", `Nuvem: ${esc(info.mensagem)}`);
+		},
+		aoUsuario(usuario) {
+			estado.usuarios[id] = usuario;
+			atualizarDialogoSync();
+			atualizarIndicadorSync();
 		}
-	},
-	aoStatus(status, detalhe) {
-		estado.statusSync = status;
-		estado.detalheSync = detalhe || "";
-		atualizarIndicadorSync();
-		if (!itensAtuais().length) render();
-	},
-	aoErro(info) {
-		if (info.tipo === "rede") return; // o status já informa "offline"
-		toastUnico("erro", `Sincronização: ${esc(info.mensagem)}`);
-	}
-});
-
-/* ---------- Tipos de nuvem ----------
-   "facil":   nuvem do app, identificada por um código aleatório (listas/<CÓDIGO>)
-   "proprio": Firebase do próprio usuário (dados/lista-<nome>)                    */
-const nuvemFacilDisponivel = () => !!configValida(CONFIG_NUVEM_FACIL);
-const ehFacil = s => s?.tipo === "facil";
-const destinoSync = s => ehFacil(s)
-	? { config: s.config, colecao: "listas", documento: s.codigo }
-	: { config: s.config, colecao: "dados", documento: `lista-${s.lista}` };
-const idSync = s => ehFacil(s) ? `facil:${s.codigo}` : `proprio:${s.config.projectId}:${s.lista}`;
-const rotuloSync = s => ehFacil(s) ? `código ${formatarCodigoLista(s.codigo)}` : `lista “${s.lista}”`;
-
-/** Valida uma configuração de sincronização (salva, de link ou de backup). */
-function normalizarSync(bruto) {
-	if (!bruto || typeof bruto !== "object") return null;
-	const modo = bruto.modo === "leitura" ? "leitura" : "edicao";
-	const reconciliar = !!bruto.reconciliar;
-	if (bruto.tipo === "facil") {
-		const codigo = normalizarCodigoLista(bruto.codigo);
-		// Usa sempre a configuração atual do app (permite trocar de projeto sem quebrar listas)
-		const config = configValida(CONFIG_NUVEM_FACIL) || configValida(bruto.config);
-		if (!codigo || !config) return null;
-		return { tipo: "facil", config, codigo, modo, reconciliar };
-	}
-	const config = configValida(bruto.config);
-	if (!config) return null;
-	return { tipo: "proprio", config, lista: normalizarNomeLista(bruto.lista), modo, reconciliar };
+	};
 }
+
+const provedores = {
+	firebase: criarFirebase(NUVEM?.firebase, eventosDe("firebase")),
+	supabase: criarSupabase(NUVEM?.supabase, eventosDe("supabase")),
+	dropbox: criarDropbox(NUVEM?.dropbox, eventosDe("dropbox"))
+};
+const nuvemDisponivel = () => Object.values(provedores).some(p => p.disponivel);
+/** Provedor usado para "lista com código" (sem login). */
+const provedorDeCodigo = () => [provedores.firebase, provedores.supabase].find(p => p.disponivel) || null;
+const provAtual = () => (estado.sync ? provedores[estado.sync.provedor] : null);
+const usuarioAtual = () => (estado.sync ? estado.usuarios[estado.sync.provedor] || null : null);
+const SIGLA = { firebase: "fb", supabase: "sb" };
+const DE_SIGLA = { fb: "firebase", sb: "supabase" };
+
+/** Valida a configuração salva. Versões antigas (Firebase sem "provedor", InstantDB) retornam null. */
+function normalizarSync(bruto) {
+	if (!bruto || typeof bruto !== "object" || bruto.config) return null;
+	const provedor = provedores[bruto.provedor] ? bruto.provedor : null;
+	if (!provedor || !provedores[provedor].disponivel) return null;
+	const codigo = provedor === "dropbox" ? CODIGO_CONTA : normalizarCodigoLista(bruto.codigo);
+	if (!codigo) return null;
+	return { provedor, codigo, modo: bruto.modo === "leitura" ? "leitura" : "edicao", reconciliar: !!bruto.reconciliar };
+}
+
+const idSync = s => `${s.provedor}:${s.codigo}`;
+
+/** Id de um produto deste aparelho dentro de uma lista: o mesmo produto gera sempre o mesmo id (evita duplicar). */
+const idNaLista = (s, item) => uuidDeTexto(`${idSync(s)}|${chaveItem(item)}`);
 
 function limparSilenciadosOrfaos() {
 	const ids = new Set(itensAtuais().map(i => i.id));
 	let mudou = false;
 	for (const id of estado.silenciados) if (!ids.has(id)) { estado.silenciados.delete(id); mudou = true; }
 	if (mudou) salvarSilenciados();
+}
+
+/** Envia para a nuvem os produtos deste aparelho que ainda não estão na lista. */
+function enviarLocaisParaLista(itens) {
+	if (!itens.length || !emNuvem()) return 0;
+	const remotas = new Set(estado.itensNuvem.map(chaveItem));
+	const enviar = itens
+		.filter(i => !remotas.has(chaveItem(i)))
+		.map(i => ({ ...i, id: idNaLista(estado.sync, i) }));
+	if (enviar.length) aplicarAlteracoes({ salvar: enviar });
+	return enviar.length;
 }
 
 let reconciliando = false;
@@ -1238,10 +1255,8 @@ async function reconciliar() {
 		});
 		if (estado.sync !== cfgAtual) return;
 		if (ok) {
-			const ids = new Set(estado.itensNuvem.map(i => i.id));
-			const enviar = faltando.map(i => ids.has(i.id) ? { ...i, id: gerarId() } : i);
-			aplicarAlteracoes({ salvar: enviar });
-			toast("sucesso", `<b>${enviar.length}</b> produto(s) deste aparelho enviados para a nuvem.`);
+			const n = enviarLocaisParaLista(faltando);
+			if (n) toast("sucesso", `<b>${n}</b> produto(s) deste aparelho enviados para a nuvem.`);
 		}
 		finalizar();
 	} finally {
@@ -1255,8 +1270,9 @@ const TEXTO_STATUS = {
 	sincronizado: "Salvo na nuvem",
 	salvando: "Salvando…",
 	offline: "Offline",
-	erro: "Erro na sincronização"
+	erro: "Erro na nuvem"
 };
+const NOME_PROVEDOR = { firebase: "Google", supabase: "e-mail", dropbox: "Dropbox" };
 
 function atualizarIndicadorSync() {
 	const st = emNuvem() ? estado.statusSync : "local";
@@ -1265,16 +1281,17 @@ function atualizarIndicadorSync() {
 	el.btnSync.dataset.estado = st;
 	el.btnSyncTexto.textContent = texto;
 	el.btnSync.title = emNuvem()
-		? `${rotuloSync(estado.sync)} · ${texto}${estado.detalheSync ? " — " + estado.detalheSync : ""}`
+		? `Nuvem (${NOME_PROVEDOR[estado.sync.provedor]}) · ${texto}${estado.detalheSync ? " — " + estado.detalheSync : ""}`
 		: "Salvar na nuvem e compartilhar entre aparelhos";
-	el.btnSync.setAttribute("aria-label", `Sincronização: ${texto}`);
+	el.btnSync.setAttribute("aria-label", `Nuvem: ${texto}`);
 
 	if (emNuvem()) {
 		el.syncStatusBox.dataset.estado = st;
 		el.syncStatusTitulo.textContent = st === "sincronizado" ? "Conectado e salvo na nuvem" : texto;
-		const base = ehFacil(estado.sync)
-			? "Lista na nuvem do app"
-			: `Lista “${estado.sync.lista}” · projeto ${estado.sync.config.projectId}`;
+		const u = usuarioAtual();
+		const base = estado.sync.provedor === "dropbox"
+			? "Salvo no seu Dropbox"
+			: u?.email ? "Sincronizando em tempo real" : "Lista na nuvem (sem login)";
 		el.syncStatusDetalhe.textContent = estado.detalheSync || base;
 		el.syncStatusDetalhe.title = base;
 	}
@@ -1282,18 +1299,16 @@ function atualizarIndicadorSync() {
 
 /**
  * Conecta este aparelho a uma lista na nuvem.
- * @param {object} destino { tipo, config?, codigo?, lista?, modo?, reconciliar? }
+ * @param {{provedor: string, codigo?: string, modo?: string, reconciliar?: boolean}} destino
  */
 async function conectarNuvem(destino) {
-	const novo = normalizarSync({
-		...destino,
-		reconciliar: destino.reconciliar ?? (estado.itensLocais.length > 0)
-	});
+	const novo = normalizarSync({ ...destino, reconciliar: destino.reconciliar ?? (estado.itensLocais.length > 0) });
 	if (!novo) {
-		toast("erro", destino.tipo === "facil" ? "Código de lista inválido ou nuvem do app indisponível." : "Configuração do Firebase incompleta.");
+		toast("erro", "Não foi possível conectar: opção de nuvem indisponível ou código inválido.");
 		return false;
 	}
-	if (emNuvem()) await sync.desconectar();
+	const anterior = provAtual();
+	if (anterior) anterior.desligar();
 	estado.sync = novo;
 	armazenamento.gravar(CHAVE.sync, estado.sync);
 	armazenamento.remover(CHAVE.cacheNuvem);
@@ -1308,7 +1323,11 @@ async function conectarNuvem(destino) {
 	atualizarIndicadorSync();
 	atualizarDialogoSync();
 	try {
-		await sync.conectar(destinoSync(estado.sync));
+		const prov = provedores[novo.provedor];
+		await prov.conectar(novo.codigo);
+		// Com login, a conta passa a lembrar esta lista (para os outros aparelhos)
+		const u = estado.usuarios[novo.provedor];
+		if (u?.id && prov.salvarListaNaConta) prov.salvarListaNaConta(u.id, novo.codigo).catch(e => console.warn(e));
 		return true;
 	} catch (erro) {
 		const info = explicarErro(erro);
@@ -1320,39 +1339,48 @@ async function conectarNuvem(destino) {
 	}
 }
 
+/** Guarda neste aparelho uma cópia dos produtos da nuvem (ao desconectar). */
+function copiarNuvemParaLocal(itens) {
+	const porChave = new Map(estado.itensLocais.map(i => [chaveItem(i), i]));
+	const ids = new Set(estado.itensLocais.map(i => i.id));
+	for (const item of itens) {
+		const existente = porChave.get(chaveItem(item));
+		if (existente) existente.quantidade = item.quantidade;
+		else {
+			const copia = { ...item };
+			if (ids.has(copia.id)) copia.id = gerarId();
+			ids.add(copia.id);
+			estado.itensLocais.push(copia);
+			porChave.set(chaveItem(copia), copia);
+		}
+	}
+	armazenamento.gravar(CHAVE.itens, estado.itensLocais);
+}
+
 async function desconectarNuvem() {
 	if (!emNuvem()) return;
 	const qtd = estado.itensNuvem.length;
-	const lembrete = ehFacil(estado.sync)
-		? `<br><br>Para voltar a esta lista depois, guarde o código:<br><b style="font-family:var(--fonte-mono);font-size:1.05rem">${formatarCodigoLista(estado.sync.codigo)}</b>`
-		: "";
+	const u = usuarioAtual();
+	const prov = provAtual();
+	const lembrete = estado.sync.provedor === "dropbox"
+		? "<br><br>Para voltar, basta entrar de novo com o Dropbox."
+		: u?.email
+			? `<br><br>Para voltar, basta entrar de novo com <b>${esc(u.email)}</b>.`
+			: `<br><br>Para voltar a esta lista depois, guarde o código:<br><b style="font-family:var(--fonte-mono);font-size:1.05rem">${formatarCodigoLista(estado.sync.codigo)}</b>`;
+	const comConta = !!u || estado.sync.provedor === "dropbox";
 	const { acao } = await dialogo({
-		titulo: "Desconectar este aparelho?",
-		html: `Os produtos continuam salvos na nuvem para os outros aparelhos.${lembrete}${qtd ? `<br><br>Deseja guardar uma cópia dos <b>${qtd}</b> produto(s) da nuvem neste aparelho?` : ""}`,
+		titulo: comConta ? "Sair da conta neste aparelho?" : "Desconectar este aparelho?",
+		html: `Os produtos continuam salvos na nuvem.${lembrete}${qtd ? `<br><br>Deseja guardar uma cópia dos <b>${qtd}</b> produto(s) da nuvem neste aparelho?` : ""}`,
 		icone: "question",
-		confirmar: qtd ? "Desconectar e guardar cópia" : "Desconectar",
-		negar: qtd ? "Desconectar sem cópia" : undefined,
+		confirmar: qtd ? "Sair e guardar cópia" : "Sair",
+		negar: qtd ? "Sair sem cópia" : undefined,
 		cancelar: "Cancelar",
 		perigo: !qtd
 	});
 	if (acao === "cancelar") return;
-	if (acao === "confirmar" && qtd) {
-		const porChave = new Map(estado.itensLocais.map(i => [chaveItem(i), i]));
-		const ids = new Set(estado.itensLocais.map(i => i.id));
-		for (const item of estado.itensNuvem) {
-			const existente = porChave.get(chaveItem(item));
-			if (existente) existente.quantidade = item.quantidade;
-			else {
-				const copia = { ...item };
-				if (ids.has(copia.id)) copia.id = gerarId();
-				ids.add(copia.id);
-				estado.itensLocais.push(copia);
-				porChave.set(chaveItem(copia), copia);
-			}
-		}
-		armazenamento.gravar(CHAVE.itens, estado.itensLocais);
-	}
-	await sync.desconectar();
+	if (acao === "confirmar" && qtd) copiarNuvemParaLocal(estado.itensNuvem);
+	prov?.desligar();
+	if (comConta) await prov?.sair();
 	estado.sync = null;
 	estado.itensNuvem = [];
 	estado.statusSync = "local";
@@ -1368,50 +1396,20 @@ async function desconectarNuvem() {
 }
 
 /* ---------- Link de compartilhamento ---------- */
-function codificarBase64Url(texto) {
-	const bytes = new TextEncoder().encode(texto);
-	let bin = "";
-	bytes.forEach(b => { bin += String.fromCharCode(b); });
-	return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-function decodificarBase64Url(texto) {
-	const base = String(texto).replace(/-/g, "+").replace(/_/g, "/");
-	const bin = atob(base + "=".repeat((4 - (base.length % 4)) % 4));
-	return new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)));
-}
-
-function gerarLink(modo) {
-	const base = `${location.origin}${location.pathname}`;
-	if (ehFacil(estado.sync)) {
-		// Link curto: só o código (QR Code fica simples de ler)
-		return `${base}#lista=${estado.sync.codigo}${modo === "leitura" ? "&ver=1" : ""}`;
-	}
-	const c = estado.sync.config;
-	const pacote = { v: 1, a: c.apiKey, p: c.projectId, i: c.appId, l: estado.sync.lista, m: modo === "leitura" ? "r" : "w" };
-	if (c.authDomain && c.authDomain !== `${c.projectId}.firebaseapp.com`) pacote.d = c.authDomain;
-	return `${base}#conectar=${codificarBase64Url(JSON.stringify(pacote))}`;
-}
+const gerarLink = modo =>
+	`${location.origin}${location.pathname}#lista=${estado.sync.codigo}&p=${SIGLA[estado.sync.provedor] || "fb"}${modo === "leitura" ? "&ver=1" : ""}`;
 
 function lerLink(hash) {
 	const texto = String(hash || "");
-	const facil = texto.match(/[#&]lista=([A-Za-z0-9-]+)/);
-	if (facil) {
-		const codigo = normalizarCodigoLista(facil[1]);
-		if (!codigo) return { invalido: true };
-		if (!nuvemFacilDisponivel()) return { invalido: true, motivo: "A nuvem do app não está configurada nesta versão do site." };
-		return { tipo: "facil", codigo, modo: /[#&]ver=1/.test(texto) ? "leitura" : "edicao" };
-	}
-	const achado = texto.match(/[#&]conectar=([A-Za-z0-9_-]+)/);
+	if (/[#&]conectar=/.test(texto)) return { invalido: true, motivo: "Este link é da versão antiga da nuvem. Peça um novo link a quem compartilhou." };
+	const achado = texto.match(/[#&]lista=([A-Za-z0-9-]+)/);
 	if (!achado) return null;
-	try {
-		const p = JSON.parse(decodificarBase64Url(achado[1]));
-		const config = configValida({ apiKey: p.a, projectId: p.p, appId: p.i, authDomain: p.d });
-		if (!config) return { invalido: true };
-		return { tipo: "proprio", config, lista: normalizarNomeLista(p.l), modo: p.m === "r" ? "leitura" : "edicao" };
-	} catch {
-		return { invalido: true };
-	}
+	const codigo = normalizarCodigoLista(achado[1]);
+	if (!codigo) return { invalido: true };
+	const sigla = (texto.match(/[#&]p=([a-z]+)/) || [])[1];
+	const provedor = DE_SIGLA[sigla] || provedorDeCodigo()?.id;
+	if (!provedor || !provedores[provedor]?.disponivel) return { invalido: true, motivo: "Esta opção de nuvem não está ativada nesta versão do site." };
+	return { provedor, codigo, modo: /[#&]ver=1/.test(texto) ? "leitura" : "edicao" };
 }
 
 async function processarLinkCompartilhado() {
@@ -1428,7 +1426,7 @@ async function processarLinkCompartilhado() {
 async function entrarEmLista(dados) {
 	const novo = normalizarSync(dados);
 	if (!novo) {
-		dialogo({ titulo: "Não foi possível conectar", html: "Código ou configuração inválidos.", icone: "error" });
+		dialogo({ titulo: "Não foi possível conectar", html: "Código inválido ou nuvem indisponível.", icone: "error" });
 		return false;
 	}
 	if (emNuvem() && idSync(estado.sync) === idSync(novo)) {
@@ -1442,13 +1440,10 @@ async function entrarEmLista(dados) {
 		toast("info", "Este aparelho já está conectado a esta lista.");
 		return true;
 	}
-	const trocar = emNuvem() ? `<br><br><small>Este aparelho deixará de usar a ${esc(rotuloSync(estado.sync))}.</small>` : "";
-	const qual = ehFacil(novo)
-		? `Código: <b style="font-family:var(--fonte-mono)">${formatarCodigoLista(novo.codigo)}</b>`
-		: `Lista: <b>${esc(novo.lista)}</b><br>Projeto: <b>${esc(novo.config.projectId)}</b>`;
+	const trocar = emNuvem() ? "<br><br><small>Este aparelho deixará de usar a lista atual.</small>" : "";
 	const ok = await confirmar({
 		titulo: "Conectar à lista na nuvem?",
-		html: `${qual}<br>Permissão: <b>${novo.modo === "leitura" ? "somente visualizar" : "pode editar"}</b>${trocar}`,
+		html: `Código: <b style="font-family:var(--fonte-mono)">${formatarCodigoLista(novo.codigo)}</b><br>Permissão: <b>${novo.modo === "leitura" ? "somente visualizar" : "pode editar"}</b>${trocar}`,
 		confirmar: "Conectar",
 		icone: "question"
 	});
@@ -1458,18 +1453,18 @@ async function entrarEmLista(dados) {
 	return conectou;
 }
 
-/* ---------- Diálogo de sincronização ---------- */
+/* ---------- Diálogo da nuvem ---------- */
 let qrUltimoLink = "";
 async function atualizarCompartilhamento() {
 	if (!emNuvem()) return;
+	const temCodigo = estado.sync.provedor !== "dropbox";
+	el.caixaCodigo.hidden = !temCodigo;
+	el.blocoCompartilhar.hidden = !temCodigo;
+	if (!temCodigo) return;
 	const tipo = document.querySelector('input[name="tipoLink"]:checked')?.value || "edicao";
 	const link = gerarLink(tipo);
 	el.linkCompartilhar.value = link;
-	el.caixaCodigo.hidden = !ehFacil(estado.sync);
-	el.avisoLink.textContent = ehFacil(estado.sync)
-		? "Quem tiver este link ou o código acessa a lista. Envie apenas para pessoas de confiança."
-		: "O link contém a configuração do seu Firebase. Envie apenas para pessoas de confiança.";
-	if (ehFacil(estado.sync)) el.codigoLista.textContent = formatarCodigoLista(estado.sync.codigo);
+	el.codigoLista.textContent = formatarCodigoLista(estado.sync.codigo);
 	if (link === qrUltimoLink) return;
 	qrUltimoLink = link;
 	el.qr.textContent = "Gerando QR Code…";
@@ -1491,10 +1486,19 @@ function atualizarDialogoSync() {
 	const conectado = emNuvem();
 	el.syncDesconectado.hidden = conectado;
 	el.syncConectado.hidden = !conectado;
-	const facil = nuvemFacilDisponivel();
-	el.syncFacil.hidden = !facil;
-	el.syncAvancado.classList.toggle("sozinho", !facil);
-	if (!facil) el.syncAvancado.open = true;
+	el.syncIndisponivel.hidden = nuvemDisponivel();
+	el.syncOpcoes.hidden = !nuvemDisponivel();
+	el.btnLoginGoogle.hidden = !provedores.firebase.disponivel;
+	el.blocoEmail.hidden = !provedores.supabase.disponivel;
+	el.btnLoginDropbox.hidden = !provedores.dropbox.disponivel;
+	const algumLogin = provedores.firebase.disponivel || provedores.supabase.disponivel || provedores.dropbox.disponivel;
+	el.separadorSemLogin.hidden = !algumLogin || !provedorDeCodigo();
+	el.blocoCodigo.hidden = !provedorDeCodigo();
+	const u = usuarioAtual();
+	el.syncContaLinha.hidden = !u?.email;
+	el.syncContaEmail.textContent = u?.email ? `${u.email} (${NOME_PROVEDOR[estado.sync.provedor]})` : "";
+	const comConta = !!u || estado.sync?.provedor === "dropbox";
+	el.btnDesconectar.innerHTML = `${icone("LogOut")}${comConta ? "Sair da conta" : "Desconectar"}`;
 	if (conectado) {
 		el.syncPermitirEdicao.checked = estado.sync.modo !== "leitura";
 		atualizarIndicadorSync();
@@ -1507,27 +1511,166 @@ function abrirDialogoSync() {
 	atualizarDialogoSync();
 	if (!el.dlgSync.open) el.dlgSync.showModal();
 	if (emNuvem()) atualizarCompartilhamento();
-	else if (!nuvemFacilDisponivel()) setTimeout(() => el.syncConfig.focus(), 50);
+	// Carrega as bibliotecas em segundo plano (deixa o login mais rápido)
+	for (const p of Object.values(provedores)) if (p.disponivel && p.id !== "dropbox") p.preparar().catch(() => { });
 }
 
-/** Modo fácil: cria uma lista nova na nuvem do app com um clique. */
-async function criarListaFacil() {
-	if (!nuvemFacilDisponivel()) return;
+/* ---------- Login ---------- */
+/** Depois do login: usa a lista guardada na conta ou cria uma nova com os produtos deste aparelho. */
+async function aposLogin(provedorId, usuario) {
+	if (!usuario) return;
+	estado.usuarios[provedorId] = usuario;
+	const prov = provedores[provedorId];
+	if (provedorId === "dropbox") {
+		if (await conectarNuvem({ provedor: "dropbox", codigo: CODIGO_CONTA, modo: "edicao", reconciliar: estado.itensLocais.length > 0 })) {
+			toast("sucesso", "Conectado ao Dropbox! Entre com a mesma conta nos outros aparelhos para ver a mesma lista.", 7000);
+		}
+		return;
+	}
+	let codigo = null;
+	try { codigo = await prov.listaDaConta(usuario.id); } catch (e) { console.warn(e); }
+	if (codigo) {
+		if (await conectarNuvem({ provedor: provedorId, codigo, modo: "edicao", reconciliar: estado.itensLocais.length > 0 })) {
+			toast("sucesso", `Bem-vindo de volta! Lista da conta <b>${esc(usuario.email || "")}</b> carregada.`, 6000);
+		}
+	} else {
+		await criarListaNova({ provedorId, silencioso: true });
+		toast("sucesso", "Pronto! Entre com a mesma conta nos outros aparelhos para ver a mesma lista.", 7000);
+	}
+}
+
+async function loginGoogle() {
+	el.btnLoginGoogle.disabled = true;
+	try {
+		const u = await provedores.firebase.entrarGoogle();
+		await aposLogin("firebase", u);
+	} catch (e) {
+		const info = explicarErro(e);
+		if (info.tipo !== "cancelado") toast("erro", esc(info.mensagem), 8000);
+	} finally {
+		el.btnLoginGoogle.disabled = false;
+	}
+}
+
+async function loginDropbox() {
+	el.btnLoginDropbox.disabled = true;
+	try {
+		armazenamento.gravarTexto(CHAVE.loginPendente, "dropbox");
+		await provedores.dropbox.entrarDropbox(); // sai do site e volta depois do login
+	} catch (e) {
+		el.btnLoginDropbox.disabled = false;
+		toast("erro", esc(explicarErro(e).mensagem));
+	}
+}
+
+const RE_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+let emailPendente = "";
+
+async function enviarCodigoLogin() {
+	const email = el.loginEmail.value.trim().toLowerCase();
+	if (!RE_EMAIL.test(email)) {
+		el.loginEmail.setAttribute("aria-invalid", "true");
+		el.loginEmail.focus();
+		return toast("erro", "Digite um e-mail válido.");
+	}
+	el.loginEmail.removeAttribute("aria-invalid");
+	el.btnEnviarCodigo.disabled = true;
+	el.btnEnviarCodigo.textContent = "Enviando…";
+	try {
+		armazenamento.gravarTexto(CHAVE.loginPendente, "supabase");
+		await provedores.supabase.enviarCodigo(email);
+		emailPendente = email;
+		el.loginCodigoCaixa.hidden = false;
+		el.loginEmailTexto.textContent = email;
+		el.loginCodigo.value = "";
+		toast("sucesso", `Enviamos um e-mail para <b>${esc(email)}</b>. Toque no link do e-mail (ou digite o código, se houver). Confira também o spam.`, 9000);
+	} catch (e) {
+		armazenamento.remover(CHAVE.loginPendente);
+		toast("erro", esc(explicarErro(e).mensagem));
+	} finally {
+		el.btnEnviarCodigo.disabled = false;
+		el.btnEnviarCodigo.textContent = "Receber link";
+	}
+}
+
+async function confirmarCodigoLogin() {
+	const code = el.loginCodigo.value.replace(/\D/g, "");
+	if (!emailPendente) return el.loginEmail.focus();
+	if (code.length < 6) {
+		el.loginCodigo.setAttribute("aria-invalid", "true");
+		el.loginCodigo.focus();
+		return toast("erro", "Digite o código de 6 dígitos recebido por e-mail.");
+	}
+	el.loginCodigo.removeAttribute("aria-invalid");
+	el.btnEntrarLogin.disabled = true;
+	el.btnEntrarLogin.textContent = "Entrando…";
+	try {
+		const usuario = await provedores.supabase.confirmarCodigo(emailPendente, code);
+		if (!usuario?.id) throw new Error("Não foi possível entrar.");
+		armazenamento.remover(CHAVE.loginPendente);
+		await aposLogin("supabase", usuario);
+		emailPendente = "";
+		el.loginCodigoCaixa.hidden = true;
+		el.loginEmail.value = "";
+	} catch (e) {
+		el.loginCodigo.setAttribute("aria-invalid", "true");
+		toast("erro", esc(explicarErro(e).mensagem));
+	} finally {
+		el.btnEntrarLogin.disabled = false;
+		el.btnEntrarLogin.textContent = "Entrar";
+	}
+}
+
+/** Conclui logins que voltam por redirecionamento (link do e-mail ou Dropbox). */
+async function concluirLoginsPendentes() {
+	const pendente = armazenamento.lerTexto(CHAVE.loginPendente);
+	// Dropbox: volta com ?code=…&state=…
+	if (provedores.dropbox.disponivel && /[?&](code|error)=/.test(location.search)) {
+		try {
+			const u = await provedores.dropbox.processarRetorno();
+			if (u) {
+				armazenamento.remover(CHAVE.loginPendente);
+				await aposLogin("dropbox", u);
+				return;
+			}
+		} catch (e) {
+			armazenamento.remover(CHAVE.loginPendente);
+			const info = explicarErro(e);
+			if (info.tipo !== "cancelado") toast("erro", `Dropbox: ${esc(info.mensagem)}`, 8000);
+			return;
+		}
+	}
+	// Supabase: o link do e-mail volta com #access_token=…
+	if (provedores.supabase.disponivel && (pendente === "supabase" || /access_token=|error_description=/.test(location.hash))) {
+		try {
+			await provedores.supabase.preparar();
+			const u = provedores.supabase.usuario;
+			if (u && pendente === "supabase") {
+				armazenamento.remover(CHAVE.loginPendente);
+				if (!(estado.sync?.provedor === "supabase")) await aposLogin("supabase", u);
+			}
+		} catch (e) {
+			console.warn(e);
+		}
+	}
+}
+
+/** Cria uma lista nova na nuvem e envia os produtos deste aparelho. */
+async function criarListaNova({ provedorId = provedorDeCodigo()?.id, silencioso = false } = {}) {
+	if (!provedorId) return;
 	el.btnCriarLista.disabled = true;
 	try {
-		const ok = await conectarNuvem({ tipo: "facil", codigo: gerarCodigoLista(), modo: "edicao", reconciliar: false });
+		const ok = await conectarNuvem({ provedor: provedorId, codigo: gerarCodigoLista(), modo: "edicao", reconciliar: false });
 		if (!ok) return;
-		// A lista acabou de ser criada (está vazia): envia já os produtos deste aparelho.
-		// Sem internet, o Firestore guarda na fila e envia quando a conexão voltar.
-		const locais = estado.itensLocais.map(i => ({ ...i }));
-		if (locais.length) aplicarAlteracoes({ salvar: locais });
-		toast("sucesso", `Lista criada na nuvem${locais.length ? ` com <b>${locais.length}</b> produto(s)` : ""}! Use o link ou o QR Code para abrir em outro aparelho.`, 6000);
+		// Lista nova (vazia): envia já os produtos deste aparelho. Sem internet, vão para a fila.
+		const n = enviarLocaisParaLista(estado.itensLocais);
+		if (!silencioso) toast("sucesso", `Lista criada na nuvem${n ? ` com <b>${n}</b> produto(s)` : ""}! Use o link ou o QR Code para abrir em outro aparelho.`, 6000);
 	} finally {
 		el.btnCriarLista.disabled = false;
 	}
 }
 
-/** Modo fácil: entra numa lista existente digitando o código. */
+/** Sem login: entra numa lista digitando o código. */
 async function entrarPorCodigo() {
 	const codigo = normalizarCodigoLista(el.syncCodigo.value);
 	if (!codigo) {
@@ -1535,37 +1678,15 @@ async function entrarPorCodigo() {
 		el.syncCodigo.focus();
 		return toast("erro", "Código inválido. Ele tem 16 letras/números, como <b>ABCD-EFGH-JKLM-NPQR</b>.");
 	}
+	// Um link colado indica o provedor; um código digitado usa o provedor padrão
+	const doLink = lerLink(el.syncCodigo.value.includes("#") ? el.syncCodigo.value.slice(el.syncCodigo.value.indexOf("#")) : "");
+	const provedor = doLink?.provedor || provedorDeCodigo()?.id;
 	el.syncCodigo.removeAttribute("aria-invalid");
 	el.btnEntrarCodigo.disabled = true;
 	try {
-		if (await entrarEmLista({ tipo: "facil", codigo, modo: "edicao" })) el.syncCodigo.value = "";
+		if (await entrarEmLista({ provedor, codigo, modo: "edicao" })) el.syncCodigo.value = "";
 	} finally {
 		el.btnEntrarCodigo.disabled = false;
-	}
-}
-
-/** Avançado: conecta ao Firebase do próprio usuário. */
-async function conectarPeloDialogo() {
-	const { config, faltando } = extrairConfigFirebase(el.syncConfig.value);
-	if (faltando.length) {
-		el.syncConfig.setAttribute("aria-invalid", "true");
-		el.syncConfig.focus();
-		return dialogo({
-			titulo: "Configuração incompleta",
-			html: `Não encontrei: <b>${faltando.join(", ")}</b>.<br><br>Copie o bloco <code>firebaseConfig</code> inteiro em <b>Configurações do projeto → Seus apps</b> no console do Firebase.`,
-			icone: "warning"
-		});
-	}
-	el.syncConfig.removeAttribute("aria-invalid");
-	el.btnConectar.disabled = true;
-	try {
-		const ok = await conectarNuvem({ tipo: "proprio", config, lista: el.syncLista.value, modo: "edicao" });
-		if (ok) {
-			el.syncConfig.value = "";
-			toast("sucesso", `Conectado à lista <b>${esc(estado.sync.lista)}</b>.`);
-		}
-	} finally {
-		el.btnConectar.disabled = false;
 	}
 }
 
@@ -1645,7 +1766,7 @@ function registrarEventos() {
 			if (!(await leitor?.trocarCamera())) toast("info", "Só há uma câmera disponível.");
 		} catch (e) {
 			console.warn(e);
-			toast("erro", esc(leitor?.traduzirErro(e) || "Não foi possível trocar de câmera."));
+			toast("erro", esc(leitor?.traduzirErro(e)?.mensagem || "Não foi possível trocar de câmera."));
 		}
 	});
 	el.leitorZoom.addEventListener("input", debounce(() => leitor?.definirZoom(el.leitorZoom.value), 60));
@@ -1754,8 +1875,24 @@ function registrarEventos() {
 	});
 
 	// Sincronização
-	el.btnConectar.addEventListener("click", conectarPeloDialogo);
-	el.btnCriarLista.addEventListener("click", criarListaFacil);
+	el.btnLoginGoogle.addEventListener("click", loginGoogle);
+	el.btnLoginDropbox.addEventListener("click", loginDropbox);
+	el.btnLoginEmail.addEventListener("click", () => {
+		el.caixaEmail.hidden = !el.caixaEmail.hidden;
+		if (!el.caixaEmail.hidden) setTimeout(() => el.loginEmail.focus(), 30);
+	});
+	el.btnEnviarCodigo.addEventListener("click", enviarCodigoLogin);
+	el.loginEmail.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); enviarCodigoLogin(); } });
+	el.loginEmail.addEventListener("input", () => el.loginEmail.removeAttribute("aria-invalid"));
+	el.btnEntrarLogin.addEventListener("click", confirmarCodigoLogin);
+	el.loginCodigo.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); confirmarCodigoLogin(); } });
+	el.loginCodigo.addEventListener("input", () => el.loginCodigo.removeAttribute("aria-invalid"));
+	el.btnTrocarEmail.addEventListener("click", () => {
+		emailPendente = "";
+		el.loginCodigoCaixa.hidden = true;
+		el.loginEmail.focus();
+	});
+	el.btnCriarLista.addEventListener("click", () => criarListaNova());
 	el.btnEntrarCodigo.addEventListener("click", entrarPorCodigo);
 	el.syncCodigo.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); entrarPorCodigo(); } });
 	el.syncCodigo.addEventListener("input", () => {
@@ -1768,9 +1905,8 @@ function registrarEventos() {
 		if (formatado !== v) el.syncCodigo.value = formatado;
 	});
 	el.btnCopiarCodigo.addEventListener("click", async () => {
-		if (ehFacil(estado.sync)) feedbackBotao(el.btnCopiarCodigo, await copiarTexto(formatarCodigoLista(estado.sync.codigo)));
+		if (emNuvem()) feedbackBotao(el.btnCopiarCodigo, await copiarTexto(formatarCodigoLista(estado.sync.codigo)));
 	});
-	el.syncConfig.addEventListener("input", () => el.syncConfig.removeAttribute("aria-invalid"));
 	el.btnDesconectar.addEventListener("click", desconectarNuvem);
 	el.syncPermitirEdicao.addEventListener("change", () => {
 		if (!emNuvem()) return;
@@ -1793,12 +1929,6 @@ function registrarEventos() {
 			}
 		});
 	}
-	el.btnCopiarRegras.addEventListener("click", async () => {
-		const ok = await copiarTexto(REGRAS_FIRESTORE);
-		const original = el.btnCopiarRegras.innerHTML;
-		el.btnCopiarRegras.innerHTML = `${icone(ok ? "Check" : "X")}${ok ? "Copiado!" : "Não foi possível copiar"}`;
-		setTimeout(() => { el.btnCopiarRegras.innerHTML = original; }, 1600);
-	});
 
 	// Link aberto com a página já carregada
 	window.addEventListener("hashchange", processarLinkCompartilhado);
@@ -1809,7 +1939,7 @@ function registrarEventos() {
 			estado.itensLocais = sanitizarLista(armazenamento.ler(CHAVE.itens, []));
 			render();
 		} else if (e.key === CHAVE.silenciados) {
-			estado.silenciados = new Set(armazenamento.ler(CHAVE.silenciados, []));
+			estado.silenciados = new Set((armazenamento.ler(CHAVE.silenciados, []) || []).map(normalizarId).filter(Boolean));
 			render();
 		}
 	});
@@ -1836,7 +1966,7 @@ function iniciar() {
 	migrarVersaoAnterior();
 
 	estado.itensLocais = sanitizarLista(armazenamento.ler(CHAVE.itens, []));
-	estado.silenciados = new Set((armazenamento.ler(CHAVE.silenciados, []) || []).filter(x => typeof x === "string"));
+	estado.silenciados = new Set((armazenamento.ler(CHAVE.silenciados, []) || []).map(normalizarId).filter(Boolean));
 	const alerta = armazenamento.ler(CHAVE.alerta, null);
 	if (alerta && Number.isFinite(Number(alerta.valor))) {
 		estado.alerta = { valor: Math.max(0, Math.min(3650, Math.floor(Number(alerta.valor)))), unidade: alerta.unidade === "meses" ? "meses" : "dias" };
@@ -1845,9 +1975,11 @@ function iniciar() {
 	if (ordem && [...el.ordenacao.options].some(o => o.value === ordem)) estado.ordenacao = ordem;
 	el.ordenacao.value = estado.ordenacao;
 	aplicarAlertaNaTela();
-	el.regras.textContent = REGRAS_FIRESTORE;
+	el.regrasFirebase.textContent = REGRAS_FIREBASE;
+	el.sqlSupabase.textContent = SQL_SUPABASE;
 
-	// Configuração salva (versões anteriores, sem "tipo", são tratadas como Firebase próprio)
+	// Configuração da nuvem salva. Versões antigas (ou uma opção de nuvem desativada)
+	// não são usadas: a última cópia da nuvem guardada no aparelho vira a lista local.
 	const syncSalvo = armazenamento.ler(CHAVE.sync, null);
 	const syncValido = normalizarSync(syncSalvo);
 	if (syncValido) {
@@ -1856,7 +1988,12 @@ function iniciar() {
 		if (cache && cache.id === idSync(syncValido)) estado.itensNuvem = sanitizarLista(cache.itens);
 		estado.statusSync = "conectando";
 	} else if (syncSalvo) {
+		const cache = armazenamento.ler(CHAVE.cacheNuvem, null);
+		const copia = sanitizarLista(cache?.itens);
+		if (copia.length) copiarNuvemParaLocal(copia);
 		armazenamento.remover(CHAVE.sync);
+		armazenamento.remover(CHAVE.cacheNuvem);
+		setTimeout(() => toast("info", "A nuvem do app foi atualizada. Seus produtos foram mantidos neste aparelho — toque em <b>Apenas neste aparelho</b> para salvar na nuvem de novo.", 9000), 800);
 	}
 
 	registrarEventos();
@@ -1869,7 +2006,7 @@ function iniciar() {
 		.catch(() => { /* sem animação */ });
 
 	if (emNuvem()) {
-		sync.conectar(destinoSync(estado.sync)).catch(erro => {
+		provAtual().conectar(estado.sync.codigo).catch(erro => {
 			const info = explicarErro(erro);
 			estado.statusSync = "erro";
 			estado.detalheSync = info.mensagem;
@@ -1883,7 +2020,9 @@ function iniciar() {
 		alertaInicial();
 	}
 
-	processarLinkCompartilhado();
+	concluirLoginsPendentes()
+		.catch(e => console.warn(e))
+		.finally(() => processarLinkCompartilhado());
 }
 
 try {

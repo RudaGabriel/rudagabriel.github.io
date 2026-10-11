@@ -1,35 +1,31 @@
 /* =========================================================
-   Nuvem do app (modo fácil)
+   Nuvem — configuração única (feita pelo dono do site)
    ---------------------------------------------------------
-   Preencha UMA VEZ com a configuração de um projeto Firebase
-   do dono do site. A partir daí, qualquer pessoa cria uma
-   lista na nuvem com um clique, sem conta e sem configurar nada.
+   Preencha UMA ou MAIS opções. Cada opção preenchida aparece
+   como um botão de login para quem usa o app. As que ficarem
+   como null simplesmente não aparecem.
 
-   Como preencher:
-   1. console.firebase.google.com → crie (ou use) um projeto.
-   2. Firestore Database → Criar banco de dados.
-   3. Aba "Regras" → cole as regras de REGRAS_NUVEM_FACIL
-      (arquivo sync.js ou README) e publique.
-   4. Configurações do projeto → Seus apps → app Web (</>)
-      → copie os valores do firebaseConfig para o objeto abaixo.
-
-   Enquanto ficar como null, o app mostra apenas a opção
-   "Usar meu próprio Firebase".
-
-   Observação: a configuração Web do Firebase não é segredo —
-   ela sempre fica visível no navegador. A proteção dos dados
-   vem das regras do Firestore e do código aleatório de cada lista.
+   Passo a passo de cada uma: veja o README.
    ========================================================= */
 
-export const CONFIG_NUVEM_FACIL = null;
+export const NUVEM = {
+	/* 1) Google (Firebase) — "Entrar com Google" + listas por código.
+	   Cole aqui o objeto firebaseConfig do seu projeto. Exemplo:
+	   firebase: {
+	     apiKey: "AIza...",
+	     authDomain: "seu-projeto.firebaseapp.com",
+	     projectId: "seu-projeto",
+	     storageBucket: "seu-projeto.appspot.com",
+	     messagingSenderId: "123456789",
+	     appId: "1:123456789:web:abc123"
+	   }, */
+	firebase: null,
 
-/* Exemplo preenchido:
-export const CONFIG_NUVEM_FACIL = {
-	apiKey: "AIza...",
-	authDomain: "seu-projeto.firebaseapp.com",
-	projectId: "seu-projeto",
-	storageBucket: "seu-projeto.appspot.com",
-	messagingSenderId: "123456789",
-	appId: "1:123456789:web:abc123"
+	/* 2) E-mail (Supabase) — "Entrar com e-mail" (sem senha) + listas por código.
+	   supabase: { url: "https://xxxx.supabase.co", chave: "sua anon/public key" }, */
+	supabase: null,
+
+	/* 3) Dropbox — "Entrar com Dropbox" (os dados ficam no Dropbox de cada pessoa).
+	   dropbox: { appKey: "sua app key" }, */
+	dropbox: null
 };
-*/
