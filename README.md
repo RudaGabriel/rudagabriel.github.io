@@ -73,7 +73,7 @@ Por padrão, tudo fica salvo **no seu próprio aparelho**. Nada é enviado para 
 | ☁️ | **Nuvem com Google, e-mail ou Dropbox** | A mesma lista no celular, no computador e na equipe. |
 | 🔗 | **Compartilhamento por link ou QR Code** | A equipe entra sem criar conta, com acesso de edição ou só leitura. |
 | 📶 | **Funciona sem internet** | Continue usando; tudo sincroniza quando a conexão voltar. |
-| 🏪 | **Nome da sua loja** no topo do app | O app com a cara do seu negócio. |
+| 🏪 | **Nome da sua loja** no topo do app, sincronizado na nuvem | O app com a cara do seu negócio, em todos os aparelhos. |
 | 💾 | **Backup e planilha** (.json e .csv) | Seus dados sempre com você, abrindo no Excel ou no Google Planilhas. |
 | 🌗 | **Tema claro e escuro**, layout responsivo | Confortável em qualquer tela, de 320 px a monitores largos. |
 | 📲 | **Instalável como aplicativo** | Ícone na tela inicial, abrindo em tela cheia. |
@@ -136,7 +136,7 @@ Os cartões no topo mostram quantos produtos estão em cada situação. **Toque 
 | **Vencem este mês** | Produtos que vencem até o fim do mês atual. |
 | **Em dia** | Produtos ainda longe do vencimento. |
 
-No celular, deslize os cartões para o lado para ver todos.
+No celular, deslize os cartões para o lado para ver todos. Uma **seta** na borda indica quando ainda há cartões escondidos daquele lado; toque nela para avançar.
 
 ### Prazo de alerta
 Em **"Alertar com N dias/meses de antecedência"**, escolha com quanto tempo de antecedência um produto passa a contar como **Vencendo**. Exemplo: com *30 dias*, um produto que vence daqui a 20 dias já aparece em amarelo.
@@ -149,6 +149,11 @@ Sempre que você abrir o app, ele avisa quais produtos estão perto do venciment
 - **Ordenar por:** Prioridade (vencidos e vencendo primeiro), Vencimento ↑ ou ↓, Nome (A–Z), Quantidade ou Mais recentes.
 
 As cores ajudam a ler a lista de relance: **vermelho** = vencido, **amarelo** = vencendo, **verde** = em dia.
+
+### Navegar por listas grandes
+- A lista ocupa o espaço da tela até o rodapé e **rola por dentro**, então resumo, busca e filtros ficam sempre à mão.
+- Depois de rolar bastante, aparece um **botão com seta para cima**: toque nele para voltar ao início da lista.
+- **No celular**, toque em **Novo produto** para mostrar ou esconder o formulário. Com ele recolhido, sobra mais espaço para os produtos. O app lembra sua escolha e abre o formulário sozinho quando você edita um produto.
 
 ## Editar e remover
 
@@ -225,7 +230,9 @@ O nome passa a aparecer:
 - no **nome dos arquivos** de backup e planilha (ex.: `vencimentos-mercado-sao-jose-2026-10-11.csv`);
 - dentro do **backup**: ao restaurá-lo em um aparelho sem nome definido, o nome vem junto.
 
-Para tirar o nome da loja, abra **Nome da loja** de novo e toque em **Usar nome padrão**. O nome fica salvo em cada aparelho; defina-o em cada um que usar.
+Para tirar o nome da loja, abra **Nome da loja** de novo e toque em **Usar nome padrão**.
+
+**Com a nuvem ativa**, o nome da loja vai junto com a lista: ao definir, trocar ou remover o nome em um aparelho, **todos os aparelhos conectados à mesma lista** mudam também. Com Google ou lista com código, a mudança aparece na hora; com e-mail ou Dropbox, em poucos segundos. Aparelhos no modo **Só visualizar** mostram o nome da lista, mas não podem alterá-lo. Sem nuvem, o nome fica salvo só no aparelho.
 
 ## Instalar como aplicativo
 

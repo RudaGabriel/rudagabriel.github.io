@@ -97,6 +97,9 @@
 
 	<main class="pagina">
 		<!-- ===== Resumo / filtros rápidos ===== -->
+		<div class="resumo-envoltorio">
+		<button type="button" class="resumo-seta resumo-seta-esq" data-rolar="-1" tabindex="-1" aria-hidden="true" title="Ver anteriores"><i data-lucide="chevron-left"></i></button>
+		<button type="button" class="resumo-seta resumo-seta-dir" data-rolar="1" tabindex="-1" aria-hidden="true" title="Ver mais"><i data-lucide="chevron-right"></i></button>
 		<section class="resumo" aria-label="Resumo e filtros">
 			<button type="button" class="cartao-resumo ativo" data-filtro="todos">
 				<span class="resumo-icone"><i data-lucide="boxes"></i></span>
@@ -119,11 +122,13 @@
 				<span class="resumo-info"><strong id="totOk">0</strong><small>Em dia</small></span>
 			</button>
 		</section>
+		</div>
 
 		<!-- ===== Formulário ===== -->
-		<section class="cartao" aria-labelledby="tituloForm">
+		<section class="cartao cartao-form" aria-labelledby="tituloForm">
 			<div class="cartao-cabecalho">
 				<h2 id="tituloForm"><i data-lucide="package-plus"></i><span id="tituloFormTexto">Novo produto</span></h2>
+				<button type="button" id="btnRecolherForm" class="btn-icone btn-recolher" aria-expanded="true" aria-controls="formProduto" title="Mostrar ou ocultar o formulário" aria-label="Mostrar ou ocultar o formulário"><i data-lucide="chevron-down"></i></button>
 				<p id="avisoLeitura" class="aviso-leitura" hidden><i data-lucide="lock"></i>Somente leitura neste aparelho</p>
 			</div>
 
@@ -214,6 +219,7 @@
 				</div>
 			</div>
 			<p class="rodape-lista" id="rodapeLista"></p>
+			<button type="button" id="btnTopoLista" class="btn-topo" title="Voltar ao topo da lista" aria-label="Voltar ao topo da lista" tabindex="-1" aria-hidden="true"><i data-lucide="arrow-up"></i></button>
 		</section>
 		<!-- Anúncio (aparece só quando houver anúncio para exibir) -->
 		<aside id="anuncioRodape" class="anuncio" aria-label="Publicidade" hidden>

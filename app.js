@@ -24,6 +24,8 @@ const CHAVE = {
 	migrado: "cv2:migrado",
 	tema: "cv2:tema",
 	loja: "cv2:loja",
+	lojaOrigem: "cv2:lojaOrigem",
+	formRecolhido: "cv2:formRecolhido",
 	loginPendente: "cv2:loginPendente"
 };
 
@@ -328,6 +330,7 @@ const estado = {
 	itensNuvem: [],
 	silenciados: new Set(),
 	loja: "",
+	lojaVerificadaEm: null,
 	alerta: { valor: 60, unidade: "dias" },
 	filtro: "todos",
 	busca: "",
@@ -633,6 +636,91 @@ function render() {
 	}
 
 	atualizarEstadoFormulario();
+	agendarLayout();
+}
+
+/* =========================================================
+   Layout: formulário recolhível, setas do resumo e voltar ao topo
+   ========================================================= */
+const mqCelular = window.matchMedia?.("(max-width: 760px)");
+const ehCelular = () => !!mqCelular?.matches;
+const comportamentoRolagem = () => (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth");
+
+function definirFormRecolhido(recolher, { lembrar = true } = {}) {
+	if (!el.cartaoForm) return;
+	el.cartaoForm.classList.toggle("recolhido", !!recolher);
+	$("#btnRecolherForm")?.setAttribute("aria-expanded", String(!recolher));
+	if (lembrar) armazenamento.gravarTexto(CHAVE.formRecolhido, recolher ? "1" : "0");
+	agendarLayout();
+}
+
+/** Mostra as setas do resumo só do lado em que ainda há cartões fora da tela. */
+function atualizarSetasResumo() {
+	const envoltorio = $(".resumo-envoltorio"), resumo = $(".resumo");
+	if (!envoltorio || !resumo) return;
+	const maximo = resumo.scrollWidth - resumo.clientWidth;
+	envoltorio.classList.toggle("tem-esquerda", maximo > 2 && resumo.scrollLeft > 2);
+	envoltorio.classList.toggle("tem-direita", maximo > 2 && resumo.scrollLeft < maximo - 2);
+}
+
+/** Quem rola a lista: o próprio cartão (tela com espaço) ou a página. */
+function rolagemDaLista() {
+	const envoltorio = $(".tabela-envoltorio");
+	if (envoltorio && /auto|scroll/.test(getComputedStyle(envoltorio).overflowY) && envoltorio.scrollHeight > envoltorio.clientHeight + 1) return envoltorio;
+	return null;
+}
+
+function atualizarBotaoTopo() {
+	const botao = $("#btnTopoLista");
+	if (!botao) return;
+	const rolador = rolagemDaLista();
+	const posicao = rolador ? rolador.scrollTop : (document.scrollingElement?.scrollTop || 0);
+	const altura = rolador ? rolador.clientHeight : window.innerHeight;
+	const mostrar = posicao > Math.max(300, altura * 1.2);
+	botao.classList.toggle("fixo", !rolador);
+	botao.classList.toggle("visivel", mostrar);
+	botao.tabIndex = mostrar ? 0 : -1;
+	botao.setAttribute("aria-hidden", String(!mostrar));
+}
+
+let quadroLayout = 0;
+function agendarLayout() {
+	if (quadroLayout) return;
+	quadroLayout = requestAnimationFrame(() => {
+		quadroLayout = 0;
+		atualizarSetasResumo();
+		atualizarBotaoTopo();
+	});
+}
+
+function registrarEventosLayout() {
+	// Formulário: toque no cabeçalho ou na seta recolhe/expande (só no celular)
+	el.cartaoForm?.querySelector(".cartao-cabecalho")?.addEventListener("click", e => {
+		if (!ehCelular() || e.target.closest("a, input, select, textarea")) return;
+		definirFormRecolhido(!el.cartaoForm.classList.contains("recolhido"));
+	});
+
+	// Setas do resumo
+	const resumo = $(".resumo");
+	resumo?.addEventListener("scroll", () => { $(".resumo-envoltorio")?.classList.add("ja-rolou"); agendarLayout(); }, { passive: true });
+	$$(".resumo-seta").forEach(b => b.addEventListener("click", () => {
+		if (!resumo) return;
+		resumo.scrollBy({ left: Number(b.dataset.rolar) * resumo.clientWidth * 0.8, behavior: comportamentoRolagem() });
+	}));
+
+	// Voltar ao topo
+	$(".tabela-envoltorio")?.addEventListener("scroll", agendarLayout, { passive: true });
+	window.addEventListener("scroll", agendarLayout, { passive: true });
+	window.addEventListener("resize", agendarLayout, { passive: true });
+	mqCelular?.addEventListener?.("change", agendarLayout);
+	$("#btnTopoLista")?.addEventListener("click", () => {
+		const rolador = rolagemDaLista();
+		if (rolador) rolador.scrollTo({ top: 0, behavior: comportamentoRolagem() });
+		else window.scrollTo({ top: 0, behavior: comportamentoRolagem() });
+	});
+	if ("ResizeObserver" in window) {
+		try { new ResizeObserver(agendarLayout).observe(document.body); } catch { /* ignora */ }
+	}
 }
 
 function atualizarEstadoFormulario() {
@@ -802,6 +890,7 @@ function iniciarEdicao(id) {
 	const item = itensAtuais().find(i => i.id === id);
 	if (!item) return;
 	estado.editandoId = id;
+	definirFormRecolhido(false, { lembrar: false });
 	el.codigo.value = item.codigoBarras;
 	el.nome.value = item.nome;
 	el.quantidade.value = item.quantidade;
@@ -999,16 +1088,66 @@ function aplicarNomeLoja() {
 	$('meta[name="apple-mobile-web-app-title"]')?.setAttribute("content", loja || "Vencimentos");
 }
 
-function definirNomeLoja(valor, { salvar = true } = {}) {
+/**
+ * @param {string} valor
+ * @param {{salvar?: boolean, origem?: "local"|"nuvem"}} opcoes
+ *   origem "nuvem": o nome veio de uma lista compartilhada (não é reenviado para outras listas).
+ */
+function definirNomeLoja(valor, { salvar = true, origem = "local" } = {}) {
 	estado.loja = limparNomeLoja(valor);
 	if (salvar) {
 		if (estado.loja) armazenamento.gravarTexto(CHAVE.loja, estado.loja);
 		else armazenamento.remover(CHAVE.loja);
+		armazenamento.gravarTexto(CHAVE.lojaOrigem, origem);
 	}
 	aplicarNomeLoja();
 }
 
+/* ---------- Nome da loja na nuvem ----------
+   Vai como um item reservado e invisível dentro da própria lista, então
+   funciona em todos os provedores sem mudar regras ou tabelas. Nome vazio
+   também é enviado (assim a remoção chega aos outros aparelhos). */
+const ID_CONFIG_LOJA = "c5e0c0de-0000-4000-8000-00000000a001";
+const MARCA_CONFIG_LOJA = "CVCONFIGLOJA";
+const ehConfigLoja = item => !!item && typeof item === "object" && String(item.id).toLowerCase() === ID_CONFIG_LOJA;
+
+function enviarNomeLojaNuvem() {
+	if (!emNuvem() || !podeEditar()) return;
+	const agora = Date.now();
+	provAtual()?.salvarVarios([{
+		id: ID_CONFIG_LOJA,
+		nome: estado.loja,
+		quantidade: 0,
+		vencimento: "2000-01-01",
+		codigoBarras: MARCA_CONFIG_LOJA,
+		criadoEm: agora,
+		atualizadoEm: agora
+	}]).catch(() => { });
+	estado.lojaVerificadaEm = idSync(estado.sync);
+}
+
+/** Aplica o nome recebido da nuvem; se a lista ainda não tem nome, envia o deste aparelho. */
+function receberNomeLojaNuvem(config, { doServidor }) {
+	if (!emNuvem()) return;
+	const lista = idSync(estado.sync);
+	if (config) {
+		estado.lojaVerificadaEm = lista;
+		const nome = limparNomeLoja(config.nome);
+		if (nome !== estado.loja) definirNomeLoja(nome, { origem: "nuvem" });
+		else armazenamento.gravarTexto(CHAVE.lojaOrigem, "nuvem");
+		return;
+	}
+	if (!doServidor || estado.lojaVerificadaEm === lista) return;
+	estado.lojaVerificadaEm = lista;
+	// Só envia um nome definido neste aparelho (nunca o de outra lista compartilhada)
+	if (estado.loja && armazenamento.lerTexto(CHAVE.lojaOrigem) !== "nuvem") enviarNomeLojaNuvem();
+}
+
 async function configurarNomeLoja() {
+	if (emNuvem() && !podeEditar()) {
+		toast("aviso", "Este aparelho está no modo <b>somente leitura</b>: o nome da loja segue a lista compartilhada.");
+		return;
+	}
 	const atual = estado.loja;
 	let valor;
 	if (!window.Swal) {
@@ -1040,7 +1179,9 @@ async function configurarNomeLoja() {
 	const limpo = limparNomeLoja(valor);
 	if (limpo === atual) return;
 	definirNomeLoja(limpo);
-	toast("sucesso", limpo ? `Nome da loja definido: <b>${esc(limpo)}</b>.` : "Nome padrão restaurado.");
+	enviarNomeLojaNuvem();
+	const nosAparelhos = emNuvem() ? " Os outros aparelhos da lista recebem na hora." : "";
+	toast("sucesso", (limpo ? `Nome da loja definido: <b>${esc(limpo)}</b>.` : "Nome padrão restaurado.") + nosAparelhos);
 }
 
 /** Parte do nome dos arquivos exportados (ex.: "mercado-sao-jose"). */
@@ -1132,7 +1273,7 @@ async function importarArquivo(arquivo) {
 		aplicarAlertaNaTela();
 	}
 	// Nome da loja do backup: só aplica se este aparelho ainda não tem um
-	if (!estado.loja && typeof dados.loja === "string" && limparNomeLoja(dados.loja)) definirNomeLoja(dados.loja);
+	if (!estado.loja && typeof dados.loja === "string" && limparNomeLoja(dados.loja)) { definirNomeLoja(dados.loja); enviarNomeLojaNuvem(); }
 	if (Array.isArray(dados.silenciados)) {
 		const ids = new Set(itensAtuais().map(i => i.id));
 		dados.silenciados.map(normalizarId).filter(id => id && ids.has(id)).forEach(id => estado.silenciados.add(id));
@@ -1271,7 +1412,9 @@ function eventosDe(id) {
 	return {
 		aoReceber(itens, meta) {
 			if (!ativo()) return;
-			estado.itensNuvem = sanitizarLista(itens);
+			const recebidos = Array.isArray(itens) ? itens : [];
+			estado.itensNuvem = sanitizarLista(recebidos.filter(i => !ehConfigLoja(i)));
+			receberNomeLojaNuvem(recebidos.find(ehConfigLoja), meta);
 			if (meta.doServidor) estado.ultimaSync = new Date();
 			if (meta.doServidor || estado.itensNuvem.length) estado.dadosProntos = true;
 			armazenamento.gravar(CHAVE.cacheNuvem, { id: idSync(estado.sync), itens: estado.itensNuvem });
@@ -2204,6 +2347,12 @@ function iniciar() {
 	}
 
 	registrarEventos();
+	registrarEventosLayout();
+
+	// Formulário no celular: recolhido quando já há produtos (ou como a pessoa deixou)
+	const recolhidoSalvo = armazenamento.lerTexto(CHAVE.formRecolhido);
+	definirFormRecolhido(recolhidoSalvo === null ? itensAtuais().length > 0 : recolhidoSalvo === "1", { lembrar: false });
+
 	render();
 	atualizarIndicadorSync();
 
