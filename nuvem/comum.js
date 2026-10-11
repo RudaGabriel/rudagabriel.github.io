@@ -63,6 +63,9 @@ export function uuidDeTexto(texto) {
 }
 
 /* ---------- Erros ---------- */
+/** Dica técnica só no console (para o dono do site); o usuário vê uma mensagem simples. */
+const dicaDono = dica => { try { console.warn("[nuvem · dono do site]", dica, "— veja docs/CONFIGURACAO.md"); } catch { /* ignora */ } };
+
 export function explicarErro(erro) {
 	const codigo = String(erro?.code || erro?.status || "");
 	const texto = String(erro?.message || erro?.error_description || erro?.error_summary || erro || "");
@@ -73,19 +76,24 @@ export function explicarErro(erro) {
 		return { tipo: "popup", mensagem: "O navegador bloqueou a janela de login. Permita pop-ups para este site e tente de novo." };
 	}
 	if (/unauthorized-domain/i.test(codigo + texto)) {
-		return { tipo: "config", mensagem: "Este site não está autorizado no login do Firebase (Authentication → Settings → Authorized domains)." };
+		dicaDono("Domínio não autorizado: Firebase → Authentication → Settings → Authorized domains.");
+		return { tipo: "config", mensagem: "Este tipo de login está temporariamente indisponível. Tente outra opção de entrada." };
 	}
 	if (/operation-not-allowed/i.test(codigo + texto)) {
-		return { tipo: "config", mensagem: "O login com Google não está ativado no Firebase (Authentication → Sign-in method → Google)." };
+		dicaDono("Provedor de login desativado: Firebase → Authentication → Sign-in method.");
+		return { tipo: "config", mensagem: "O login com Google está temporariamente indisponível. Tente outra opção de entrada." };
 	}
 	if (/permission|not allowed|row-level security|42501|PGRST301|insufficient/i.test(codigo + texto) || codigo === "403") {
-		return { tipo: "permissao", mensagem: "A nuvem recusou o acesso. Confira as regras de segurança (veja o README)." };
+		dicaDono("Acesso recusado: publique as regras do Firestore / rode o SQL do Supabase.");
+		return { tipo: "permissao", mensagem: "A nuvem recusou o acesso. Tente de novo em instantes; se continuar, use outra opção de entrada." };
 	}
 	if (/api[- ]?key|invalid.*key|JWT|apikey|401/i.test(codigo + texto)) {
-		return { tipo: "config", mensagem: "A chave da nuvem parece inválida. Confira config-nuvem.js." };
+		dicaDono("Chave inválida em config-nuvem.js.");
+		return { tipo: "config", mensagem: "A nuvem está temporariamente indisponível. Seus produtos continuam salvos neste aparelho." };
 	}
 	if (/relation .* does not exist|42P01|PGRST20[0-9]|schema cache/i.test(codigo + texto)) {
-		return { tipo: "config", mensagem: "As tabelas da nuvem não foram criadas. Rode o script SQL do README no Supabase." };
+		dicaDono("Tabelas/funções ausentes: rode o script SQL no Supabase.");
+		return { tipo: "config", mensagem: "Este servidor da nuvem está temporariamente indisponível. Tente outra opção de entrada." };
 	}
 	if (/expired|invalid.*(otp|token|code)|otp_expired|token has expired/i.test(codigo + texto)) {
 		return { tipo: "codigo", mensagem: "Código inválido ou expirado. Peça um novo." };

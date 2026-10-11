@@ -8,13 +8,7 @@
 
 [**▶ Abrir o app**](https://rudagabriel.github.io/) · [Privacidade](https://rudagabriel.github.io/privacidade.html) · [Reportar problema](https://github.com/RudaGabriel/rudagabriel.github.io/issues)
 
-![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)
-![CSS3](https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=white)
-![JavaScript](https://img.shields.io/badge/JavaScript-ES2022-F7DF1E?logo=javascript&logoColor=black)
-![Firebase](https://img.shields.io/badge/Firebase-FFCA28?logo=firebase&logoColor=black)
-![Supabase](https://img.shields.io/badge/Supabase-3FCF8E?logo=supabase&logoColor=white)
-![Dropbox](https://img.shields.io/badge/Dropbox-0061FF?logo=dropbox&logoColor=white)
-![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-blue)
+Gratuito · Funciona no celular e no computador · Sem instalação · Sem cadastro obrigatório
 
 </div>
 
@@ -22,329 +16,224 @@
 
 ## Sumário
 
-- [Visão geral](#visão-geral)
+- [O que é](#o-que-é)
 - [Capturas de tela](#capturas-de-tela)
-- [Funcionalidades](#funcionalidades)
-- [Como usar](#como-usar)
-- [Nuvem e sincronização](#nuvem-e-sincronização)
-- [Configuração da nuvem (dono do site)](#configuração-da-nuvem-dono-do-site)
-- [E-mails de login](#e-mails-de-login)
-- [Anúncios (Google AdSense)](#anúncios-google-adsense)
-- [Privacidade e segurança](#privacidade-e-segurança)
-- [Compatibilidade](#compatibilidade)
-- [Estrutura do projeto](#estrutura-do-projeto)
-- [Tecnologias](#tecnologias)
-- [Desenvolvimento local](#desenvolvimento-local)
-- [Solução de problemas](#solução-de-problemas)
-- [Licença](#licença)
+- [Primeiros passos](#primeiros-passos)
+- [Cadastrar produtos](#cadastrar-produtos)
+- [Ler código de barras](#ler-código-de-barras)
+- [Acompanhar os vencimentos](#acompanhar-os-vencimentos)
+- [Editar e remover](#editar-e-remover)
+- [Salvar na nuvem e usar em vários aparelhos](#salvar-na-nuvem-e-usar-em-vários-aparelhos)
+- [Compartilhar com a equipe](#compartilhar-com-a-equipe)
+- [Backup e planilha](#backup-e-planilha)
+- [Personalizar](#personalizar)
+- [Instalar como aplicativo](#instalar-como-aplicativo)
+- [Privacidade](#privacidade)
+- [Onde funciona](#onde-funciona)
+- [Perguntas e problemas comuns](#perguntas-e-problemas-comuns)
 
 ---
 
-## Visão geral
+## O que é
 
-O **Controle de Vencimento** é um aplicativo web gratuito, que funciona direto no navegador do celular ou do computador, sem instalação. Ele foi pensado para mercados, farmácias, padarias, depósitos e para uso doméstico: cadastre os produtos (inclusive lendo o código de barras com a câmera), acompanhe o que está **vencendo**, o que **já venceu** e o que vence **este mês**, e receba um alerta ao abrir o app.
+O **Controle de Vencimento** ajuda a não perder produtos por validade. Ele foi pensado para mercados, farmácias, padarias, depósitos e para a despensa de casa:
 
-Por padrão, tudo fica salvo **no próprio aparelho**. Se quiser, entre com **Google**, **e-mail** ou **Dropbox** para usar a mesma lista em vários aparelhos — ou compartilhe uma lista com a equipe por **link/QR Code**.
+- cadastre os produtos (até lendo o código de barras com a câmera);
+- veja na hora o que está **vencendo**, o que **já venceu** e o que vence **este mês**;
+- receba um **alerta ao abrir o app** com o que está perto de vencer;
+- se quiser, use a **mesma lista no celular e no computador**, ou com a sua equipe.
+
+Por padrão, tudo fica salvo **no seu próprio aparelho**. Nada é enviado para a internet, a menos que você ative a nuvem.
 
 ## Capturas de tela
 
-| Computador (tema escuro) | Celular (tema claro) | Nuvem e login |
+| Computador (tema escuro) | Celular (tema claro) | Salvar e compartilhar |
 |:---:|:---:|:---:|
 | <img src="docs/tela-desktop.png" alt="App no computador" width="420"> | <img src="docs/tela-celular.png" alt="App no celular" width="200"> | <img src="docs/tela-nuvem.png" alt="Opções de nuvem" width="200"> |
 
-## Funcionalidades
+## Primeiros passos
 
-### Cadastro e lista
-- Cadastro com **código de barras** (opcional), **produto**, **quantidade** e **vencimento**.
-- **Reconhecimento automático:** ao ler um código já cadastrado, o nome do produto é preenchido sozinho.
-- **Produtos repetidos:** ao cadastrar o mesmo produto/vencimento, escolha **somar** ou **substituir** a quantidade.
-- Edição, remoção com **Desfazer**, busca **sem acentos** e ordenação (prioridade, vencimento, nome, quantidade, mais recentes).
-- **Situação clara** em cada item: "Vence amanhã", "Vence em 12 dias", "Venceu há 3 dias".
+1. Abra **[rudagabriel.github.io](https://rudagabriel.github.io/)** no navegador do celular ou do computador.
+2. Em **Novo produto**, preencha o produto, a quantidade e o vencimento e toque em **Adicionar**.
+3. Pronto: o produto aparece na lista com a situação ("Vence em 12 dias", "Venceu ontem"…).
 
-### Resumo e alertas
-- Cartões de resumo que também funcionam como filtros: **Todos**, **Vencendo**, **Vencidos**, **Vencem este mês** e **Em dia**.
-- Prazo de alerta configurável (em **dias** ou **meses**).
-- **Alerta ao abrir o app** com os produtos perto do vencimento, com opção de silenciar por produto (ícone do sino).
+Não é preciso criar conta. Se quiser guardar na nuvem, veja [Salvar na nuvem](#salvar-na-nuvem-e-usar-em-vários-aparelhos).
 
-### Leitor de código de barras
-- Funciona em **iPhone, Android e computador**, com três motores de leitura em cascata (detector nativo do aparelho → ZXing em WebAssembly → ZXing em JavaScript).
-- **Flash (lanterna)**, **zoom** e **troca de câmera** (quando o aparelho permite).
-- Confirmação por **dígito verificador** (EAN/UPC) para evitar leituras erradas; bipe e vibração ao ler.
-- **"Tirar foto do código"**: alternativa que usa a câmera nativa — funciona mesmo em navegadores que não liberam a câmera ao vivo.
-- Compatível com leitores de código de barras **USB/Bluetooth** (que "digitam" o código).
+## Cadastrar produtos
 
-### Dados
-- **Backup e restauração** em `.json` (menu ⋮).
-- **Exportação para planilha** (`.csv`, abre no Excel e no Google Planilhas).
-- **Tema claro e escuro**, layout próprio para celular e atualização em tempo real entre abas.
+| Campo | Obrigatório | Dica |
+|---|:---:|---|
+| **Código de barras** | Não | Toque no ícone ao lado do campo para ler com a câmera, ou digite. |
+| **Produto** | Sim | O app sugere nomes que você já usou. |
+| **Quantidade** | Sim | Aceita números grandes (ex.: 1.240). |
+| **Vencimento** | Sim | Data de validade do lote. |
 
-## Como usar
+- **Nome automático:** se você ler um código de barras que já está na lista, o nome do produto é preenchido sozinho.
+- **Produto repetido:** ao cadastrar o mesmo produto com o mesmo vencimento, o app pergunta se você quer **somar** as quantidades ou **substituir** pela nova.
+- Leitores de código de barras **USB ou Bluetooth** também funcionam: basta clicar no campo do código e ler.
 
-1. Abra **https://rudagabriel.github.io/**.
-2. Em **Novo produto**, toque no ícone de código de barras para ler com a câmera (ou digite), preencha produto, quantidade e vencimento e toque em **Adicionar**.
-3. Use os cartões do topo para filtrar e a busca para encontrar produtos.
-4. Ajuste **"Alertar com N dias de antecedência"** conforme sua rotina.
-5. Para não perder nada, faça **backup** (menu ⋮ → *Fazer backup*) ou ative a **nuvem** (botão no topo).
+## Ler código de barras
 
-> **Dica (celular):** no Safari, toque em *Compartilhar → Adicionar à Tela de Início*; no Chrome, *⋮ → Adicionar à tela inicial*. O app abre como um aplicativo.
+1. Toque no ícone de **código de barras** ao lado do campo *Código de barras*.
+2. Permita o uso da câmera quando o navegador pedir.
+3. Aponte para o código, deixando-o **reto dentro da faixa** no meio da tela.
+4. Ao ler, o app **bipa, vibra** e preenche o código sozinho.
 
-## Nuvem e sincronização
+Na tela do leitor você encontra:
 
-Toque no botão de nuvem (topo, onde aparece **"Apenas neste aparelho"**) e escolha:
+| Botão | Para que serve |
+|---|---|
+| **Flash** | Liga a lanterna em lugares escuros (quando o aparelho permite). |
+| **Zoom** | Aproxima códigos pequenos sem precisar encostar o celular. |
+| **Trocar câmera** | Alterna entre a câmera traseira e a frontal. |
+| **Tirar foto do código** | Abre a câmera do próprio celular para fotografar o código. Use quando a câmera ao vivo não abrir. |
 
-| Opção | Como a pessoa entra | Onde os dados ficam | Ideal para |
-|---|---|---|---|
-| **Entrar com Google** | 1 toque na conta Google | Firebase (Google) | quem usa Gmail/Android |
-| **Entrar com e-mail** | link de acesso no e-mail, sem senha | Firebase (Supabase como alternativa) | qualquer pessoa |
-| **Entrar com Dropbox** | 1 toque na conta Dropbox | arquivo no **Dropbox da própria pessoa** | quem já usa Dropbox |
-| **Lista com código** | abrir link / ler QR Code / digitar código | Firebase ou Supabase | compartilhar com a equipe |
+> **Dicas para ler mais rápido:** afaste o celular uns 15 a 20 cm, evite reflexo de luz sobre o código e use o zoom em códigos pequenos.
 
-- **Com login**, a conta lembra a lista: entre com a **mesma conta** nos outros aparelhos e a mesma lista aparece.
-- **Lista com código** tem dois tipos de link: **Pode editar** e **Só visualizar**.
-- **Offline:** as alterações ficam guardadas e são enviadas quando a internet voltar.
-- **Sem duplicar:** cada produto é salvo separadamente; edições em aparelhos diferentes não se sobrescrevem.
-- Ao sair, você pode **guardar uma cópia** da lista da nuvem no aparelho.
+## Acompanhar os vencimentos
 
-## Configuração da nuvem (dono do site)
+### Cartões de resumo
+Os cartões no topo mostram quantos produtos estão em cada situação. **Toque em um cartão para filtrar a lista:**
 
-As opções ficam em [`config-nuvem.js`](config-nuvem.js). Cada opção preenchida vira um botão no app; as que ficarem `null` não aparecem. Se nada for preenchido, o app continua funcionando, salvando só no aparelho.
+| Cartão | Mostra |
+|---|---|
+| **Todos** | Todos os produtos. |
+| **Vencendo** | Produtos dentro do prazo de alerta. |
+| **Vencidos** | Produtos com a validade já passada. |
+| **Vencem este mês** | Produtos que vencem até o fim do mês atual. |
+| **Em dia** | Produtos ainda longe do vencimento. |
 
-> As chaves desse arquivo são **públicas** (feitas para ficar no site). A proteção dos dados vem das **regras de segurança** abaixo, do login de cada pessoa e do código aleatório de cada lista. **Nunca** coloque no site chaves secretas (Firebase *service account*, Supabase *secret/service_role*, Dropbox *App secret* ou *access token*).
+No celular, deslize os cartões para o lado para ver todos.
 
-### 1) Google — Firebase
+### Prazo de alerta
+Em **"Alertar com N dias/meses de antecedência"**, escolha com quanto tempo de antecedência um produto passa a contar como **Vencendo**. Exemplo: com *30 dias*, um produto que vence daqui a 20 dias já aparece em amarelo.
 
-Habilita **Entrar com Google**, **Entrar com e-mail (link)** e **listas por código**.
+### Alerta ao abrir
+Sempre que você abrir o app, ele avisa quais produtos estão perto do vencimento. Para **não ser avisado** de um produto específico, toque no **sino** da linha dele. Toque de novo para voltar a receber o aviso.
 
-1. Em https://console.firebase.google.com abra (ou crie) o projeto.
-2. **Firestore Database** → *Criar banco de dados* (local: `southamerica-east1`, modo produção) → aba **Regras** → cole e clique em **Publicar**:
+### Busca e ordenação
+- **Buscar:** digite parte do nome ou do código. A busca ignora acentos e maiúsculas ("pao" encontra "Pão").
+- **Ordenar por:** Prioridade (vencidos e vencendo primeiro), Vencimento ↑ ou ↓, Nome (A–Z), Quantidade ou Mais recentes.
 
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /listas/{codigo} {
-      allow get: if codigo.matches('^[A-HJ-NP-Z2-9]{16}$');
-      allow list, delete: if false;
-      allow create, update: if codigo.matches('^[A-HJ-NP-Z2-9]{16}$')
-        && request.resource.data.keys().hasOnly(['itens', 'versao', 'atualizadoEm'])
-        && request.resource.data.itens is map
-        && request.resource.data.itens.size() <= 5000;
-    }
-    match /contas/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
-    }
-  }
-}
-```
+As cores ajudam a ler a lista de relance: **vermelho** = vencido, **amarelo** = vencendo, **verde** = em dia.
 
-3. **Authentication** → *Vamos começar* → **Sign-in method**:
-   - ative **Google** (escolha o e-mail de suporte);
-   - ative **E-mail/senha** e ligue **Link do e-mail (login sem senha)**.
-4. **Authentication → Configurações → Domínios autorizados** → adicione `rudagabriel.github.io`.
-5. **⚙ Configurações do projeto → Seus apps → app Web (`</>`)** → copie o `firebaseConfig` para `firebase: { ... }`.
+## Editar e remover
 
-### 2) E-mail — Supabase (servidor alternativo)
+- **Editar:** toque no **lápis** da linha. Os dados vão para o formulário; altere e toque em **Salvar alterações** (ou em **Cancelar** para desistir).
+- **Remover:** toque na **lixeira**. Removeu sem querer? Toque em **Desfazer** no aviso que aparece embaixo.
 
-Quando o Firebase também está configurado, o "Entrar com e-mail" usa o Firebase e o Supabase aparece como **"Não chegou? Enviar por outro servidor"** (link ou código de 6 dígitos). Também pode ser usado sozinho.
+## Salvar na nuvem e usar em vários aparelhos
 
-1. Crie um projeto em https://supabase.com/dashboard (região *South America (São Paulo)*).
-2. **SQL Editor → New query** → cole e clique em **Run** (deve aparecer *"Success. No rows returned"*):
+Toque no botão do topo onde aparece **"Apenas neste aparelho"** e escolha uma forma de entrar:
 
-```sql
--- Controle de Vencimento: rode uma vez em Supabase → SQL Editor → Run
-create table if not exists public.produtos (
-  id uuid primary key,
-  lista text not null check (lista ~ '^[A-HJ-NP-Z2-9]{16}$'),
-  nome text not null,
-  quantidade numeric not null default 0,
-  vencimento date not null,
-  codigo_barras text not null default '',
-  criado_em bigint,
-  atualizado_em bigint
-);
-create index if not exists produtos_lista_idx on public.produtos (lista);
-alter table public.produtos enable row level security; -- sem políticas: acesso só pelas funções abaixo
+| Opção | Como funciona |
+|---|---|
+| **Entrar com Google** | Um toque na sua conta Google. |
+| **Entrar com e-mail** | Digite seu e-mail e toque no **link de acesso** que chega na sua caixa de entrada. Não precisa de senha. |
+| **Entrar com Dropbox** | Sua lista fica guardada em um arquivo **dentro do seu próprio Dropbox**. |
+| **Criar lista com código** | Sem login: o app cria um código para a sua lista (veja [Compartilhar](#compartilhar-com-a-equipe)). |
 
-create or replace function public.cv_listar(p_lista text)
-returns setof public.produtos language sql stable security definer set search_path = public as $$
-  select * from public.produtos where p_lista ~ '^[A-HJ-NP-Z2-9]{16}$' and lista = p_lista;
-$$;
+**Para ver a mesma lista em outro aparelho**, basta entrar com a **mesma conta** nele.
 
-create or replace function public.cv_salvar(p_lista text, p_itens jsonb)
-returns void language plpgsql security definer set search_path = public as $$
-begin
-  if p_lista !~ '^[A-HJ-NP-Z2-9]{16}$' or jsonb_array_length(p_itens) > 1000 then
-    raise exception 'dados invalidos';
-  end if;
-  insert into public.produtos (id, lista, nome, quantidade, vencimento, codigo_barras, criado_em, atualizado_em)
-  select (x->>'id')::uuid, p_lista, left(x->>'nome', 120), coalesce((x->>'quantidade')::numeric, 0),
-         (x->>'vencimento')::date, left(coalesce(x->>'codigoBarras', ''), 64),
-         (x->>'criadoEm')::bigint, (x->>'atualizadoEm')::bigint
-  from jsonb_array_elements(p_itens) x
-  on conflict (id) do update set
-    nome = excluded.nome, quantidade = excluded.quantidade, vencimento = excluded.vencimento,
-    codigo_barras = excluded.codigo_barras, atualizado_em = excluded.atualizado_em
-  where public.produtos.lista = excluded.lista;
-end $$;
+Bom saber:
+- **Sem internet?** Continue usando normalmente. As alterações são enviadas quando a conexão voltar.
+- **Os produtos que você já tinha** no aparelho podem ser enviados para a nuvem ao entrar. O app pergunta antes.
+- O botão do topo mostra a situação: **Salvo na nuvem**, **Salvando…**, **Sem internet** ou **Apenas neste aparelho**.
+- **Para sair**, toque no mesmo botão e em **Desconectar**. Você pode guardar uma cópia da lista no aparelho.
 
-create or replace function public.cv_remover(p_lista text, p_ids uuid[])
-returns void language sql security definer set search_path = public as $$
-  delete from public.produtos where p_lista ~ '^[A-HJ-NP-Z2-9]{16}$' and lista = p_lista and id = any(p_ids);
-$$;
+> **O e-mail de acesso não chegou?** Confira a pasta de spam/lixo eletrônico. Se ainda assim não chegar, toque em **"Não chegou? Enviar por outro servidor"** e digite o código de 6 dígitos que vier no novo e-mail.
 
-grant execute on function public.cv_listar(text), public.cv_salvar(text, jsonb), public.cv_remover(text, uuid[]) to anon, authenticated;
+## Compartilhar com a equipe
 
-create table if not exists public.contas (
-  usuario uuid primary key references auth.users on delete cascade,
-  lista text not null,
-  atualizado_em timestamptz not null default now()
-);
-alter table public.contas enable row level security;
-drop policy if exists "dono da conta" on public.contas;
-create policy "dono da conta" on public.contas for all to authenticated
-  using (usuario = auth.uid()) with check (usuario = auth.uid());
-```
+Depois de conectar uma lista com código, toque no botão de nuvem e use a área **Compartilhar**:
 
-3. **Authentication → URL Configuration**: *Site URL* = `https://rudagabriel.github.io/` e, em *Redirect URLs*, adicione `https://rudagabriel.github.io/**`.
-4. *(Opcional)* **Authentication → Emails → Magic Link**: acrescente `Seu código: {{ .Token }}` para o e-mail trazer também um código.
-5. **Project Settings → API Keys** → copie a *Project URL* e a chave **publishable** (`sb_publishable_…`) ou *anon public* para `supabase: { url, chave }`.
+1. Escolha o tipo de acesso:
+   - **Pode editar:** a pessoa pode adicionar, editar e remover produtos;
+   - **Só visualizar:** a pessoa só vê a lista.
+2. Envie o **link** (botão de copiar) ou mostre o **QR Code** para a pessoa ler com a câmera.
+3. A pessoa também pode digitar o **código da lista** em **"Já tem um código?"**.
 
-> O envio de e-mails gratuito do Supabase tem limite por hora. Para muitos usuários, configure um SMTP próprio em *Authentication → SMTP Settings*.
+Todos veem as alterações **em tempo real**.
 
-### 3) Dropbox
+> ⚠️ Quem tiver o link, o QR Code ou o código pode acessar a lista. Compartilhe apenas com pessoas de confiança.
 
-Habilita **Entrar com Dropbox**. Cada pessoa salva os produtos no próprio Dropbox (`Aplicativos/<nome do app>/vencimentos.json`).
+**Controlar a edição neste aparelho:** em uma lista compartilhada, a opção **"Permitir edição neste aparelho"** deixa o aparelho como editor ou somente leitura.
 
-1. Em https://www.dropbox.com/developers/apps → **Create app** → *Scoped access* → **App folder** → nome único.
-2. Aba **Permissions**: marque `account_info.read`, `files.content.read` e `files.content.write` → **Submit**.
-3. Aba **Settings**: em *OAuth 2 → Redirect URIs* adicione `https://rudagabriel.github.io/`; confirme *Allow public clients (PKCE)* = **Allow**.
-4. Copie **somente o App key** para `dropbox: { appKey: "..." }`.
+## Backup e planilha
 
-> Apps do Dropbox em modo *Development* aceitam até 500 usuários. Para mais, solicite *Production* no painel.
+No menu **⋮** (canto superior direito):
 
-## E-mails de login
+| Opção | O que faz |
+|---|---|
+| **Fazer backup (.json)** | Baixa um arquivo com todos os seus produtos e preferências. Guarde em local seguro. |
+| **Exportar planilha (.csv)** | Baixa a lista para abrir no **Excel** ou no **Google Planilhas**. |
+| **Restaurar / importar backup** | Carrega um backup feito antes (também aceita backups de versões antigas do app). |
+| **Salvar e compartilhar** | Abre as opções de nuvem. |
 
-### Firebase (e-mail principal)
-O Firebase não permite trocar o texto do e-mail de login por link, mas permite deixá-lo com a cara do app:
+> Se você usa o app **sem nuvem**, faça backup de vez em quando: limpar os dados do navegador apaga a lista do aparelho.
 
-1. **⚙ Configurações do projeto → Geral → Nome exibido publicamente:** `Controle de Vencimento` (é o nome que aparece no assunto e no link do e-mail).
-2. **Authentication → Modelos (Templates)** → no lápis ✏️ de qualquer modelo:
-   - **Nome do remetente:** `Controle de Vencimento`;
-   - **Responder para:** um e-mail seu (opcional).
-3. **Authentication → Modelos → Idioma do modelo:** *Português (Brasil)*. O app também pede os e-mails em português automaticamente.
-4. **Remetente `noreply@seudominio`** (opcional): em *Modelos → Personalizar domínio*, use um domínio próprio (ex.: `controledevencimento.com.br`) e siga a verificação de DNS. Sem domínio próprio, o remetente continua `noreply@<id-do-projeto>.firebaseapp.com`.
+## Personalizar
 
-### Supabase (e-mail alternativo) — e-mail totalmente personalizado
-1. **Authentication → Emails → Magic Link**:
-   - **Assunto:** `Seu acesso ao Controle de Vencimento`;
-   - **Corpo:** cole o conteúdo de [`docs/email-login.html`](docs/email-login.html) (botão "Entrar no app" + código de 6 dígitos, em português, com o ícone do app).
-2. **Remetente profissional** (recomendado): em *Authentication → SMTP Settings*, configure um SMTP (ex.: Brevo, Resend ou Amazon SES) com remetente `Controle de Vencimento <noreply@seudominio>` — também aumenta o limite de envios.
+- **Tema claro ou escuro:** toque no ícone de sol/lua no topo. Na primeira visita, o app segue o tema do seu aparelho.
+- **Prazo de alerta** e **ordenação** ficam salvos para a próxima vez.
+- **Avisos silenciados** (sino) ficam salvos por produto.
 
-## Anúncios (Google AdSense)
+## Instalar como aplicativo
 
-O site já está preparado para o AdSense (editor `pub-2042570332495044`):
+Você pode deixar o app na tela inicial, com ícone próprio e abrindo em tela cheia:
 
-- [`ads.txt`](ads.txt) na raiz e script de verificação no `<head>` do `index.html`.
-- **Anúncios automáticos:** em AdSense → **Anúncios → Por site** → `rudagabriel.github.io` → ative **Anúncios automáticos**. O Google posiciona os anúncios sozinho — não é preciso alterar o código.
-- **Bloco fixo (opcional):** crie em AdSense → **Anúncios → Por bloco de anúncios → Anúncios de display** (responsivo) e coloque o número do `data-ad-slot` em [`config-anuncios.js`](config-anuncios.js) (`blocoRodape`). O espaço aparece no fim da página e **some sozinho** se não houver anúncio ou se houver bloqueador.
-- A [Política de Privacidade](privacidade.html) (exigida pelo AdSense) explica o uso de cookies de anúncios.
+- **iPhone (Safari):** toque em **Compartilhar** → **Adicionar à Tela de Início**.
+- **Android (Chrome):** toque em **⋮** → **Adicionar à tela inicial** (ou **Instalar app**).
+- **Computador (Chrome/Edge):** clique no ícone de **instalar** na barra de endereço.
 
-> Os anúncios só aparecem depois que o site é **aprovado** pelo AdSense (*Sites → Status: Pronto*). Pode levar alguns dias.
+## Privacidade
 
-## Privacidade e segurança
+- **Sem login, nada sai do seu aparelho.**
+- A **câmera** é usada só para ler códigos; as imagens são processadas no próprio aparelho e não são enviadas nem guardadas.
+- Com login, cada conta só acessa os **próprios dados**.
+- Os códigos de lista são longos e aleatórios, impossíveis de adivinhar.
+- O site exibe anúncios do Google AdSense, que podem usar cookies.
 
-- **Local por padrão:** sem login, nada sai do aparelho.
-- **Câmera:** usada só para ler códigos; as imagens são processadas no aparelho e não são enviadas.
-- **Listas com código:** 16 caracteres aleatórios (≈ 80 bits) — impossível de adivinhar; as regras impedem listar as listas dos outros.
-- **Contas:** cada conta só acessa os próprios dados (regras do Firestore e RLS do Supabase).
-- Conteúdo digitado é sempre escapado antes de ser exibido (proteção contra XSS).
-- Detalhes na [Política de Privacidade](https://rudagabriel.github.io/privacidade.html).
+Detalhes completos na [Política de Privacidade](https://rudagabriel.github.io/privacidade.html).
 
-## Compatibilidade
+## Onde funciona
 
 | Recurso | iPhone (Safari) | Android (Chrome) | Computador |
 |---|:---:|:---:|:---:|
-| App e nuvem | ✅ | ✅ | ✅ |
+| App, alertas e nuvem | ✅ | ✅ | ✅ |
 | Leitor ao vivo | ✅ | ✅ | ✅ (webcam) |
-| Leitura por foto | ✅ | ✅ | ✅ |
-| Flash pela página | ➖ (use *Tirar foto*) | ✅ | ➖ |
-| Zoom / troca de câmera | depende do aparelho | ✅ | depende da webcam |
+| Tirar foto do código | ✅ | ✅ | ✅ |
+| Flash pela página | ➖ use *Tirar foto* | ✅ | ➖ |
+| Zoom e troca de câmera | depende do aparelho | ✅ | depende da webcam |
 
-> Navegadores dentro de outros apps (Instagram, WhatsApp etc.) podem bloquear a câmera ao vivo — use **Tirar foto do código** ou abra no Safari/Chrome.
+> Navegadores **dentro de outros apps** (Instagram, WhatsApp, Facebook etc.) podem bloquear a câmera. Abra o link no **Safari** ou no **Chrome**, ou use **Tirar foto do código**.
 
-## Estrutura do projeto
+## Perguntas e problemas comuns
 
-```
-├── index.html            # Página do app
-├── style.css             # Design (tema claro/escuro, responsivo)
-├── app.js                # Lógica principal: lista, filtros, alertas, backup, nuvem
-├── leitor.js             # Leitor de código de barras (3 motores, flash, zoom, foto)
-├── nuvem/
-│   ├── comum.js          # Códigos de lista, UUIDs, erros e fila offline
-│   ├── firebase.js       # Google: Firestore, login Google e link no e-mail
-│   ├── supabase.js       # E-mail (alternativo): funções SQL seguras
-│   └── dropbox.js        # Dropbox: OAuth PKCE e arquivo na pasta do app
-├── config-nuvem.js       # Chaves públicas da nuvem (dono do site)
-├── anuncios.js           # Bloco de anúncio responsivo (AdSense)
-├── config-anuncios.js    # ID de editor e bloco de anúncio
-├── privacidade.html      # Política de Privacidade
-├── ads.txt               # Autorização de vendedores do AdSense
-├── docs/                 # Capturas de tela e modelo de e-mail de login
-├── icones/               # Ícone do app (SVG original + PNGs) 
-└── manifest.webmanifest  # Instalação na tela inicial (PWA)
-```
-
-## Tecnologias
-
-Site estático (GitHub Pages), **sem etapa de build** — JavaScript moderno com módulos ES e bibliotecas carregadas de CDN, sob demanda:
-
-| Biblioteca | Uso |
+| Situação | O que fazer |
 |---|---|
-| [Firebase 12](https://firebase.google.com/) | Firestore (nuvem) e Authentication (Google e link no e-mail) |
-| [Supabase JS](https://supabase.com/) | Login por e-mail alternativo e funções SQL |
-| [Dropbox API](https://www.dropbox.com/developers) | Login OAuth PKCE e armazenamento do arquivo |
-| [barcode-detector / ZXing-C++](https://github.com/Sec-ant/barcode-detector) · [ZXing JS](https://github.com/zxing-js/library) | Leitura de códigos de barras |
-| [SweetAlert2](https://sweetalert2.github.io/) | Diálogos |
-| [Notyf](https://carlosroso.com/notyf/) | Avisos rápidos |
-| [Lucide](https://lucide.dev/) | Ícones |
-| [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) | QR Code de compartilhamento |
-| [AutoAnimate](https://auto-animate.formkit.com/) | Animações da lista |
+| **"Não foi possível iniciar a câmera"** | Permita a câmera para o site. No iPhone: *Ajustes → Safari → Câmera → Permitir*. No Android: toque no cadeado da barra de endereço → *Permissões → Câmera*. Enquanto isso, use **Tirar foto do código**. |
+| **O leitor não lê o código** | Afaste um pouco o celular, mantenha o código reto na faixa, use o **zoom** e, se estiver escuro, o **flash**. |
+| **O e-mail de acesso não chegou** | Veja o spam e toque em **"Não chegou? Enviar por outro servidor"**. |
+| **Abri o link do e-mail em outro aparelho** | O app pede para confirmar seu e-mail; digite o mesmo e-mail usado no pedido. |
+| **O navegador bloqueou a janela de login** | Permita pop-ups para o site e tente de novo. |
+| **A lista não aparece no outro aparelho** | Confirme se entrou com a **mesma conta** (ou o mesmo código) nos dois aparelhos e se há internet. |
+| **Não consigo editar uma lista compartilhada** | O link pode ser do tipo **Só visualizar**. Peça um link **Pode editar** ou ative **"Permitir edição neste aparelho"**. |
+| **"Nuvem indisponível no momento"** | Seus produtos continuam salvos no aparelho. Tente outra forma de entrar ou tente mais tarde. |
+| **Perdi meus produtos ao limpar o navegador** | Restaure um **backup** (menu ⋮ → *Restaurar*) ou entre na nuvem com a conta usada antes. |
 
-## Desenvolvimento local
-
-Não há dependências para instalar. Basta servir a pasta por HTTP:
-
-```bash
-git clone https://github.com/RudaGabriel/rudagabriel.github.io.git
-cd rudagabriel.github.io
-python3 -m http.server 8080
-# abra http://localhost:8080
-```
-
-> A câmera exige **HTTPS** (ou `localhost`). O login com Google/Dropbox só funciona nos domínios autorizados nos painéis (adicione `localhost` se for testar localmente).
-
-Publicação: todo merge na branch `main` é publicado automaticamente pelo GitHub Pages em 1–2 minutos.
-
-## Solução de problemas
-
-| Problema | Solução |
-|---|---|
-| "Não foi possível iniciar a câmera" | Verifique a permissão da câmera do navegador (iPhone: *Ajustes → Safari → Câmera*). A mensagem mostra um detalhe técnico — use **Tirar foto do código** enquanto isso. |
-| O leitor não lê | Afaste um pouco o celular, use o **zoom** ou o **flash**, mantenha o código reto na faixa. |
-| "Este site não está autorizado no login do Firebase" | Adicione `rudagabriel.github.io` em *Authentication → Domínios autorizados*. |
-| "O login com Google não está ativado" | Ative **Google** em *Authentication → Sign-in method*. |
-| "A nuvem recusou o acesso" | Publique as **regras do Firestore** (ou rode o **script SQL** do Supabase). |
-| "As tabelas da nuvem não foram criadas" | Rode o script SQL do Supabase. |
-| O e-mail de login não chegou | Confira o spam; toque em **"Não chegou? Enviar por outro servidor"**. |
-| Login do Dropbox volta com erro | Confira a *Redirect URI* `https://rudagabriel.github.io/` e as permissões no painel do Dropbox. |
-| Anúncios não aparecem | O site precisa estar aprovado no AdSense e com *Anúncios automáticos* ligados; bloqueadores de anúncio impedem a exibição. |
-
-### Comandos de compatibilidade
+### Comandos rápidos (avançado)
 
 Digite no campo de busca:
-- **`/ase`** (ou `autorizarsyncenviar`) — permite que este aparelho edite a lista da nuvem;
-- **`/dse`** (ou `naoautorizarsyncenviar`) — deixa este aparelho como somente leitura.
+- **`/ase`** — permite que este aparelho **edite** a lista da nuvem;
+- **`/dse`** — deixa este aparelho como **somente leitura**.
 
-## Licença
+---
 
-Distribuído sob a licença **MIT**. Veja [LICENSE](LICENSE).
+<div align="center">
+
+Encontrou um problema ou tem uma sugestão? [Abra uma solicitação](https://github.com/RudaGabriel/rudagabriel.github.io/issues).
+
+Distribuído sob a licença **MIT** · [LICENSE](LICENSE)
+
+</div>
