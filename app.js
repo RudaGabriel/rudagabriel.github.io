@@ -723,11 +723,16 @@ function atualizarBotaoTopo() {
 	const rolador = rolagemDaLista();
 	const posicao = rolador ? rolador.scrollTop : (document.scrollingElement?.scrollTop || 0);
 	const altura = rolador ? rolador.clientHeight : window.innerHeight;
-	const mostrar = posicao > Math.max(300, altura * 1.2);
+	// Aparece cedo: depois de rolar cerca de meia tela da lista (mín. 90px, máx. 360px).
+	// Some só um pouco antes do limite (evita piscar na fronteira).
+	const limite = Math.max(90, Math.min(altura * 0.5, 360));
+	const jaVisivel = botao.classList.contains("visivel");
+	const mostrar = jaVisivel ? posicao > limite * 0.6 : posicao > limite;
 	botao.classList.toggle("fixo", !rolador);
 	botao.classList.toggle("visivel", mostrar);
-	// Espaço no fim da lista para o botão não cobrir o último produto
-	$(".cartao-lista")?.classList.toggle("com-topo", mostrar);
+	// Espaço fixo no fim da lista (sempre que ela rola) para o botão não cobrir o
+	// último produto — fixo para a rolagem não "pular" quando o botão aparece
+	$(".cartao-lista")?.classList.toggle("com-topo", !!rolador);
 	botao.tabIndex = mostrar ? 0 : -1;
 	botao.setAttribute("aria-hidden", String(!mostrar));
 }
