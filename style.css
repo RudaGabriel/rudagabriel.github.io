@@ -10,7 +10,7 @@
 	--raio: 12px;
 	--raio-lg: 18px;
 	--altura-topo: 64px;
-	--transicao: 160ms cubic-bezier(.4, 0, .2, 1);
+	--transicao: 240ms cubic-bezier(.4, 0, .2, 1);
 	/* Largura do conteúdo: acompanha a tela (só limita em monitores muito largos) */
 	--largura-pagina: 2200px;
 	--margem-pagina: clamp(16px, 2.6vw, 48px);
@@ -364,7 +364,32 @@ svg.lucide,
 	display: flex;
 	flex-direction: column;
 	z-index: 30;
-	animation: surgir-menu 180ms cubic-bezier(.2, .8, .2, 1);
+	animation: surgir-menu 280ms cubic-bezier(.2, .9, .25, 1.05);
+}
+
+.menu-lista a {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 9px 10px;
+	border-radius: var(--raio-sm);
+	color: var(--texto);
+	font-size: .88rem;
+	text-decoration: none;
+}
+
+.menu-lista a:hover {
+	background: var(--superficie-3);
+	text-decoration: none;
+}
+
+.menu-lista a svg {
+	color: var(--texto-suave);
+}
+
+/* Links do rodapé no menu: só no celular (no computador o rodapé aparece) */
+.menu-links-rodape {
+	display: none;
 }
 
 .menu-lista button {
@@ -1168,14 +1193,14 @@ input[type="number"]::-webkit-inner-spin-button {
 
 /* Abrir e fechar suaves (navegadores sem suporte simplesmente abrem/fecham na hora) */
 .dialogo {
-	--dlg-de: translateY(12px) scale(.97);
+	--dlg-de: translateY(28px) scale(.92);
 	opacity: 0;
 	transform: var(--dlg-de);
 	transition:
-		opacity 200ms ease,
-		transform 280ms cubic-bezier(.2, .8, .2, 1),
-		overlay 280ms allow-discrete,
-		display 280ms allow-discrete;
+		opacity 300ms ease,
+		transform 420ms cubic-bezier(.2, .9, .25, 1.05),
+		overlay 420ms allow-discrete,
+		display 420ms allow-discrete;
 }
 
 .dialogo[open] {
@@ -1195,7 +1220,7 @@ input[type="number"]::-webkit-inner-spin-button {
 	backdrop-filter: blur(4px);
 	-webkit-backdrop-filter: blur(4px);
 	opacity: 0;
-	transition: opacity 240ms ease, overlay 280ms allow-discrete, display 280ms allow-discrete;
+	transition: opacity 360ms ease, overlay 420ms allow-discrete, display 420ms allow-discrete;
 }
 
 .dialogo[open]::backdrop {
@@ -1928,9 +1953,33 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 .leitor-zoom svg {
-	width: 16px;
-	height: 16px;
+	width: 18px;
+	height: 18px;
 	flex: none;
+}
+
+.zoom-passo {
+	display: grid;
+	place-items: center;
+	flex: none;
+	width: 34px;
+	height: 34px;
+	margin: -6px -6px;
+	border: 0;
+	border-radius: 50%;
+	background: transparent;
+	color: inherit;
+	cursor: pointer;
+	transition: background var(--transicao), transform 140ms ease;
+}
+
+.zoom-passo:hover {
+	background: rgba(255, 255, 255, .14);
+}
+
+.zoom-passo:active {
+	transform: scale(.88);
+	background: rgba(255, 255, 255, .22);
 }
 
 .leitor-zoom input {
@@ -2200,7 +2249,7 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 @keyframes surgir-menu {
-	from { opacity: 0; transform: translateY(-4px) scale(.96); }
+	from { opacity: 0; transform: translateY(-10px) scale(.9); }
 	to { opacity: 1; transform: none; }
 }
 
@@ -2323,14 +2372,39 @@ input[type="date"]::-webkit-date-and-time-value {
 	}
 }
 
+/* "Reduzir movimento" do sistema: nada desliza nem pulsa, mas as mudanças
+   continuam visíveis com esmaecimentos suaves */
 @media (prefers-reduced-motion: reduce) {
-	*,
-	*::before,
-	*::after {
-		animation-duration: .01ms !important;
-		animation-iteration-count: 1 !important;
-		transition-duration: .01ms !important;
+	.dialogo {
+		--dlg-de: none !important;
 	}
+
+	.leitor-laser,
+	.selo-alerta::before,
+	.resumo-seta svg,
+	#btnSalvar,
+	.btn-destaque {
+		animation: none !important;
+	}
+
+	.cartao-resumo:hover,
+	.cartao-resumo:active,
+	.btn:active,
+	.acao:active,
+	.btn-topo:active {
+		transform: none !important;
+	}
+
+	@keyframes surgir {
+		from { opacity: 0; }
+		to { opacity: 1; }
+	}
+
+	@keyframes surgir-menu {
+		from { opacity: 0; }
+		to { opacity: 1; }
+	}
+
 }
 
 /* ---------- Responsivo ---------- */
@@ -2561,13 +2635,47 @@ input[type="date"]::-webkit-date-and-time-value {
 		margin: 0 10px;
 	}
 
-	/* Cartão estreito: a situação ganha a própria linha */
+	/* Cartão estreito (celular): ações só na 1ª linha e a situação sobe para
+	   a linha do código — cartão mais baixo, mais produtos na tela */
 	@container (max-width: 370px) {
+		.tabela td.celula-acoes {
+			grid-row: 1;
+		}
+
+		.tabela td.celula-codigo {
+			grid-row: 2;
+			grid-column: 1 / 3;
+			align-self: center;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.tabela td.celula-situacao {
+			grid-row: 2;
+			grid-column: 3 / 5;
+			justify-content: flex-end;
+			margin-top: 0;
+		}
+
+		.tabela td.celula-qtd,
+		.tabela td.celula-data {
+			grid-row: 3;
+			margin-top: 2px;
+		}
+	}
+
+	/* Cartão muito estreito: a situação ganha a própria linha */
+	@container (max-width: 290px) {
+		.tabela td.celula-codigo {
+			grid-column: 1 / 4;
+		}
+
 		.tabela td.celula-situacao {
 			grid-row: 4;
 			grid-column: 1 / -1;
 			justify-content: flex-start;
-			margin-top: 8px;
+			margin-top: 6px;
 		}
 	}
 
@@ -3013,4 +3121,155 @@ input[type="date"]::-webkit-date-and-time-value {
 	.rodape > span:nth-child(2) {
 		display: inline;
 	}
+}
+
+/* Diálogos com três botões no celular: um por linha, ação principal em cima */
+@media (max-width: 480px) {
+	.swal2-popup.sw-popup .swal2-actions:has(> .swal2-deny:not([style*="none"])) {
+		flex-direction: column-reverse;
+		align-items: stretch;
+	}
+
+	.swal2-popup.sw-popup .swal2-actions:has(> .swal2-deny:not([style*="none"])) .btn {
+		width: 100%;
+	}
+}
+
+/* ---------- Celular: pelo menos 3 produtos sempre visíveis ----------
+   A altura mínima da lista vem dos 3 primeiros produtos (medidos pelo app);
+   rodapé vai para o menu ⋮ e os espaços ficam mais justos. */
+@media (max-width: 760px) and (min-height: 480px) {
+	.tabela-envoltorio {
+		min-height: var(--min-lista, 0px);
+	}
+
+	/* O cartão nunca encolhe abaixo dos 3 produtos: se a tela não comporta,
+	   a página rola o necessário para mostrá-los inteiros */
+	.cartao-lista {
+		min-height: auto;
+	}
+
+	.pagina {
+		gap: 10px;
+		padding-top: 10px;
+		padding-bottom: 10px;
+	}
+
+	.rodape {
+		display: none;
+	}
+
+	.menu-links-rodape {
+		display: contents;
+	}
+
+	.rodape-lista {
+		padding: 8px 14px;
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.tabela tbody tr {
+		padding-top: 10px;
+		padding-bottom: 10px;
+	}
+
+	.cartao-resumo {
+		padding-top: 8px;
+		padding-bottom: 8px;
+	}
+}
+
+/* ---------- Transições visíveis ---------- */
+/* Entrada da página: os blocos aparecem em sequência */
+@keyframes entrar {
+	from { opacity: 0; transform: translateY(18px); }
+	to { opacity: 1; transform: none; }
+}
+
+.pagina > * {
+	animation: entrar 560ms cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.pagina > *:nth-child(2) { animation-delay: 90ms; }
+.pagina > *:nth-child(3) { animation-delay: 180ms; }
+.pagina > *:nth-child(4) { animation-delay: 270ms; }
+
+.topo {
+	animation: entrar 480ms cubic-bezier(.2, .8, .2, 1) both;
+}
+
+/* Cartões do resumo: o ativo "acende" com transição */
+.cartao-resumo {
+	transition: border-color 320ms ease, background 320ms ease, transform 260ms cubic-bezier(.2, .9, .25, 1.05), box-shadow 320ms ease;
+}
+
+.cartao-resumo.ativo {
+	box-shadow: 0 10px 26px -14px var(--tom), var(--sombra);
+}
+
+.resumo-info strong {
+	display: inline-block;
+	transform-origin: left center;
+}
+
+/* Linhas da lista: realce suave ao passar o mouse e ao editar */
+.tabela tbody tr {
+	transition: background 260ms ease, box-shadow 260ms ease;
+}
+
+/* Janelas do SweetAlert: entrada e saída mais perceptíveis */
+@keyframes swal-entrar {
+	from { opacity: 0; transform: translateY(24px) scale(.9); }
+	to { opacity: 1; transform: none; }
+}
+
+@keyframes swal-sair {
+	from { opacity: 1; transform: none; }
+	to { opacity: 0; transform: translateY(12px) scale(.95); }
+}
+
+.swal2-popup.sw-popup.swal2-show {
+	animation: swal-entrar 400ms cubic-bezier(.2, .9, .25, 1.05);
+}
+
+.swal2-popup.sw-popup.swal2-hide {
+	animation: swal-sair 240ms ease forwards;
+}
+
+.swal2-container.swal2-backdrop-show {
+	transition: background-color 360ms ease;
+}
+
+/* Seta do formulário e botões redondos */
+.btn-recolher svg {
+	transition: transform 360ms cubic-bezier(.2, .9, .25, 1.05);
+}
+
+.btn-topo {
+	transition: opacity 280ms ease, transform 320ms cubic-bezier(.2, .9, .25, 1.05);
+}
+
+/* "Reduzir movimento": versões só com esmaecimento (precisam vir depois das normais) */
+@media (prefers-reduced-motion: reduce) {
+	@keyframes entrar {
+		from { opacity: 0; }
+		to { opacity: 1; }
+	}
+
+	@keyframes swal-entrar {
+		from { opacity: 0; }
+		to { opacity: 1; }
+	}
+
+	@keyframes swal-sair {
+		from { opacity: 1; }
+		to { opacity: 0; }
+	}
+}
+
+/* Com o botão "voltar ao topo" visível, sobra espaço no fim da lista */
+.cartao-lista.com-topo .tabela {
+	margin-bottom: 64px;
 }

@@ -550,11 +550,11 @@ function render() {
 		if (a === anoAtual && m === mesAtual) contagem.mes++;
 		c.esteMes = a === anoAtual && m === mesAtual;
 	}
-	$("#totTodos").textContent = contagem.todos;
-	$("#totAlerta").textContent = contagem.alerta;
-	$("#totVencidos").textContent = contagem.vencidos;
-	$("#totMes").textContent = contagem.mes;
-	$("#totOk").textContent = contagem.ok;
+	definirTotal("#totTodos", contagem.todos);
+	definirTotal("#totAlerta", contagem.alerta);
+	definirTotal("#totVencidos", contagem.vencidos);
+	definirTotal("#totMes", contagem.mes);
+	definirTotal("#totOk", contagem.ok);
 	$$(".cartao-resumo").forEach(b => {
 		const ativo = b.dataset.filtro === estado.filtro;
 		b.classList.toggle("ativo", ativo);
@@ -644,14 +644,61 @@ function render() {
    ========================================================= */
 const mqCelular = window.matchMedia?.("(max-width: 760px)");
 const ehCelular = () => !!mqCelular?.matches;
-const comportamentoRolagem = () => (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth");
+const semMovimento = () => !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+const comportamentoRolagem = () => (semMovimento() ? "auto" : "smooth");
+const SUAVE = "cubic-bezier(.2, .8, .2, 1)";
 
-function definirFormRecolhido(recolher, { lembrar = true } = {}) {
-	if (!el.cartaoForm) return;
-	el.cartaoForm.classList.toggle("recolhido", !!recolher);
+/** Número do resumo: troca o valor com um "pulo" para a mudança ser notada. */
+function definirTotal(seletor, valor) {
+	const alvo = $(seletor);
+	if (!alvo) return;
+	const texto = String(valor);
+	if (alvo.textContent === texto) return;
+	const tinhaValor = alvo.dataset.pronto === "1";
+	alvo.textContent = texto;
+	alvo.dataset.pronto = "1";
+	if (!tinhaValor || semMovimento() || !alvo.animate) return;
+	try {
+		const cor = getComputedStyle(alvo.closest(".cartao-resumo") || alvo).getPropertyValue("--tom").trim();
+		const meio = { transform: "translateY(-3px) scale(1.22)" };
+		if (cor) meio.color = cor;
+		alvo.animate([{ transform: "translateY(0) scale(1)" }, meio, { transform: "translateY(0) scale(1)" }], { duration: 480, easing: SUAVE });
+	} catch { /* ignora */ }
+}
+
+let animacaoForm = null; // { animacao, alvo }
+function definirFormRecolhido(recolher, { lembrar = true, animar = false } = {}) {
+	const cartao = el.cartaoForm;
+	if (!cartao) return;
+	recolher = !!recolher;
 	$("#btnRecolherForm")?.setAttribute("aria-expanded", String(!recolher));
 	if (lembrar) armazenamento.gravarTexto(CHAVE.formRecolhido, recolher ? "1" : "0");
-	agendarLayout();
+	// Animação anterior em andamento: encerra já no estado que ela pretendia (o evento de
+	// cancelamento é assíncrono e não pode sobrescrever o estado novo)
+	if (animacaoForm) {
+		const { animacao, alvo } = animacaoForm;
+		animacao.onfinish = animacao.oncancel = null;
+		try { animacao.cancel(); } catch { /* ignora */ }
+		cartao.style.overflow = "";
+		cartao.classList.toggle("recolhido", alvo);
+		animacaoForm = null;
+	}
+
+	const aplicar = () => { cartao.classList.toggle("recolhido", recolher); agendarLayout(); };
+	if (!animar || !ehCelular() || semMovimento() || !cartao.animate || cartao.classList.contains("recolhido") === recolher) return aplicar();
+
+	// Mede a altura antes e depois e anima entre as duas (o conteúdo some só no fim ao recolher)
+	const antes = cartao.getBoundingClientRect().height;
+	cartao.classList.toggle("recolhido", recolher);
+	const depois = cartao.getBoundingClientRect().height;
+	if (recolher) cartao.classList.remove("recolhido");
+	cartao.style.overflow = "hidden";
+	const animacao = cartao.animate([{ height: `${antes}px` }, { height: `${depois}px` }], { duration: 360, easing: SUAVE });
+	animacaoForm = { animacao, alvo: recolher };
+	const concluir = () => { cartao.style.overflow = ""; animacaoForm = null; aplicar(); };
+	animacao.onfinish = concluir;
+	animacao.oncancel = concluir;
+	if (!recolher) aplicar();
 }
 
 /** Mostra as setas do resumo só do lado em que ainda há cartões fora da tela. */
@@ -679,8 +726,26 @@ function atualizarBotaoTopo() {
 	const mostrar = posicao > Math.max(300, altura * 1.2);
 	botao.classList.toggle("fixo", !rolador);
 	botao.classList.toggle("visivel", mostrar);
+	// Espaço no fim da lista para o botão não cobrir o último produto
+	$(".cartao-lista")?.classList.toggle("com-topo", mostrar);
 	botao.tabIndex = mostrar ? 0 : -1;
 	botao.setAttribute("aria-hidden", String(!mostrar));
+}
+
+/** Celular: a lista tem sempre a altura de pelo menos 3 produtos (medidos de verdade). */
+function atualizarAlturaMinimaLista() {
+	const envoltorio = $(".tabela-envoltorio");
+	if (!envoltorio) return;
+	let altura = 0;
+	if (ehCelular()) {
+		const linhas = [...envoltorio.querySelectorAll("tbody tr")].slice(0, 3);
+		altura = linhas.reduce((soma, tr) => soma + tr.getBoundingClientRect().height, 0);
+	}
+	const valor = altura > 0 ? `${Math.ceil(altura)}px` : "";
+	if (envoltorio.style.getPropertyValue("--min-lista") !== valor) {
+		if (valor) envoltorio.style.setProperty("--min-lista", valor);
+		else envoltorio.style.removeProperty("--min-lista");
+	}
 }
 
 let quadroLayout = 0;
@@ -688,6 +753,7 @@ function agendarLayout() {
 	if (quadroLayout) return;
 	quadroLayout = requestAnimationFrame(() => {
 		quadroLayout = 0;
+		atualizarAlturaMinimaLista();
 		atualizarSetasResumo();
 		atualizarBotaoTopo();
 	});
@@ -697,7 +763,8 @@ function registrarEventosLayout() {
 	// Formulário: toque no cabeçalho ou na seta recolhe/expande (só no celular)
 	el.cartaoForm?.querySelector(".cartao-cabecalho")?.addEventListener("click", e => {
 		if (!ehCelular() || e.target.closest("a, input, select, textarea")) return;
-		definirFormRecolhido(!el.cartaoForm.classList.contains("recolhido"));
+		const recolhidoAgora = $("#btnRecolherForm")?.getAttribute("aria-expanded") === "false";
+		definirFormRecolhido(!recolhidoAgora, { animar: true });
 	});
 
 	// Setas do resumo
@@ -719,7 +786,11 @@ function registrarEventosLayout() {
 		else window.scrollTo({ top: 0, behavior: comportamentoRolagem() });
 	});
 	if ("ResizeObserver" in window) {
-		try { new ResizeObserver(agendarLayout).observe(document.body); } catch { /* ignora */ }
+		try {
+			const observador = new ResizeObserver(agendarLayout);
+			observador.observe(document.body);
+			if (el.lista) observador.observe(el.lista);
+		} catch { /* ignora */ }
 	}
 }
 
@@ -890,7 +961,7 @@ function iniciarEdicao(id) {
 	const item = itensAtuais().find(i => i.id === id);
 	if (!item) return;
 	estado.editandoId = id;
-	definirFormRecolhido(false, { lembrar: false });
+	definirFormRecolhido(false, { lembrar: false, animar: true });
 	el.codigo.value = item.codigoBarras;
 	el.nome.value = item.nome;
 	el.quantidade.value = item.quantidade;
@@ -1157,7 +1228,9 @@ async function configurarNomeLoja() {
 	} else {
 		const r = await window.Swal.fire({
 			title: "Nome da loja",
-			html: "Aparece antes de <b>Controle de Vencimento</b>, no topo do app e no título da aba. Fica salvo neste aparelho.",
+			html: "Aparece antes de <b>Controle de Vencimento</b>, no topo do app e no título da aba. " + (emNuvem()
+				? "Fica salvo na lista e muda na hora em <b>todos os aparelhos</b> conectados a ela."
+				: "Fica salvo neste aparelho e, ao ativar a nuvem, vai para <b>todos os aparelhos</b> da lista."),
 			input: "text",
 			inputValue: atual,
 			inputPlaceholder: "Ex.: Mercado São José",
@@ -2053,8 +2126,12 @@ function alternarTema(evento) {
 	};
 	armazenamento.gravarTexto(CHAVE.tema, novo);
 
-	const semMovimento = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-	if (semMovimento || typeof document.startViewTransition !== "function") return aplicar();
+	if (typeof document.startViewTransition !== "function") return aplicar();
+	if (semMovimento()) {
+		// Sem movimento: só um esmaecimento suave entre os temas
+		try { document.startViewTransition(aplicar); } catch { aplicar(); }
+		return;
+	}
 
 	// Transição circular a partir do botão (View Transitions API, com recuo simples)
 	const r = evento?.currentTarget?.getBoundingClientRect?.();
@@ -2066,7 +2143,7 @@ function alternarTema(evento) {
 		transicao.ready.then(() => {
 			document.documentElement.animate(
 				{ clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${raio}px at ${x}px ${y}px)`] },
-				{ duration: 420, easing: "cubic-bezier(.4, 0, .2, 1)", pseudoElement: "::view-transition-new(root)" }
+				{ duration: 650, easing: "cubic-bezier(.4, 0, .2, 1)", pseudoElement: "::view-transition-new(root)" }
 			);
 		}).catch(() => { /* transição ignorada: o tema já foi aplicado */ });
 	} catch {
@@ -2115,6 +2192,19 @@ function registrarEventos() {
 		}
 	});
 	el.leitorZoom.addEventListener("input", debounce(() => leitor?.definirZoom(el.leitorZoom.value), 60));
+	// Lupas: cada toque muda o zoom em um passo (1/8 da faixa da câmera)
+	$$(".zoom-passo").forEach(b => b.addEventListener("click", () => {
+		const min = Number(el.leitorZoom.min) || 1, max = Number(el.leitorZoom.max) || min;
+		if (!(max > min)) return;
+		const grao = Number(el.leitorZoom.step) > 0 ? Number(el.leitorZoom.step) : 0.1;
+		const alinhar = v => Math.round((min + Math.round((v - min) / grao) * grao) * 1000) / 1000;
+		const passo = Math.max(grao, alinhar(min + (max - min) / 8) - min);
+		const atual = Number(el.leitorZoom.value) || min;
+		const novo = Math.min(max, Math.max(min, alinhar(atual + Number(b.dataset.zoom) * passo)));
+		if (novo === atual) return;
+		el.leitorZoom.value = String(novo);
+		leitor?.definirZoom(novo);
+	}));
 	el.btnFotoCodigo.addEventListener("click", () => el.arquivoFotoCodigo.click());
 	el.arquivoFotoCodigo.addEventListener("change", () => {
 		const arquivo = el.arquivoFotoCodigo.files?.[0];
@@ -2361,7 +2451,7 @@ function iniciar() {
 
 	// Animação suave da lista (opcional)
 	import(URL_AUTO_ANIMATE)
-		.then(m => (m.default || m.autoAnimate)?.(el.lista, { duration: 180 }))
+		.then(m => (m.default || m.autoAnimate)?.(el.lista, { duration: 320, easing: "cubic-bezier(.2, .8, .2, 1)" }))
 		.catch(() => { /* sem animação */ });
 
 	if (emNuvem()) {
