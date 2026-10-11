@@ -117,7 +117,7 @@ Na tela do leitor você encontra:
 | Botão | Para que serve |
 |---|---|
 | **Flash** | Liga a lanterna em lugares escuros (quando o aparelho permite). |
-| **Zoom** | Aproxima códigos pequenos sem precisar encostar o celular. |
+| **Zoom** | Aproxima códigos pequenos sem precisar encostar o celular. Arraste a barra ou toque nas **lupas** (− e +) para ajustar passo a passo. |
 | **Trocar câmera** | Alterna entre a câmera traseira e a frontal. |
 | **Tirar foto do código** | Abre a câmera do próprio celular para fotografar o código. Use quando a câmera ao vivo não abrir. |
 
@@ -154,6 +154,7 @@ As cores ajudam a ler a lista de relance: **vermelho** = vencido, **amarelo** = 
 - A lista ocupa o espaço da tela até o rodapé e **rola por dentro**, então resumo, busca e filtros ficam sempre à mão.
 - Depois de rolar bastante, aparece um **botão com seta para cima**: toque nele para voltar ao início da lista.
 - **No celular**, toque em **Novo produto** para mostrar ou esconder o formulário. Com ele recolhido, sobra mais espaço para os produtos. O app lembra sua escolha e abre o formulário sozinho quando você edita um produto.
+- **No celular**, a lista sempre tem espaço para mostrar **pelo menos 3 produtos** inteiros. Os links de **Política de privacidade** e **Código-fonte** ficam no menu **⋮**.
 
 ## Editar e remover
 
