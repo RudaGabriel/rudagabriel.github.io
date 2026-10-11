@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-tema="escuro">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+	<title>Política de Privacidade — Controle de Vencimento</title>
+	<meta name="description" content="Como o Controle de Vencimento trata seus dados, cookies e anúncios.">
+	<link rel="icon" href="icon.png" type="image/png">
+	<script>
+		(function () {
+			var escuro = true;
+			try {
+				var salvo = localStorage.getItem("cv2:tema");
+				escuro = salvo ? salvo === "escuro" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+			} catch (e) { /* mantém escuro */ }
+			document.documentElement.setAttribute("data-tema", escuro ? "escuro" : "claro");
+		})();
+	</script>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="style.css">
+	<style>
+		.documento {
+			width: 100%;
+			max-width: 760px;
+			margin: 0 auto;
+			padding: 28px 20px 40px;
+			line-height: 1.7;
+		}
+
+		.documento h1 {
+			font-size: clamp(1.5rem, 4vw, 2rem);
+			letter-spacing: -.02em;
+			margin-bottom: 4px;
+		}
+
+		.documento .data {
+			color: var(--texto-fraco);
+			font-size: .85rem;
+			margin-bottom: 24px;
+		}
+
+		.documento h2 {
+			font-size: 1.1rem;
+			margin: 28px 0 8px;
+		}
+
+		.documento p,
+		.documento li {
+			color: var(--texto-suave);
+		}
+
+		.documento ul {
+			padding-left: 22px;
+			display: flex;
+			flex-direction: column;
+			gap: 6px;
+		}
+
+		.documento strong {
+			color: var(--texto);
+		}
+
+		.voltar {
+			display: inline-flex;
+			align-items: center;
+			gap: 8px;
+			margin-bottom: 20px;
+			font-weight: 600;
+		}
+	</style>
+</head>
+
+<body>
+	<main class="documento">
+		<a class="voltar" href="./">← Voltar ao app</a>
+		<h1>Política de Privacidade</h1>
+		<p class="data">Última atualização: 11 de outubro de 2026</p>
+
+		<p>Esta política explica como o <strong>Controle de Vencimento</strong> (rudagabriel.github.io) trata as informações de quem usa o app, em conformidade com a Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/2018).</p>
+
+		<h2>1. Dados salvos no seu aparelho</h2>
+		<p>Por padrão, os produtos cadastrados (nome, código de barras, quantidade e vencimento) e suas preferências (tema, alertas, ordenação) ficam salvos <strong>apenas no seu navegador</strong> (armazenamento local). Nada é enviado para servidores, a menos que você ative a nuvem.</p>
+
+		<h2>2. Nuvem e login (opcional)</h2>
+		<p>Se você escolher salvar na nuvem, seus produtos são armazenados no serviço escolhido:</p>
+		<ul>
+			<li><strong>Google (Firebase / Firestore)</strong> — ao entrar com Google ou com link no e-mail, ou ao criar uma lista com código. É guardado seu identificador de conta e e-mail, usados apenas para o login.</li>
+			<li><strong>Supabase</strong> — ao entrar com e-mail pelo servidor alternativo. É guardado seu e-mail, usado apenas para o login.</li>
+			<li><strong>Dropbox</strong> — ao entrar com Dropbox, os produtos ficam em um arquivo na pasta do app, <strong>dentro da sua própria conta Dropbox</strong>.</li>
+		</ul>
+		<p>Listas com código podem ser acessadas por qualquer pessoa que tenha o link, o QR Code ou o código — compartilhe apenas com pessoas de confiança. Você pode sair da nuvem a qualquer momento pelo botão de nuvem do app.</p>
+
+		<h2>3. Câmera</h2>
+		<p>A câmera é usada somente para ler códigos de barras, e apenas quando você toca no botão do leitor. As imagens são processadas <strong>no próprio aparelho</strong> e não são enviadas nem armazenadas.</p>
+
+		<h2>4. Cookies e anúncios</h2>
+		<p>Este site exibe anúncios do <strong>Google AdSense</strong>. O Google e seus parceiros usam cookies e identificadores para exibir anúncios, inclusive com base em visitas anteriores a este e a outros sites, e para medir o desempenho dos anúncios.</p>
+		<ul>
+			<li>Saiba como o Google usa dados: <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener noreferrer">policies.google.com/technologies/partner-sites</a>.</li>
+			<li>Desative anúncios personalizados em <a href="https://adssettings.google.com" target="_blank" rel="noopener noreferrer">adssettings.google.com</a>.</li>
+			<li>Outras empresas de publicidade podem ser desativadas em <a href="https://www.aboutads.info/choices" target="_blank" rel="noopener noreferrer">aboutads.info/choices</a>.</li>
+		</ul>
+
+		<h2>5. Serviços de terceiros</h2>
+		<p>Para funcionar, o app carrega bibliotecas de CDNs públicas (jsDelivr e Google) e fontes do Google Fonts. Esses serviços podem registrar dados técnicos de acesso (como endereço IP), conforme suas próprias políticas de privacidade.</p>
+
+		<h2>6. Seus direitos</h2>
+		<p>Você pode, a qualquer momento: apagar seus produtos pelo próprio app; exportar um backup (menu ⋮ → Fazer backup); limpar os dados do site nas configurações do navegador; e sair da nuvem. Para solicitar a exclusão de dados guardados na nuvem do app, abra uma solicitação em <a href="https://github.com/RudaGabriel/rudagabriel.github.io/issues" target="_blank" rel="noopener noreferrer">github.com/RudaGabriel/rudagabriel.github.io/issues</a>.</p>
+
+		<h2>7. Alterações</h2>
+		<p>Esta política pode ser atualizada. A data no topo indica a versão mais recente.</p>
+	</main>
+</body>
+
+</html>

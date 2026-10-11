@@ -198,10 +198,16 @@
 			</div>
 			<p class="rodape-lista" id="rodapeLista"></p>
 		</section>
+		<!-- Anúncio (aparece só quando houver anúncio para exibir) -->
+		<aside id="anuncioRodape" class="anuncio" aria-label="Publicidade" hidden>
+			<span class="anuncio-rotulo">Publicidade</span>
+		</aside>
 	</main>
 
 	<footer class="rodape">
 		<span>Controle de Vencimento</span>
+		<span aria-hidden="true">·</span>
+		<a href="privacidade.html">Privacidade</a>
 		<span aria-hidden="true">·</span>
 		<a href="https://github.com/RudaGabriel/rudagabriel.github.io" target="_blank" rel="noopener noreferrer">Código-fonte</a>
 	</footer>
@@ -317,16 +323,6 @@
 					</div>
 				</div>
 			</div>
-
-			<details class="como-obter">
-				<summary><i data-lucide="shield-check"></i>Configuração (para o dono do site)</summary>
-				<div class="bloco-codigo">
-					<p class="ajuda">Passo a passo completo no README. Regras do <b>Firestore</b> (Google/Firebase):</p>
-					<pre id="regrasFirebase"></pre>
-					<p class="ajuda">Script SQL do <b>Supabase</b> (e-mail) — rode uma vez no SQL Editor:</p>
-					<pre id="sqlSupabase"></pre>
-				</div>
-			</details>
 
 			<div class="dialogo-acoes">
 				<button type="button" class="btn btn-fantasma" data-fechar>Agora não</button>

@@ -4,11 +4,12 @@
 import {
 	explicarErro, ehUuid, uuidAleatorio, uuidDeTexto, gerarCodigoLista, normalizarCodigoLista, formatarCodigoLista
 } from "./nuvem/comum.js";
-import { criarFirebase, REGRAS_FIREBASE } from "./nuvem/firebase.js";
-import { criarSupabase, SQL_SUPABASE } from "./nuvem/supabase.js";
+import { criarFirebase } from "./nuvem/firebase.js";
+import { criarSupabase } from "./nuvem/supabase.js";
 import { criarDropbox } from "./nuvem/dropbox.js";
 import { NUVEM } from "./config-nuvem.js";
 import { criarLeitor } from "./leitor.js";
+import { iniciarAnuncios } from "./anuncios.js";
 
 const URL_AUTO_ANIMATE = "https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.10.0/index.mjs";
 const URL_QRCODE = "https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js";
@@ -450,8 +451,6 @@ const el = {
 	blocoCodigo: $("#blocoCodigo"),
 	caixaCodigo: $("#caixaCodigo"),
 	blocoCompartilhar: $("#blocoCompartilhar"),
-	regrasFirebase: $("#regrasFirebase"),
-	sqlSupabase: $("#sqlSupabase"),
 	loginEmail: $("#loginEmail"),
 	emailEnviadoMsg: $("#emailEnviadoMsg"),
 	emailEnviadoPara: $("#emailEnviadoPara"),
@@ -2039,8 +2038,6 @@ function iniciar() {
 	if (ordem && [...el.ordenacao.options].some(o => o.value === ordem)) estado.ordenacao = ordem;
 	el.ordenacao.value = estado.ordenacao;
 	aplicarAlertaNaTela();
-	el.regrasFirebase.textContent = REGRAS_FIREBASE;
-	el.sqlSupabase.textContent = SQL_SUPABASE;
 
 	// Configuração da nuvem salva. Versões antigas (ou uma opção de nuvem desativada)
 	// não são usadas: a última cópia da nuvem guardada no aparelho vira a lista local.
@@ -2063,6 +2060,9 @@ function iniciar() {
 	registrarEventos();
 	render();
 	atualizarIndicadorSync();
+
+	// Anúncio (se configurado em config-anuncios.js)
+	iniciarAnuncios(document.getElementById("anuncioRodape"));
 
 	// Animação suave da lista (opcional)
 	import(URL_AUTO_ANIMATE)
