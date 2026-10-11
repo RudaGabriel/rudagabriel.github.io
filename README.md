@@ -22,7 +22,7 @@ Sem fazer nada, os produtos ficam salvos **apenas no aparelho**. Para usar a mes
 | Opção | Como a pessoa entra | Ideal para |
 |---|---|---|
 | **Entrar com Google** | 1 toque na conta Google | quem tem Gmail/Android |
-| **Entrar com e-mail** | recebe um link no e-mail (sem senha) | qualquer pessoa |
+| **Entrar com e-mail** | recebe um link no e-mail (sem senha) — Firebase, com Supabase como alternativa | qualquer pessoa |
 | **Entrar com Dropbox** | 1 toque na conta Dropbox | quem já usa Dropbox (os dados ficam no Dropbox da pessoa) |
 | **Lista com código** (sem login) | abre um link / lê um QR Code | compartilhar com a equipe |
 
@@ -32,7 +32,7 @@ Com login, basta entrar com a **mesma conta** nos outros aparelhos e a mesma lis
 
 Preencha em [`config-nuvem.js`](config-nuvem.js) **uma ou mais** opções. Cada opção preenchida vira um botão; as que ficarem `null` não aparecem. Se nada for preenchido, o app continua salvando só no aparelho.
 
-#### 1) Google (Firebase) — "Entrar com Google" + listas por código
+#### 1) Google (Firebase) — "Entrar com Google", "Entrar com e-mail" (link) + listas por código
 1. Em https://console.firebase.google.com/ abra (ou crie) seu projeto.
 2. **Firestore Database** → *Criar banco de dados* → aba **Regras** → cole e publique:
 ```
@@ -53,11 +53,15 @@ service cloud.firestore {
   }
 }
 ```
-3. **Authentication** → *Vamos começar* → **Sign-in method** → ative **Google**.
+3. **Authentication** → *Vamos começar* → **Sign-in method**:
+   - ative **Google**;
+   - ative **E-mail/senha** e, dentro dele, ligue **Link do e-mail (login sem senha)** → *Salvar*. Isso habilita o "Entrar com e-mail" pelo Firebase (funciona em iPhone, Android e computador).
 4. **Authentication → Settings → Authorized domains** → adicione `rudagabriel.github.io`.
 5. **Configurações do projeto → Seus apps** → app Web (`</>`) → copie o `firebaseConfig` para `firebase: { ... }` em `config-nuvem.js`.
 
-#### 2) E-mail (Supabase) — "Entrar com e-mail" + listas por código
+#### 2) E-mail (Supabase) — servidor alternativo de e-mail + listas por código
+
+Quando o Firebase também está configurado, o "Entrar com e-mail" usa o Firebase e o Supabase aparece como **"Não chegou? Enviar por outro servidor"**.
 1. Crie um projeto grátis em https://supabase.com/dashboard.
 2. **SQL Editor** → cole e rode (Run) o script:
 ```sql
@@ -116,7 +120,7 @@ create policy "dono da conta" on public.contas for all to authenticated
 ```
 3. **Authentication → URL Configuration** → em *Site URL* coloque `https://rudagabriel.github.io/`.
 4. (Opcional) **Authentication → Email Templates → Magic Link**: acrescente `{{ .Token }}` para o e-mail mostrar também um código de 6 dígitos.
-5. **Project Settings → API** → copie *Project URL* e a chave *anon public* para `supabase: { url: "...", chave: "..." }`.
+5. **Project Settings → API Keys** → copie *Project URL* e a chave **publishable** (`sb_publishable_…`) ou *anon public* para `supabase: { url: "...", chave: "..." }`. Nunca use a chave *secret*/*service_role*.
 
 > O envio de e-mails grátis do Supabase tem limite por hora. Para muitos usuários, configure um SMTP próprio em *Authentication → SMTP Settings*.
 
@@ -124,7 +128,7 @@ create policy "dono da conta" on public.contas for all to authenticated
 1. Em https://www.dropbox.com/developers/apps clique em **Create app** → *Scoped access* → **App folder** → dê um nome.
 2. Aba **Permissions**: marque `files.content.read`, `files.content.write` e `account_info.read` → **Submit**.
 3. Aba **Settings** → *OAuth 2 → Redirect URIs*: adicione `https://rudagabriel.github.io/`.
-4. Copie o **App key** para `dropbox: { appKey: "..." }`.
+4. Copie **apenas o App key** para `dropbox: { appKey: "..." }`. Nunca coloque no site o *App secret* nem um *access token*.
 
 Cada pessoa salva os produtos no próprio Dropbox (arquivo `Aplicativos/<nome do app>/vencimentos.json`).
 

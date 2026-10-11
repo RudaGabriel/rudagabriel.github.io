@@ -1,7 +1,7 @@
 /* =========================================================
    Provedor: Firebase (Google)
    - Lista por código: documento "listas/<CÓDIGO>" com o mapa "itens".
-   - Login com Google: "contas/<uid>" guarda o código da lista da conta.
+   - Login com Google ou link no e-mail: "contas/<uid>" guarda o código da lista da conta.
    - Offline nativo (cache persistente do Firestore).
    ========================================================= */
 import { explicarErro, normalizarCodigoLista } from "./comum.js";
@@ -175,6 +175,39 @@ export function criarFirebase(configBruta, { aoReceber, aoStatus, aoErro, aoUsua
 		return usuario;
 	}
 
+	/* ---------- Login por link no e-mail (sem senha) ---------- */
+	const CHAVE_EMAIL = "cv2:emailLinkFirebase";
+
+	async function enviarLinkEmail(email) {
+		await preparar();
+		await fb.sendSignInLinkToEmail(auth, email, {
+			url: location.origin + location.pathname,
+			handleCodeInApp: true
+		});
+		try { localStorage.setItem(CHAVE_EMAIL, email); } catch { /* ignora */ }
+	}
+
+	/** A página foi aberta pelo link do e-mail? (checagem rápida, sem carregar o Firebase) */
+	const ehRetornoLinkEmail = () => /[?&]oobCode=/.test(location.search) && /[?&]mode=signIn/.test(location.search);
+
+	/**
+	 * Conclui o login do link do e-mail.
+	 * Retorna o usuário; { precisaEmail: true } se o link foi aberto em outro aparelho; ou null.
+	 */
+	async function concluirLinkEmail(emailInformado) {
+		await preparar();
+		const url = location.href;
+		if (!fb.isSignInWithEmailLink(auth, url)) return null;
+		let email = emailInformado;
+		if (!email) { try { email = localStorage.getItem(CHAVE_EMAIL); } catch { email = null; } }
+		if (!email) return { precisaEmail: true };
+		const r = await fb.signInWithEmailLink(auth, email, url);
+		try { localStorage.removeItem(CHAVE_EMAIL); } catch { /* ignora */ }
+		try { history.replaceState(null, "", location.pathname + location.hash); } catch { /* ignora */ }
+		usuario = { id: r.user.uid, email: r.user.email || email, nome: r.user.displayName || "" };
+		return usuario;
+	}
+
 	async function sair() {
 		if (!auth) return;
 		try { await fb.signOut(auth); } catch (e) { console.warn(e); }
@@ -196,13 +229,16 @@ export function criarFirebase(configBruta, { aoReceber, aoStatus, aoErro, aoUsua
 		id: "firebase",
 		nome: "Google",
 		disponivel: !!config,
-		recursos: { codigo: true, login: "google" },
+		recursos: { codigo: true, login: "google", email: true },
 		preparar,
 		conectar,
 		desligar,
 		salvarVarios,
 		removerVarios,
 		entrarGoogle,
+		enviarLinkEmail,
+		ehRetornoLinkEmail,
+		concluirLinkEmail,
 		sair,
 		listaDaConta,
 		salvarListaNaConta,

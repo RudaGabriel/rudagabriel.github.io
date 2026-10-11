@@ -1662,6 +1662,31 @@ input[type="number"]::-webkit-inner-spin-button {
 	font-size: .95rem;
 }
 
+.aviso-ok {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	padding: 12px;
+	border-radius: var(--raio-sm);
+	background: var(--ok-fundo);
+	border: 1px solid color-mix(in srgb, var(--ok) 35%, transparent);
+	font-size: .84rem;
+	color: var(--texto-suave);
+}
+
+.aviso-ok svg {
+	color: var(--ok);
+	margin-top: 1px;
+}
+
+.aviso-ok b {
+	color: var(--texto);
+}
+
+#emailEnviadoPara {
+	word-break: break-all;
+}
+
 .link-botao {
 	align-self: flex-start;
 	border: 0;
@@ -2024,6 +2049,24 @@ input[type="number"]::-webkit-inner-spin-button {
 	accent-color: var(--primaria);
 	width: 16px;
 	height: 16px;
+}
+
+.swal2-popup.sw-popup .swal2-input.sw-input,
+.swal2-popup.sw-popup .swal2-input {
+	width: calc(100% - 8px);
+	margin: 14px 4px 0;
+	height: 44px;
+	border-radius: var(--raio-sm);
+	border: 1px solid var(--borda-forte);
+	background: var(--superficie-2);
+	color: var(--texto);
+	font-size: 1rem;
+	box-shadow: none;
+}
+
+.swal2-popup.sw-popup .swal2-input:focus {
+	border-color: var(--primaria);
+	box-shadow: 0 0 0 3px var(--foco);
 }
 
 .swal2-popup.sw-popup .swal2-validation-message {
