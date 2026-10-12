@@ -9,7 +9,7 @@ import { criarSupabase } from "./nuvem/supabase.js";
 import { criarDropbox } from "./nuvem/dropbox.js";
 import { NUVEM } from "./config-nuvem.js";
 import { criarLeitor } from "./leitor.js";
-import { buscarNomeProduto, codigoConsultavel, linksPesquisaCodigo } from "./produtos.js";
+import { buscarNomeProduto, buscarNomesParecidos, codigoConsultavel, linksPesquisaCodigo } from "./produtos.js";
 import { lerDatas, criarCameraValidade } from "./validade.js";
 import { ligarInterfaceFoco } from "./foco.js";
 import { iniciarAnuncios } from "./anuncios.js";
@@ -1149,10 +1149,12 @@ async function sugerirNomeOnline(codigo) {
 		const resultado = await buscarNomeProduto(codigo, { sinal: controle.signal });
 		if (controle.signal.aborted) return;
 		if (!resultado) {
-			// Não achou: só avisa (com links para pesquisar) se a pessoa ainda não digitou o nome
-			if (navigator.onLine !== false && !el.nome.value.trim() && el.codigo.value.replace(/\s+/g, "") === codigo && !estado.editandoId) {
-				toast("info", `Nome não encontrado nas bases públicas. ${htmlLinksPesquisa(codigo, true)}`, 8000);
-			}
+			// Não achou o código exato: oferece os nomes mais plausíveis (mesmo fabricante); sem nada, fica quieto
+			const parecidos = await nomesParecidos(codigo, controle.signal);
+			const aindaVale = () => !controle.signal.aborted && !el.nome.value.trim() && el.codigo.value.replace(/\s+/g, "") === codigo && !estado.editandoId;
+			if (!parecidos.length || !aindaVale()) return;
+			const nome = await escolherNomeParecido(codigo, parecidos);
+			if (nome && aindaVale()) aplicarNomeSugerido(nome);
 			return;
 		}
 		// Só preenche se a pessoa não digitou nada e o código continua o mesmo
@@ -1169,6 +1171,84 @@ async function sugerirNomeOnline(codigo) {
 			el.nome.placeholder = PLACEHOLDER_NOME;
 		}
 	}
+}
+
+/** Preenche o campo Produto com um nome sugerido (realçado para conferir). */
+function aplicarNomeSugerido(nome) {
+	el.nome.value = nome;
+	el.nome.removeAttribute("aria-invalid");
+	marcarSugerido(el.nome);
+}
+
+/**
+ * Nomes mais plausíveis para um código que não está nas bases: produtos da sua
+ * lista e das bases públicas com o mesmo prefixo (fabricante) e código mais próximo.
+ */
+async function nomesParecidos(codigo, sinal) {
+	const ean = codigo.padStart(13, "0");
+	const daLista = [];
+	if (/^\d{13}$/.test(ean)) {
+		const vistos = new Set();
+		for (const item of itensAtuais().slice().sort((a, b) => b.atualizadoEm - a.atualizadoEm)) {
+			const outro = String(item.codigoBarras || "").padStart(13, "0");
+			if (!/^\d{13}$/.test(outro) || outro === ean || outro.slice(0, 9) !== ean.slice(0, 9) || !item.nome) continue;
+			const chave = item.nome.trim().toLowerCase();
+			if (vistos.has(chave)) continue;
+			vistos.add(chave);
+			daLista.push({ nome: item.nome, codigo: item.codigoBarras, fonte: "sua lista", distancia: Math.abs(Number(outro.slice(0, 12)) - Number(ean.slice(0, 12))) });
+		}
+	}
+	let publicos = [];
+	try { publicos = await buscarNomesParecidos(codigo, { sinal, limite: 8 }); } catch (e) { console.warn("[nomes parecidos]", e); }
+	const todos = [...daLista, ...publicos].sort((a, b) => a.distancia - b.distancia);
+	const unicos = [];
+	const nomes = new Set();
+	for (const t of todos) {
+		const chave = t.nome.trim().toLowerCase();
+		if (!nomes.has(chave)) { nomes.add(chave); unicos.push(t); }
+	}
+	return unicos.slice(0, 8); // os mais plausíveis (até 8)
+}
+
+/**
+ * Mostra os nomes parecidos para a pessoa escolher.
+ * @returns {Promise<string|null>} o nome escolhido ou null
+ */
+async function escolherNomeParecido(codigo, opcoes) {
+	if (!window.Swal) {
+		return window.confirm(`Código ${codigo} não encontrado. Usar o nome parecido “${opcoes[0].nome}”?`) ? opcoes[0].nome : null;
+	}
+	let escolhido = opcoes[0].nome;
+	const html = `<p>O código <b>${esc(codigo)}</b> não está nas bases. Estes são do <b>mesmo fabricante</b>, com código parecido — escolha o mais próximo e ajuste depois se precisar:</p>`
+		+ `<div class="opcoes-data opcoes-nome" role="radiogroup" aria-label="Nomes parecidos">${opcoes.map((o, i) =>
+			`<button type="button" class="opcao-data opcao-nome" role="radio" data-i="${i}" aria-checked="${i === 0}">`
+			+ `<b>${esc(o.nome)}</b><small>${esc(o.fonte)} · ${esc(o.codigo)}</small></button>`).join("")}</div>`
+		+ `<p class="ajuda links-web">Não é nenhum? Pesquise na web: ${htmlLinksPesquisa(codigo, true)}</p>`;
+	const executar = async () => {
+		const r = await window.Swal.fire({
+			title: "Escolha o nome do produto",
+			html,
+			showCancelButton: true,
+			confirmButtonText: "Usar este nome",
+			cancelButtonText: "Nenhum destes",
+			reverseButtons: true,
+			buttonsStyling: false,
+			heightAuto: false,
+			target: document.querySelector("dialog[open]") || "body",
+			customClass: { popup: "sw-popup", confirmButton: "btn btn-primario", cancelButton: "btn btn-fantasma" },
+			didOpen: popup => {
+				popup.querySelectorAll(".opcao-nome").forEach(b => b.addEventListener("click", () => {
+					escolhido = opcoes[Number(b.dataset.i)]?.nome || escolhido;
+					popup.querySelectorAll(".opcao-nome").forEach(o => o.setAttribute("aria-checked", String(o === b)));
+				}));
+			}
+		});
+		return r.isConfirmed ? escolhido : null;
+	};
+	// Na fila dos diálogos, para não atropelar outro aberto
+	const promessa = filaDialogos.then(executar, executar);
+	filaDialogos = promessa.catch(() => { });
+	return promessa.catch(e => { console.error(e); return null; });
 }
 
 /** Links "Pesquisar no Google" / "Ver no Cosmos" para o código (abrem em outra aba). */
@@ -1198,7 +1278,17 @@ async function sugerirNomeManual() {
 		const resultado = naLista ? { nome: naLista.nome, fonte: "sua lista de produtos" } : await buscarNomeProduto(codigo);
 		if (!resultado) {
 			if (navigator.onLine === false) return toast("aviso", "Sem internet para buscar o nome agora.", 5000);
-			// Fora das bases públicas: oferece pesquisar o código na web (abre em outra aba)
+			// Código exato fora das bases: mostra os nomes mais plausíveis para escolher
+			const parecidos = await nomesParecidos(codigo);
+			if (parecidos.length) {
+				const nome = await escolherNomeParecido(codigo, parecidos);
+				if (nome && el.codigo.value.replace(/\s+/g, "") === codigo) {
+					aplicarNomeSugerido(nome);
+					el.quantidade.focus();
+				}
+				return;
+			}
+			// Nada parecido: oferece pesquisar o código na web (abre em outra aba)
 			const { acao } = await dialogo({
 				titulo: "Produto não encontrado",
 				html: `<p>O código <b>${esc(codigo)}</b> não está nas bases públicas consultadas.</p>`
@@ -1357,7 +1447,7 @@ function registrarSelecaoFoto() {
 	const terminar = () => {
 		if (!inicio) return;
 		inicio = null;
-		if (selecaoFoto && (selecaoFoto.w < 20 || selecaoFoto.h < 12)) selecaoFoto = null; // toque sem arrastar
+		if (selecaoFoto && (selecaoFoto.w < 16 || selecaoFoto.h < 6)) selecaoFoto = null; // toque sem arrastar (linha fina vale: a área é ampliada na leitura)
 		desenhar();
 		if (selecaoFoto) statusValidade("Área marcada — toque em Ler data");
 	};
@@ -1374,8 +1464,13 @@ function recorteDaFoto() {
 	const sobraX = (r.width - img.naturalWidth * escala) / 2, sobraY = (r.height - img.naturalHeight * escala) / 2;
 	let x = (selecaoFoto.x - sobraX) / escala, y = (selecaoFoto.y - sobraY) / escala;
 	let w = selecaoFoto.w / escala, h = selecaoFoto.h / escala;
-	x = Math.max(0, Math.min(img.naturalWidth - 1, x)); y = Math.max(0, Math.min(img.naturalHeight - 1, y));
-	w = Math.max(1, Math.min(img.naturalWidth - x, w)); h = Math.max(1, Math.min(img.naturalHeight - y, h));
+	// Amplia um pouco a área marcada: com o dedo é comum cortar o topo/base das letras.
+	// Faixa fina (uma linha) ganha mais margem; área já folgada, pouca.
+	const margemY = h * (h / Math.max(1, w) < 0.2 ? 0.6 : 0.15), margemX = w * 0.04;
+	x -= margemX; y -= margemY; w += 2 * margemX; h += 2 * margemY;
+	const x0 = Math.max(0, x), y0 = Math.max(0, y);
+	w = Math.min(img.naturalWidth - x0, w - (x0 - x)); h = Math.min(img.naturalHeight - y0, h - (y0 - y));
+	x = Math.min(img.naturalWidth - 1, x0); y = Math.min(img.naturalHeight - 1, y0);
 	if (w < 8 || h < 8) return null;
 	const canvas = document.createElement("canvas");
 	canvas.width = Math.round(w); canvas.height = Math.round(h);

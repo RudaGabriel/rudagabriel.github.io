@@ -202,3 +202,119 @@ export async function buscarNomeProduto(codigo, { sinal } = {}) {
 	if (algumaRespondeu) gravarCache(codigo, null);
 	return null;
 }
+
+/* =========================================================
+   Nomes parecidos (quando o código exato não está em nenhuma base)
+   ---------------------------------------------------------
+   Os fabricantes numeram os produtos em sequência: códigos
+   vizinhos (mesmo prefixo da empresa, item ±1, ±2…) costumam ser
+   o mesmo produto em outra versão (sabor, tamanho, fragrância).
+   Consulta esses vizinhos nas bases e devolve os nomes, do código
+   mais próximo para o mais distante.
+   ========================================================= */
+const RAIO_VIZINHOS = 30;
+const parecidosGuardados = new Map(); // só nesta sessão
+
+/** Dígito verificador GTIN (EAN-8/12/13/14). */
+function digitoVerificador(corpo) {
+	let soma = 0;
+	for (let i = corpo.length - 1, peso = 3; i >= 0; i--, peso = peso === 3 ? 1 : 3) soma += Number(corpo[i]) * peso;
+	return String((10 - (soma % 10)) % 10);
+}
+
+/** Códigos vizinhos com o mesmo prefixo (mesmo fabricante), do mais perto para o mais longe. */
+export function codigosVizinhos(codigo, raio = RAIO_VIZINHOS) {
+	const c = String(codigo || "");
+	if (!/^\d{12,13}$/.test(c)) return [];
+	const ean = c.padStart(13, "0");
+	const corpo = Number(ean.slice(0, 12));
+	const prefixo = ean.slice(0, 8); // nunca sai do prefixo do fabricante (7 a 9 dígitos no Brasil)
+	const lista = [];
+	for (let d = 1; d <= raio; d++) {
+		for (const sinal of [-1, 1]) {
+			const novo = String(corpo + sinal * d).padStart(12, "0");
+			if (novo.length !== 12 || !novo.startsWith(prefixo)) continue;
+			lista.push({ codigo: novo + digitoVerificador(novo), distancia: d });
+		}
+	}
+	return lista;
+}
+
+async function buscarJson(url, sinal, aceitar = "application/json") {
+	const controle = new AbortController();
+	const cancelar = () => controle.abort();
+	const tempo = setTimeout(cancelar, TEMPO_LIMITE_MS + 2000);
+	sinal?.addEventListener("abort", cancelar, { once: true });
+	try {
+		const r = await fetch(url, { signal: controle.signal, headers: { Accept: aceitar } });
+		if (!r.ok) throw new Error(`HTTP ${r.status}`);
+		return await r.json();
+	} finally {
+		clearTimeout(tempo);
+		sinal?.removeEventListener("abort", cancelar);
+	}
+}
+
+const BASES_OFF = [
+	{ nome: "Open Food Facts", url: "https://br.openfoodfacts.org", extra: "&cc=br" },
+	{ nome: "Open Products Facts", url: "https://world.openproductsfacts.org", extra: "" },
+	{ nome: "Open Beauty Facts", url: "https://world.openbeautyfacts.org", extra: "" },
+	{ nome: "Open Pet Food Facts", url: "https://world.openpetfoodfacts.org", extra: "" }
+];
+
+/**
+ * Nomes de produtos do mesmo fabricante com código parecido.
+ * @returns {Promise<{ nome: string, codigo: string, fonte: string, distancia: number }[]>} do mais plausível ao menos
+ */
+export async function buscarNomesParecidos(codigo, { sinal, limite = 8 } = {}) {
+	codigo = String(codigo || "").trim();
+	if (!codigoConsultavel(codigo)) return [];
+	if (parecidosGuardados.has(codigo)) return parecidosGuardados.get(codigo).slice(0, limite);
+	if (typeof navigator !== "undefined" && navigator.onLine === false) return [];
+	const vizinhos = codigosVizinhos(codigo);
+	const distancia = new Map(vizinhos.map(v => [v.codigo, v.distancia]));
+	const achados = [];
+	const consultas = [];
+	if (vizinhos.length) {
+		const lista = vizinhos.map(v => v.codigo).join(",");
+		for (const base of BASES_OFF) {
+			consultas.push(buscarJson(`${base.url}/api/v2/search?code=${lista}&fields=code,${CAMPOS_OFF}&page_size=${vizinhos.length}&lc=pt${base.extra}`, sinal)
+				.then(dados => {
+					for (const p of Array.isArray(dados?.products) ? dados.products : []) {
+						const cod = String(p?.code || "");
+						const nome = lerOff({ status: 1, product: p });
+						if (nome && distancia.has(cod)) achados.push({ nome, codigo: cod, fonte: base.nome, distancia: distancia.get(cod) });
+					}
+				}));
+		}
+	}
+	// Wikidata: produtos com o mesmo prefixo (fabricante), qualquer distância
+	const ean = codigo.padStart(13, "0");
+	if (/^\d{13}$/.test(ean)) {
+		const prefixo = ean.slice(0, 8); // mesmo critério dos vizinhos (prefixo do fabricante)
+		const consulta = `SELECT ?gtin ?itemLabel ?marcaLabel WHERE { ?item wdt:P3962 ?gtin . FILTER(STRSTARTS(?gtin, "${prefixo}") || STRSTARTS(?gtin, "0${prefixo}")) `
+			+ `OPTIONAL { ?item wdt:P1716 ?marca } SERVICE wikibase:label { bd:serviceParam wikibase:language "pt-br,pt,en". } } LIMIT 40`;
+		consultas.push(buscarJson(`https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(consulta)}`, sinal, "application/sparql-results+json")
+			.then(dados => {
+				for (const linha of dados?.results?.bindings || []) {
+					const cod = String(linha?.gtin?.value || "").replace(/^0+(?=\d{13}$)/, "");
+					const nome = lerWikidata({ results: { bindings: [linha] } });
+					if (!nome || !/^\d{8,14}$/.test(cod) || cod === codigo) continue;
+					const d = Math.abs(Number(cod.padStart(13, "0").slice(0, 12)) - Number(ean.slice(0, 12)));
+					achados.push({ nome, codigo: cod, fonte: "Wikidata", distancia: d });
+				}
+			}));
+	}
+	await Promise.allSettled(consultas);
+	if (sinal?.aborted) return [];
+	// Um nome por produto (o do código mais próximo), do mais plausível ao menos
+	const porNome = new Map();
+	for (const a of achados.sort((x, y) => x.distancia - y.distancia)) {
+		const chave = semAcento(a.nome);
+		if (!porNome.has(chave)) porNome.set(chave, a);
+	}
+	const resultado = [...porNome.values()];
+	parecidosGuardados.set(codigo, resultado);
+	return resultado.slice(0, limite);
+}
+

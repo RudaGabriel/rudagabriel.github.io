@@ -104,7 +104,7 @@ Não é preciso criar conta. Se quiser guardar na nuvem, veja [Salvar na nuvem](
 
 - **Nome automático:** se você ler um código de barras que já está na lista, o nome do produto é preenchido sozinho.
 - **Nome sugerido:** depois de ler ou digitar o código, toque no botão **✨** do campo *Produto*. O app procura o produto em bases públicas (**Open Food Facts** — versão Brasil, em português — e outras) e mostra o nome encontrado, com marca e tamanho (ex.: *Leite UHT Integral Piracanjuba 1 L*) e a fonte. Você escolhe **Usar este nome** ou **Cancelar**.
-- **Não encontrou?** O app mostra atalhos para **pesquisar o código no Google** ou no **Cosmos (Bluesoft)**, a maior base de códigos de barras do Brasil. Eles abrem em outra aba; depois é só digitar o nome.
+- **Código não encontrado?** O app procura os **nomes mais plausíveis**: produtos do **mesmo fabricante** com código vizinho (os fabricantes numeram os itens em sequência, então costumam ser o mesmo produto em outra versão) e produtos parecidos da sua própria lista. Mostra até 8 opções, da mais provável para a menos, para você **escolher** e ajustar. Se não houver nada parecido, aparecem atalhos para **pesquisar no Google** ou no **Cosmos (Bluesoft)**.
 - **Sugestão automática (opcional):** no menu **⋮**, ligue **Sugerir nome automaticamente** para o nome ser preenchido sozinho ao ler um código novo. Vem **desligada**. Funciona com códigos de produtos (EAN/UPC) e precisa de internet.
 - **Produto repetido:** ao cadastrar o mesmo produto com o mesmo vencimento, o app pergunta se você quer **somar** as quantidades ou **substituir** pela nova.
 - Leitores de código de barras **USB ou Bluetooth** também funcionam: basta clicar no campo do código e ler.
@@ -112,7 +112,7 @@ Não é preciso criar conta. Se quiser guardar na nuvem, veja [Salvar na nuvem](
 ## Ler a data de validade por foto
 
 1. Toque no ícone ao lado do campo **Vencimento**. A câmera abre com uma **moldura**.
-2. Deixe **só as linhas da data** dentro da moldura, bem de perto e com luz, e toque em **Ler data**. Se a câmera não abrir, toque em **Usar uma foto**, escolha a foto e **arraste o dedo sobre a data** para marcar a área.
+2. Deixe **só as linhas da data** dentro da moldura, bem de perto e com luz, e toque em **Ler data**. Se a câmera não abrir, toque em **Usar uma foto**, escolha a foto e **arraste o dedo sobre a data** para marcar a área (pode ser só a linha da validade; o app amplia um pouco a área para não cortar as letras).
 3. O app mostra a área lida e as datas encontradas, com a **validade mais provável já selecionada**. Confira com a embalagem, toque em outra data se for preciso e confirme. Se nenhuma estiver certa, toque em **Ler de novo**.
 
 - Entende os formatos comuns: *15/03/2027*, *15.03.27*, *15 03 27*, *03/2027* e *VENC: MAR/27* (usam o último dia do mês), *15 MAR 2027*, *VAL: …*, *FABR: SET/25*.
