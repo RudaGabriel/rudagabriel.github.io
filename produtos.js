@@ -14,6 +14,8 @@
    ficam guardados no aparelho para não consultar de novo.
    ========================================================= */
 
+import { BUSCA } from "./config-busca.js";
+
 const CHAVE_CACHE = "cv2:nomesCodigo";
 const VERSAO_CACHE = 3; // muda quando a montagem do nome ou as fontes melhoram (ignora resultados antigos)
 const MAX_CACHE = 400;
@@ -25,7 +27,16 @@ const CAMPOS_OFF = [
 	"brands", "quantity", "lang"
 ].join(",");
 
-const FONTES = [
+const proxyCosmos = () => String(BUSCA?.proxyCosmos || "").trim().replace(/\/+$/, "");
+
+/** Cosmos (Bluesoft): a maior base brasileira — só com o intermediário configurado (config-busca.js). */
+function lerCosmos(dados) {
+	const base = limpar(dados?.description);
+	if (!base) return null;
+	return montarNome({ base, marca: dados?.brand?.name });
+}
+
+const FONTES_BASE = [
 	{ nome: "Open Food Facts", url: c => `https://br.openfoodfacts.org/api/v2/product/${c}.json?fields=${CAMPOS_OFF}&lc=pt&cc=br`, ler: lerOff },
 	{ nome: "Open Products Facts", url: c => `https://world.openproductsfacts.org/api/v2/product/${c}.json?fields=${CAMPOS_OFF}&lc=pt`, ler: lerOff },
 	{ nome: "Open Beauty Facts", url: c => `https://world.openbeautyfacts.org/api/v2/product/${c}.json?fields=${CAMPOS_OFF}&lc=pt`, ler: lerOff },
@@ -33,6 +44,10 @@ const FONTES = [
 	{ nome: "UPCitemdb", url: c => `https://api.upcitemdb.com/prod/trial/lookup?upc=${c}`, ler: lerUpc },
 	{ nome: "Wikidata", url: urlWikidata, ler: lerWikidata, aceitar: "application/sparql-results+json" }
 ];
+// Com o Cosmos configurado, ele é consultado primeiro (melhor cobertura de produtos brasileiros)
+const fontes = () => (proxyCosmos()
+	? [{ nome: "Cosmos (Bluesoft)", url: c => `${proxyCosmos()}?gtin=${c}`, ler: lerCosmos }, ...FONTES_BASE]
+	: FONTES_BASE);
 
 /** Consulta SPARQL pelo GTIN (propriedade P3962), com e sem zeros à esquerda. */
 function urlWikidata(codigo) {
@@ -183,7 +198,7 @@ export async function buscarNomeProduto(codigo, { sinal } = {}) {
 	if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
 
 	let algumaRespondeu = false;
-	for (const fonte of FONTES) {
+	for (const fonte of fontes()) {
 		if (sinal?.aborted) return null;
 		try {
 			const nome = await consultar(fonte, codigo, sinal);

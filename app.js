@@ -1397,7 +1397,14 @@ async function processarFilaFotos() {
 			if (!precisaBuscar(estado.fotos.get(chave))) continue;
 			tentadasNestaSessao.add(chave);
 			let achada = null;
-			try { achada = await buscarFotoAutomatica(item); } catch (e) { console.warn("[fotos] busca:", e); continue; }
+			try {
+				achada = await buscarFotoAutomatica(item);
+			} catch (e) {
+				// Base fora do ar ou limite de consultas: não grava "sem foto"; tenta de novo em alguns minutos
+				console.warn("[fotos] busca falhou, tentando depois:", e?.message || e);
+				setTimeout(() => { tentadasNestaSessao.delete(chave); agendarBuscaFotos(); }, 5 * 60 * 1000);
+				continue;
+			}
 			// A pessoa pode ter colocado uma foto enquanto buscava: a dela vence
 			if (!precisaBuscar(estado.fotos.get(chave))) continue;
 			const registro = achada ? { src: achada.src, origem: achada.origem, fonte: achada.fonte } : { src: "", origem: "nenhuma" };
@@ -1490,13 +1497,18 @@ async function dialogoFoto(produto, { pendente = false } = {}) {
 				const botao = e.currentTarget;
 				botao.disabled = true;
 				resultados.hidden = false;
-				resultados.innerHTML = `<p class="ajuda">Procurando fotos…</p>`;
+				resultados.innerHTML = `<p class="ajuda">Procurando fotos… (pode levar alguns segundos)</p>`;
 				let opcoes = [];
+				let falhou = false;
 				try {
-					const [porCodigo, porNome] = await Promise.all([
+					// Cada busca vale sozinha: se uma base falhar, mostra o que as outras acharam
+					const [rCodigo, rNome] = await Promise.allSettled([
 						produto.codigoBarras ? fotosPorCodigo(produto.codigoBarras) : [],
 						produto.nome ? fotosPorNome(produto.nome, { limite: 8 }) : []
 					]);
+					falhou = rCodigo.status === "rejected" || rNome.status === "rejected";
+					const porCodigo = rCodigo.status === "fulfilled" ? rCodigo.value : [];
+					const porNome = rNome.status === "fulfilled" ? rNome.value : [];
 					const vistas = new Set();
 					// Mesma ordem da busca automática: primeiro as do nome, depois as do código
 					for (const f of [...porNome.map(f => ({ ...f, origem: "nome" })), ...porCodigo.map(f => ({ ...f, origem: "codigo" }))]) {
@@ -1510,7 +1522,7 @@ async function dialogoFoto(produto, { pendente = false } = {}) {
 				botao.disabled = false;
 				if (!popup.isConnected) return;
 				if (!opcoes.length) {
-					resultados.innerHTML = `<p class="ajuda">${navigator.onLine === false ? "Sem internet agora." : "Nenhuma foto encontrada. Tire ou escolha uma foto."}</p>`;
+					resultados.innerHTML = `<p class="ajuda">${navigator.onLine === false ? "Sem internet agora." : falhou ? "As bases de fotos não responderam agora. Tente de novo em alguns minutos, ou tire/escolha uma foto." : "Nenhuma foto encontrada. Tire ou escolha uma foto."}</p>`;
 					return;
 				}
 				opcoes = opcoes.slice(0, 9);
