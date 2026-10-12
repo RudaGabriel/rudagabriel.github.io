@@ -365,6 +365,12 @@ const LEITURAS_RECORTE = [
 	{ alvo: 65, tratar: otsuDerretido([3, 2]), ocr: SO_DIGITOS },
 	{ alvo: 68, tratar: otsuDerretido([3, 3]), ocr: SO_DIGITOS },
 	{ alvo: 75, tratar: localDerretido([4, 4], 70, 3), ocr: LETRAS_E_DIGITOS },
+	// Só quando já apareceu mês por extenso (MAR/27): mais leituras com letras
+	{ alvo: 50, tratar: localDerretido([4, 4], 70, 3), ocr: LETRAS_E_DIGITOS, soExtenso: true },
+	{ alvo: 70, tratar: (g, W, H) => limiarLocal(g, W, H, 30, 12), ocr: LETRAS_E_DIGITOS, soExtenso: true },
+	{ alvo: 60, tratar: otsuDerretido([3, 3]), ocr: LETRAS_E_DIGITOS, soExtenso: true },
+	{ alvo: 55, tratar: localDerretido([3, 3], 60, 4), ocr: LETRAS_E_DIGITOS, soExtenso: true },
+	{ alvo: 85, tratar: (g, W, H) => limiarLocal(g, W, H, 40, 10), ocr: LETRAS_E_DIGITOS, soExtenso: true },
 	{ lado: 1200, tratar: (g, W, H) => limiarLocal(g, W, H, 30, 12), ocr: TEXTO_LIVRE } // pega datas com mês por extenso (MAR, OUT…)
 ].map(l => ({ ...l, tratar: (g, W, H) => limparManchas(l.tratar(g, W, H), W, H) }));
 
@@ -395,6 +401,39 @@ async function obterTrabalhador() {
 		})().catch(e => { preparando = null; throw e; });
 	}
 	return preparando;
+}
+
+/**
+ * Recorte em faixa fina (uma linha só, marcada bem justa): as letras encostam na
+ * borda e seriam apagadas como "manchas". Ganha uma margem da cor do fundo.
+ */
+function comMargemSeFaixa(img) {
+	const W = img.naturalWidth || img.videoWidth || img.width || 0;
+	const H = img.naturalHeight || img.videoHeight || img.height || 0;
+	if (!W || !H || W / H < 5) return img;
+	try {
+		// Cor do fundo: tom claro típico (percentil 80) de uma miniatura
+		const mw = Math.min(200, W), mh = Math.max(1, Math.round(H * mw / W));
+		const mini = document.createElement("canvas");
+		mini.width = mw; mini.height = mh;
+		const mc = mini.getContext("2d", { willReadFrequently: true });
+		mc.drawImage(img, 0, 0, mw, mh);
+		const d = mc.getImageData(0, 0, mw, mh).data;
+		const tons = [];
+		for (let i = 0; i < d.length; i += 4) tons.push([d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114, i]);
+		tons.sort((a, b) => a[0] - b[0]);
+		const i = tons[Math.floor(tons.length * 0.8)][1];
+		const mv = Math.round(H * 0.45), mh2 = Math.round(H * 0.6);
+		const c = document.createElement("canvas");
+		c.width = W + 2 * mh2; c.height = H + 2 * mv;
+		const ctx = c.getContext("2d");
+		ctx.fillStyle = `rgb(${d[i]},${d[i + 1]},${d[i + 2]})`;
+		ctx.fillRect(0, 0, c.width, c.height);
+		ctx.drawImage(img, mh2, mv, W, H);
+		return c;
+	} catch {
+		return img;
+	}
 }
 
 /** Linhas reconhecidas, cada uma com suas palavras (texto, caixa e confiança). */
@@ -443,7 +482,10 @@ export async function lerDatas(fonte, { recorte = true, aoProgresso } = {}) {
 	const lista = (Array.isArray(fonte) ? fonte : [fonte]).filter(Boolean);
 	if (!lista.length) throw new Error("Nenhuma imagem para ler");
 	const imagens = [];
-	for (const f of lista) imagens.push(f instanceof Blob ? await carregarImagem(f) : f);
+	for (const f of lista) {
+		const img = f instanceof Blob ? await carregarImagem(f) : f;
+		imagens.push(recorte ? comMargemSeFaixa(img) : img);
+	}
 	const imagem = imagens[0];
 	avisar({ etapa: trabalhador ? "lendo" : "baixando" });
 	avisoProgresso = m => { if (m?.status && m.status !== "recognizing text") avisar({ etapa: "baixando" }); };
@@ -460,9 +502,12 @@ export async function lerDatas(fonte, { recorte = true, aoProgresso } = {}) {
 	// depois de medida, cada leitura redimensiona para o tamanho de letra em que funciona melhor
 	const alturas = [];
 	let alturaLetra = null;
+	let modoExtenso = false; // já leu um mês por extenso: leituras só de números não ajudam mais
 	for (let i = 0; i < leituras.length; i++) {
+		const { tratar, ocr, alvo, soExtenso } = leituras[i];
+		const soNumeros = !/[A-Z]/.test(ocr.tessedit_char_whitelist ?? "A");
+		if ((soExtenso && !modoExtenso) || (modoExtenso && soNumeros)) continue;
 		avisar({ etapa: "lendo", atual: i + 1, total: leituras.length });
-		const { tratar, ocr, alvo } = leituras[i];
 		let lado = leituras[i].lado;
 		if (alvo) {
 			// Sem medida ainda: a letra costuma ter 12–65% da altura do recorte (palpites alternados)
@@ -493,8 +538,8 @@ export async function lerDatas(fonte, { recorte = true, aoProgresso } = {}) {
 		// Cada leitura vota uma vez em cada data que encontrou, com peso pela confiança do leitor
 		const vistas = new Set();
 		const linhas = linhasDe(data);
-		const soDigitos = !/[A-Z]/.test(ocr.tessedit_char_whitelist ?? "A");
-		const achadas = extrairCandidatas(texto, new Date(), { soDigitos });
+		const achadas = extrairCandidatas(texto, new Date(), { soDigitos: soNumeros });
+		if (achadas.some(c => c.extenso)) modoExtenso = true;
 		// Voto de validade desta leitura: com 2+ datas, a mais distante (a fabricação vem antes);
 		// com uma só, meio voto (pode ser qualquer uma das linhas)
 		// (ano absurdo, como 27 lido 37, ainda é a linha da validade — a ordenação corrige o ano depois)
