@@ -92,6 +92,7 @@
 						<button type="button" role="menuitem" data-acao="sincronizar"><i data-lucide="share-2"></i>Salvar e compartilhar</button>
 						<button type="button" role="menuitem" data-acao="loja"><i data-lucide="store"></i>Nome da loja</button>
 						<button type="button" role="menuitemcheckbox" aria-checked="false" data-acao="sugestao-auto" id="itemSugestaoAuto" title="Ao ler um código novo, preencher o nome sozinho"><i data-lucide="sparkles"></i><span class="menu-texto">Sugerir nome automaticamente</span><span class="menu-chave" aria-hidden="true"></span></button>
+						<button type="button" role="menuitemcheckbox" aria-checked="true" data-acao="fotos-auto" id="itemFotosAuto" title="Buscar a foto dos produtos pelo código de barras ou pelo nome"><i data-lucide="image"></i><span class="menu-texto">Buscar fotos automaticamente</span><span class="menu-chave" aria-hidden="true"></span></button>
 						<div class="menu-links-rodape">
 							<hr>
 							<a role="menuitem" href="privacidade.html"><i data-lucide="shield-check"></i>Política de privacidade</a>
@@ -156,6 +157,7 @@
 					<div class="grupo-entrada">
 						<input type="text" id="produto" placeholder="Ex.: Leite integral 1L" maxlength="120" enterkeyhint="next" list="sugestoesNomes" required>
 						<button type="button" id="btnSugerirNome" class="btn-anexo" title="Sugerir o nome pelo código de barras" aria-label="Sugerir o nome do produto pelo código de barras"><i data-lucide="sparkles"></i></button>
+						<button type="button" id="btnFotoForm" class="btn-anexo btn-foto-form" title="Foto do produto" aria-label="Foto do produto"><i data-lucide="image-plus"></i></button>
 					</div>
 					<datalist id="sugestoesNomes"></datalist>
 				</div>
@@ -275,6 +277,8 @@
 			<input type="file" id="arquivoValidade" accept="image/*" hidden>
 		</div>
 	</dialog>
+
+	<input type="file" id="arquivoFotoProduto" accept="image/*" hidden>
 
 	<!-- ===== Diálogo: leitor de código de barras ===== -->
 	<dialog id="dlgLeitor" class="dialogo dialogo-leitor" aria-labelledby="tituloLeitor">
