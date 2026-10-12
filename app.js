@@ -10,7 +10,7 @@ import { criarDropbox } from "./nuvem/dropbox.js";
 import { NUVEM } from "./config-nuvem.js";
 import { criarLeitor } from "./leitor.js";
 import { buscarNomeProduto, codigoConsultavel } from "./produtos.js";
-import { lerValidadeDaImagem } from "./validade.js";
+import { lerDatas, criarCameraValidade } from "./validade.js";
 import { iniciarAnuncios } from "./anuncios.js";
 
 const URL_AUTO_ANIMATE = "https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.10.0/index.mjs";
@@ -423,6 +423,17 @@ const el = {
 	btnLerValidade: $("#btnLerValidade"),
 	btnSugerirNome: $("#btnSugerirNome"),
 	arquivoValidade: $("#arquivoValidade"),
+	dlgValidade: $("#dlgValidade"),
+	validadeArea: $("#validadeArea"),
+	validadeVideo: $("#validadeVideo"),
+	validadeFoto: $("#validadeFoto"),
+	validadeMira: $("#validadeMira"),
+	validadeSelecao: $("#validadeSelecao"),
+	validadeStatus: $("#validadeStatus"),
+	validadeDica: $("#validadeDica"),
+	btnCapturarValidade: $("#btnCapturarValidade"),
+	btnFotoValidade: $("#btnFotoValidade"),
+	btnFlashValidade: $("#btnFlashValidade"),
 	btnSalvar: $("#btnSalvar"),
 	btnCancelarEdicao: $("#btnCancelarEdicao"),
 	btnEscanear: $("#btnEscanear"),
@@ -1215,44 +1226,253 @@ function alternarSugestaoAuto() {
 	if (estado.sugestaoAuto && el.codigo.value.trim() && !el.nome.value.trim()) autoPreencherPorCodigo();
 }
 
-/* ---------- Validade lida por foto (OCR no aparelho) ---------- */
+/* ---------- Leitor da data de validade (câmera com moldura + confirmação) ---------- */
+const DICA_CAMERA_VALIDADE = "Enquadre <strong>só a data de validade</strong> na moldura, bem de perto e reta. Se estiver escuro, ligue o flash.";
+const DICA_FOTO_VALIDADE = "<strong>Arraste o dedo sobre a data</strong> para marcar a área e toque em <strong>Ler data</strong>.";
+let cameraValidade = null;
+let sessaoValidade = 0;          // invalida leituras e câmeras de aberturas anteriores
 let lendoValidade = false;
-async function lerValidadePorFoto(arquivo) {
-	if (lendoValidade || !arquivo) return;
+let selecaoFoto = null;          // { x, y, w, h } em coordenadas da área (modo foto)
+
+const statusValidade = texto => { if (el.validadeStatus) el.validadeStatus.textContent = texto; };
+
+function modoCameraValidade() {
+	el.validadeArea.classList.remove("modo-foto");
+	el.validadeVideo.hidden = false;
+	el.validadeFoto.hidden = true;
+	el.validadeFoto.removeAttribute("src");
+	el.validadeSelecao.hidden = true;
+	selecaoFoto = null;
+	el.validadeDica.innerHTML = DICA_CAMERA_VALIDADE;
+}
+
+async function abrirLeitorValidade() {
 	if (!podeEditar()) return toast("aviso", "Este aparelho está no modo <b>somente leitura</b>.");
-	if (!/^image\//.test(arquivo.type || "image/")) return toast("aviso", "Escolha uma foto (imagem).");
-	lendoValidade = true;
-	el.btnLerValidade?.classList.add("carregando");
-	el.btnLerValidade?.setAttribute("aria-busy", "true");
-	let avisouDownload = false;
+	cameraValidade ||= criarCameraValidade(el.validadeVideo);
+	modoCameraValidade();
+	el.btnCapturarValidade.disabled = true;
+	el.btnFlashValidade.hidden = true;
+	el.btnFlashValidade.setAttribute("aria-pressed", "false");
+	if (!el.dlgValidade.open) el.dlgValidade.showModal();
+	await iniciarCameraValidade();
+}
+
+async function iniciarCameraValidade() {
+	const minha = ++sessaoValidade;
+	statusValidade("Iniciando câmera…");
 	try {
-		const resultado = await lerValidadeDaImagem(arquivo, {
-			aoProgresso: ({ etapa }) => {
-				if (etapa === "baixando" && !avisouDownload) {
-					avisouDownload = true;
-					toast("info", "Preparando o leitor de datas (só na primeira vez)…", 4000);
-				}
+		const { flash } = await cameraValidade.iniciar();
+		if (minha !== sessaoValidade || !el.dlgValidade.open) { cameraValidade.parar(); return; }
+		el.btnFlashValidade.hidden = !flash;
+		el.btnCapturarValidade.disabled = false;
+		statusValidade("Enquadre a data na moldura");
+	} catch (e) {
+		if (minha !== sessaoValidade) return;
+		console.warn("[validade] câmera:", e);
+		statusValidade("Câmera indisponível — use uma foto");
+		el.btnFotoValidade.classList.add("destaque");
+	}
+}
+
+function fecharLeitorValidade() {
+	sessaoValidade++;
+	cameraValidade?.parar();
+	el.btnFotoValidade.classList.remove("destaque");
+	el.validadeArea.classList.remove("lendo");
+}
+
+/* Modo foto: a pessoa marca a área da data arrastando o dedo */
+function carregarFotoValidade(arquivo) {
+	if (!arquivo || !/^image\//.test(arquivo.type || "image/")) return toast("aviso", "Escolha uma foto (imagem).");
+	sessaoValidade++;
+	cameraValidade?.parar();
+	const url = URL.createObjectURL(arquivo);
+	el.validadeFoto.onload = () => setTimeout(() => URL.revokeObjectURL(url), 60000);
+	el.validadeFoto.src = url;
+	el.validadeFoto.hidden = false;
+	el.validadeVideo.hidden = true;
+	el.validadeArea.classList.add("modo-foto");
+	el.validadeSelecao.hidden = true;
+	selecaoFoto = null;
+	el.btnFlashValidade.hidden = true;
+	el.btnCapturarValidade.disabled = false;
+	el.validadeDica.innerHTML = DICA_FOTO_VALIDADE;
+	statusValidade("Marque a área da data");
+}
+
+function registrarSelecaoFoto() {
+	let inicio = null;
+	const ponto = e => {
+		const r = el.validadeArea.getBoundingClientRect();
+		return { x: Math.max(0, Math.min(r.width, e.clientX - r.left)), y: Math.max(0, Math.min(r.height, e.clientY - r.top)) };
+	};
+	const desenhar = () => {
+		if (!selecaoFoto) { el.validadeSelecao.hidden = true; return; }
+		Object.assign(el.validadeSelecao.style, { left: `${selecaoFoto.x}px`, top: `${selecaoFoto.y}px`, width: `${selecaoFoto.w}px`, height: `${selecaoFoto.h}px` });
+		el.validadeSelecao.hidden = false;
+	};
+	el.validadeArea.addEventListener("pointerdown", e => {
+		if (!el.validadeArea.classList.contains("modo-foto") || e.target.closest("button")) return;
+		inicio = ponto(e);
+		try { el.validadeArea.setPointerCapture(e.pointerId); } catch { /* ignora */ }
+		e.preventDefault();
+	});
+	el.validadeArea.addEventListener("pointermove", e => {
+		if (!inicio) return;
+		const p = ponto(e);
+		selecaoFoto = { x: Math.min(inicio.x, p.x), y: Math.min(inicio.y, p.y), w: Math.abs(p.x - inicio.x), h: Math.abs(p.y - inicio.y) };
+		desenhar();
+	});
+	const terminar = () => {
+		if (!inicio) return;
+		inicio = null;
+		if (selecaoFoto && (selecaoFoto.w < 20 || selecaoFoto.h < 12)) selecaoFoto = null; // toque sem arrastar
+		desenhar();
+		if (selecaoFoto) statusValidade("Área marcada — toque em Ler data");
+	};
+	el.validadeArea.addEventListener("pointerup", terminar);
+	el.validadeArea.addEventListener("pointercancel", terminar);
+}
+
+/** Recorta da foto a área marcada (a imagem é exibida com object-fit: contain). */
+function recorteDaFoto() {
+	const img = el.validadeFoto;
+	if (!img.naturalWidth || !selecaoFoto) return null;
+	const r = el.validadeArea.getBoundingClientRect();
+	const escala = Math.min(r.width / img.naturalWidth, r.height / img.naturalHeight);
+	const sobraX = (r.width - img.naturalWidth * escala) / 2, sobraY = (r.height - img.naturalHeight * escala) / 2;
+	let x = (selecaoFoto.x - sobraX) / escala, y = (selecaoFoto.y - sobraY) / escala;
+	let w = selecaoFoto.w / escala, h = selecaoFoto.h / escala;
+	x = Math.max(0, Math.min(img.naturalWidth - 1, x)); y = Math.max(0, Math.min(img.naturalHeight - 1, y));
+	w = Math.max(1, Math.min(img.naturalWidth - x, w)); h = Math.max(1, Math.min(img.naturalHeight - y, h));
+	if (w < 8 || h < 8) return null;
+	const canvas = document.createElement("canvas");
+	canvas.width = Math.round(w); canvas.height = Math.round(h);
+	canvas.getContext("2d").drawImage(img, x, y, w, h, 0, 0, canvas.width, canvas.height);
+	return canvas;
+}
+
+/** Miniatura do recorte para a pessoa conferir a data com a imagem. */
+function previaRecorte(canvas) {
+	try {
+		const escala = Math.min(1, 640 / canvas.width);
+		const c = document.createElement("canvas");
+		c.width = Math.max(1, Math.round(canvas.width * escala)); c.height = Math.max(1, Math.round(canvas.height * escala));
+		c.getContext("2d").drawImage(canvas, 0, 0, c.width, c.height);
+		return c.toDataURL("image/jpeg", 0.85);
+	} catch { return ""; }
+}
+
+/**
+ * Mostra as datas lidas para a pessoa confirmar.
+ * @returns {Promise<string|"repetir"|null>} a data escolhida, "repetir" ou null (cancelou)
+ */
+async function escolherDataLida(candidatas, previa) {
+	const opcoes = candidatas.slice(0, 4);
+	const principal = opcoes[0]; // já vem como a validade mais provável
+	// Incerta: poucas leituras concordaram, ou outra data (não fabricação) chegou perto
+	const rival = opcoes.find(c => c !== principal && !c.fabricacao);
+	const incerta = (principal.votos || 0) < 2 || (!!rival && (rival.peso || 0) >= (principal.peso || 0) * 0.7 && !principal.conferida);
+	if (!window.Swal) {
+		return window.confirm(`Validade lida: ${formatarData(principal.data)}. Usar esta data?`) ? principal.data : null;
+	}
+	const rotulo = c => c.fabricacao ? "provável fabricação" : c === principal ? "validade mais provável" : "outra leitura";
+	const html = `${previa ? `<img class="previa-validade" src="${previa}" alt="Área lida">` : ""}`
+		+ (incerta ? `<p class="aviso-leitura">Leitura incerta — confira com a embalagem.</p>` : "")
+		+ `<p>Toque na <b>data de validade</b> correta:</p>`
+		+ `<div class="opcoes-data" role="radiogroup" aria-label="Datas encontradas">${opcoes.map(c =>
+			`<button type="button" class="opcao-data" role="radio" data-data="${esc(c.data)}" aria-checked="${c === principal}">`
+			+ `<b>${formatarData(c.data)}</b><small>${rotulo(c)}</small></button>`).join("")}</div>`;
+	let escolhida = principal.data;
+	const r = await window.Swal.fire({
+		title: "Confira a validade",
+		html,
+		showCancelButton: true,
+		showDenyButton: true,
+		confirmButtonText: "Usar esta data",
+		denyButtonText: "Ler de novo",
+		cancelButtonText: "Cancelar",
+		reverseButtons: true,
+		buttonsStyling: false,
+		heightAuto: false,
+		target: el.dlgValidade.open ? el.dlgValidade : "body",
+		customClass: { popup: "sw-popup", confirmButton: "btn btn-primario", denyButton: "btn btn-secundario", cancelButton: "btn btn-fantasma" },
+		didOpen: popup => {
+			const atualizarBotao = () => {
+				const confirmar = popup.querySelector(".swal2-confirm");
+				if (confirmar) confirmar.textContent = `Usar ${formatarData(escolhida)}`;
+			};
+			popup.querySelectorAll(".opcao-data").forEach(b => b.addEventListener("click", () => {
+				escolhida = b.dataset.data;
+				popup.querySelectorAll(".opcao-data").forEach(o => o.setAttribute("aria-checked", String(o === b)));
+				atualizarBotao();
+			}));
+			atualizarBotao();
+		}
+	});
+	if (r.isConfirmed) return escolhida;
+	if (r.isDenied) return "repetir";
+	return null;
+}
+
+async function lerDataDaArea() {
+	if (lendoValidade) return;
+	const modoFoto = el.validadeArea.classList.contains("modo-foto");
+	const recorte = modoFoto ? recorteDaFoto() : cameraValidade?.recortar(el.validadeMira);
+	if (!recorte) {
+		toast("info", modoFoto ? "Arraste o dedo sobre a data para marcar a área." : "A câmera ainda não está pronta.");
+		return;
+	}
+	const minha = sessaoValidade;
+	lendoValidade = true;
+	el.validadeArea.classList.add("lendo");
+	el.btnCapturarValidade.disabled = true;
+	try {
+		// Câmera: mais 2 quadros em seguida — cada um tem ruído diferente, e a votação fica mais segura
+		const quadros = [recorte];
+		if (!modoFoto) {
+			for (let i = 0; i < 2; i++) {
+				await new Promise(r => setTimeout(r, 140));
+				if (minha !== sessaoValidade) return;
+				const extra = cameraValidade?.recortar(el.validadeMira);
+				if (extra) quadros.push(extra);
+			}
+		}
+		const { candidatas } = await lerDatas(quadros, {
+			recorte: true,
+			aoProgresso: ({ etapa, atual, total }) => {
+				if (minha !== sessaoValidade) return;
+				statusValidade(etapa === "baixando" ? "Preparando o leitor (só na 1ª vez)…" : `Lendo a data… ${atual || 1}/${total || 1}`);
 			}
 		});
-		if (!resultado) {
-			toast("aviso", "Não encontrei a data na foto. Tire de novo <b>bem de perto</b>, só com a data, ou digite.", 6500);
+		if (minha !== sessaoValidade || !el.dlgValidade.open) return;
+		if (!candidatas.length) {
+			statusValidade("Não consegui ler — aproxime e tente de novo");
+			toast("aviso", "Não encontrei a data. Deixe <b>só a data</b> na moldura, bem de perto, com luz, e toque em <b>Ler data</b> de novo.", 6500);
 			return;
 		}
-		el.vencimento.value = resultado.data;
+		const escolha = await escolherDataLida(candidatas, previaRecorte(recorte));
+		if (minha !== sessaoValidade || !el.dlgValidade.open) return;
+		if (!escolha || escolha === "repetir") {
+			statusValidade(modoFoto ? "Marque a área da data" : "Enquadre a data na moldura");
+			return;
+		}
+		el.vencimento.value = escolha;
 		el.vencimento.removeAttribute("aria-invalid");
 		el.vencimento.dispatchEvent(new Event("input", { bubbles: true }));
 		marcarSugerido(el.vencimento);
-		const vencido = resultado.data < hojeISO() ? " (já vencido)" : "";
-		toast("sucesso", `Validade lida: <b>${formatarData(resultado.data)}</b>${vencido}. Confira antes de adicionar.`, 6000);
+		el.dlgValidade.close();
+		const vencido = escolha < hojeISO() ? " (já vencido)" : "";
+		toast("sucesso", `Validade: <b>${formatarData(escolha)}</b>${vencido}.`, 4000);
 	} catch (e) {
 		console.error("[ler validade]", e);
 		toast("erro", navigator.onLine === false
 			? "Sem internet para preparar o leitor de datas (necessário só na primeira vez)."
-			: "Não foi possível ler a foto. Tente de novo ou digite a data.", 6500);
+			: "Não foi possível ler agora. Tente de novo ou digite a data.", 6500);
 	} finally {
 		lendoValidade = false;
-		el.btnLerValidade?.classList.remove("carregando");
-		el.btnLerValidade?.removeAttribute("aria-busy");
+		el.validadeArea.classList.remove("lendo");
+		if (minha === sessaoValidade && el.dlgValidade.open) el.btnCapturarValidade.disabled = false;
 	}
 }
 
@@ -2387,16 +2607,23 @@ function registrarEventos() {
 	// Sugerir o nome sob demanda
 	el.btnSugerirNome?.addEventListener("click", sugerirNomeManual);
 
-	// Ler a validade por foto
-	el.btnLerValidade?.addEventListener("click", () => {
-		if (!podeEditar()) return toast("aviso", "Este aparelho está no modo <b>somente leitura</b>.");
-		el.arquivoValidade?.click();
-	});
+	// Ler a validade (câmera com moldura, ou foto)
+	el.btnLerValidade?.addEventListener("click", abrirLeitorValidade);
+	el.btnCapturarValidade?.addEventListener("click", lerDataDaArea);
+	el.btnFotoValidade?.addEventListener("click", () => el.arquivoValidade?.click());
 	el.arquivoValidade?.addEventListener("change", () => {
 		const arquivo = el.arquivoValidade.files?.[0];
 		el.arquivoValidade.value = "";
-		lerValidadePorFoto(arquivo);
+		if (arquivo) carregarFotoValidade(arquivo);
 	});
+	el.btnFlashValidade?.addEventListener("click", async () => {
+		try {
+			const ligado = await cameraValidade?.alternarFlash();
+			el.btnFlashValidade.setAttribute("aria-pressed", String(!!ligado));
+		} catch { toast("aviso", "Flash indisponível neste aparelho/navegador."); }
+	});
+	el.dlgValidade?.addEventListener("close", fecharLeitorValidade);
+	registrarSelecaoFoto();
 	el.nome.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); el.quantidade.focus(); } });
 	el.quantidade.addEventListener("keydown", e => {
 		if (e.key === "Enter") { e.preventDefault(); el.vencimento.focus(); try { el.vencimento.showPicker?.(); } catch { /* ignora */ } }
@@ -2440,6 +2667,7 @@ function registrarEventos() {
 	// Pausa a câmera se o app for para segundo plano (economiza bateria e libera o flash)
 	document.addEventListener("visibilitychange", () => {
 		if (document.hidden && el.dlgLeitor.open) el.dlgLeitor.close();
+		if (document.hidden && el.dlgValidade?.open) el.dlgValidade.close();
 	});
 
 	// Ações da tabela (delegação)
