@@ -2848,7 +2848,6 @@ input[type="date"]::-webkit-date-and-time-value {
 
 	.cartao-lista {
 		flex: 1 1 0;
-		min-height: 300px;
 		display: flex;
 		flex-direction: column;
 	}
@@ -2865,6 +2864,16 @@ input[type="date"]::-webkit-date-and-time-value {
 		overflow-x: hidden;
 		overscroll-behavior: contain;
 		scrollbar-gutter: stable;
+	}
+
+	/* Pelo menos 3 produtos sempre visíveis (altura medida pelo app). O cartão
+	   não encolhe abaixo disso: se faltar espaço, a página rola o necessário */
+	.tabela-envoltorio {
+		min-height: var(--min-lista, 0px);
+	}
+
+	.cartao-lista {
+		min-height: auto;
 	}
 
 	/* O cabeçalho da tabela fica fixo no topo da área que rola */
@@ -3293,4 +3302,89 @@ input[type="date"]::-webkit-date-and-time-value {
 
 .cartao-lista.topo-visivel .rodape-lista {
 	padding-right: 52px;
+}
+
+/* ---------- Resumo na barra do topo (computador, quando cabe) ----------
+   O app move os cartões para cá só se couberem inteiros sem cortar o nome;
+   senão, eles ficam no lugar de sempre. */
+.topo-resumo {
+	flex: 1 1 auto;
+	min-width: 0;
+	display: flex;
+	justify-content: center;
+}
+
+.topo-resumo:empty {
+	display: block;
+}
+
+.topo-resumo .resumo-envoltorio {
+	flex: none;
+}
+
+.topo-resumo .resumo {
+	display: flex;
+	gap: 6px;
+	margin: 0;
+	padding: 0;
+	overflow: visible;
+	-webkit-mask-image: none;
+	mask-image: none;
+}
+
+.topo-resumo .cartao-resumo {
+	flex: none;
+	flex-direction: row;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+	padding: 4px 12px 4px 4px;
+	border-radius: 999px;
+	box-shadow: none;
+	background: var(--superficie);
+}
+
+.topo-resumo .cartao-resumo.ativo {
+	box-shadow: 0 6px 18px -12px var(--tom);
+	background: linear-gradient(0deg, var(--tom-fundo), var(--tom-fundo)), var(--superficie);
+}
+
+.topo-resumo .resumo-icone {
+	width: 30px;
+	height: 30px;
+	border-radius: 50%;
+}
+
+.topo-resumo .resumo-icone svg {
+	width: 16px;
+	height: 16px;
+}
+
+.topo-resumo .resumo-info {
+	flex-direction: row;
+	align-items: baseline;
+	gap: 6px;
+	width: auto;
+}
+
+.topo-resumo .resumo-info strong {
+	font-size: 1rem;
+}
+
+.topo-resumo .resumo-info small {
+	font-size: .76rem;
+}
+
+.topo-resumo .resumo-seta {
+	display: none !important;
+}
+
+/* O nome não pode ser espremido quando o resumo está no topo; o subtítulo sai
+   para abrir espaço (o título continua inteiro) */
+.topo-conteudo.com-resumo .marca {
+	flex: 0 1 auto;
+}
+
+.topo-conteudo.com-resumo .marca p {
+	display: none;
 }
