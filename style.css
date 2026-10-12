@@ -3388,3 +3388,9 @@ input[type="date"]::-webkit-date-and-time-value {
 .topo-conteudo.com-resumo .marca p {
 	display: none;
 }
+
+/* Depois de abrir, os blocos não repetem a animação de entrada */
+body.carregado .pagina > *,
+body.carregado .topo {
+	animation: none;
+}

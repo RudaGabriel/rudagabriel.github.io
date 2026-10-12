@@ -757,22 +757,46 @@ function atualizarAlturaMinimaLista() {
 	}
 }
 
-/** Computador: leva o resumo para a barra do topo quando cabe inteiro; senão, deixa no lugar. */
+/** Computador: leva o resumo para a barra do topo quando cabe inteiro; senão, deixa no lugar.
+ *  O resumo real só muda de lugar quando a decisão muda (mover reinicia animações);
+ *  quando ele está na página, a medição usa uma cópia invisível. */
 const mqComputador = window.matchMedia?.("(min-width: 1000px)");
 function posicionarResumo() {
 	const envoltorio = $(".resumo-envoltorio"), slot = $("#slotResumoTopo"), pagina = $(".pagina"), topo = $(".topo-conteudo");
-	if (!envoltorio || !slot || !pagina) return;
+	if (!envoltorio || !slot || !pagina || !topo) return;
+	const titulo = $(".marca h1");
+	const nomeInteiro = () => !titulo || titulo.scrollWidth <= titulo.clientWidth + 1;
 	const devolver = () => {
 		if (envoltorio.parentElement !== pagina) pagina.prepend(envoltorio);
-		topo?.classList.remove("com-resumo");
+		topo.classList.remove("com-resumo");
 	};
 	if (!mqComputador?.matches) return devolver();
-	// Testa no topo (tudo no mesmo quadro, sem piscar) e só mantém se couber
-	if (envoltorio.parentElement !== slot) slot.appendChild(envoltorio);
-	topo?.classList.add("com-resumo");
-	const titulo = $(".marca h1");
-	const cabe = envoltorio.scrollWidth <= slot.clientWidth + 1 && (!titulo || titulo.scrollWidth <= titulo.clientWidth + 1);
-	if (!cabe) devolver();
+
+	const estaNoTopo = envoltorio.parentElement === slot;
+	let cabe;
+	if (estaNoTopo) {
+		cabe = envoltorio.scrollWidth <= slot.clientWidth + 1 && nomeInteiro();
+	} else {
+		// Mede uma cópia invisível no topo, sem mexer no resumo real
+		const tinhaClasse = topo.classList.contains("com-resumo");
+		topo.classList.add("com-resumo");
+		const copia = envoltorio.cloneNode(true);
+		copia.querySelectorAll("[id]").forEach(e => e.removeAttribute("id"));
+		copia.setAttribute("aria-hidden", "true");
+		copia.style.cssText = "position:absolute;visibility:hidden;pointer-events:none;left:0;top:0;animation:none";
+		slot.style.position = "relative";
+		slot.appendChild(copia);
+		cabe = copia.scrollWidth <= slot.clientWidth + 1 && nomeInteiro();
+		copia.remove();
+		slot.style.position = "";
+		if (!tinhaClasse) topo.classList.remove("com-resumo");
+	}
+	if (cabe) {
+		if (!estaNoTopo) slot.appendChild(envoltorio);
+		topo.classList.add("com-resumo");
+	} else {
+		devolver();
+	}
 }
 
 let quadroLayout = 0;
@@ -2472,6 +2496,8 @@ function iniciar() {
 	registrarEventos();
 	registrarEventosLayout();
 	posicionarResumo();
+	// A animação de entrada roda só uma vez (mover blocos depois não a reinicia)
+	setTimeout(() => document.body.classList.add("carregado"), 1200);
 
 	// Formulário no celular: recolhido quando já há produtos (ou como a pessoa deixou)
 	const recolhidoSalvo = armazenamento.lerTexto(CHAVE.formRecolhido);
