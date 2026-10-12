@@ -1179,7 +1179,7 @@ async function sugerirNomeOnline(codigo) {
 		el.nome.value = resultado.nome;
 		el.nome.removeAttribute("aria-invalid");
 		marcarSugerido(el.nome);
-		toast("info", `Nome sugerido: <b>${esc(resultado.nome)}</b>. Confira e ajuste se precisar.`, 5000);
+		toast("info", `Nome sugerido: <b>${esc(resultado.nome)}</b>. Confira e ajuste se precisar <small>(função experimental)</small>.`, 5000);
 	} catch (e) {
 		console.warn("[nome sugerido]", e);
 	} finally {
@@ -1189,6 +1189,10 @@ async function sugerirNomeOnline(codigo) {
 		}
 	}
 }
+
+/** Aviso das funções experimentais (nome sugerido, foto e leitura da validade). */
+const avisoExperimental = (texto = "pode não ser totalmente precisa. Confira sempre.") =>
+	`<p class="aviso-experimental">${icone("FlaskConical")}<span><b>Função experimental:</b> ${texto}</span></p>`;
 
 /** Preenche o campo Produto com um nome sugerido (realçado para conferir). */
 function aplicarNomeSugerido(nome) {
@@ -1236,7 +1240,7 @@ async function escolherNomeParecido(codigo, opcoes) {
 		return window.confirm(`Código ${codigo} não encontrado. Usar o nome parecido “${opcoes[0].nome}”?`) ? opcoes[0].nome : null;
 	}
 	let escolhido = opcoes[0].nome;
-	const html = `<p>O código <b>${esc(codigo)}</b> não está nas bases. Estes são do <b>mesmo fabricante</b>, com código parecido — escolha o mais próximo e ajuste depois se precisar:</p>`
+	const html = avisoExperimental("os nomes são palpites e podem não ser deste produto.") + `<p>O código <b>${esc(codigo)}</b> não está nas bases. Estes são do <b>mesmo fabricante</b>, com código parecido — escolha o mais próximo e ajuste depois se precisar:</p>`
 		+ `<div class="opcoes-data opcoes-nome" role="radiogroup" aria-label="Nomes parecidos">${opcoes.map((o, i) =>
 			`<button type="button" class="opcao-data opcao-nome" role="radio" data-i="${i}" aria-checked="${i === 0}">`
 			+ `<b>${esc(o.nome)}</b><small>${esc(o.fonte)} · ${esc(o.codigo)}</small></button>`).join("")}</div>`
@@ -1321,7 +1325,7 @@ async function sugerirNomeManual() {
 		if (atual === resultado.nome) return toast("info", "O nome já está igual à sugestão.");
 		const { acao } = await dialogo({
 			titulo: "Nome sugerido",
-			html: `<p>Para o código <b>${esc(codigo)}</b> encontramos:</p>`
+			html: avisoExperimental("o nome pode não ser totalmente preciso. Confira com a embalagem.") + `<p>Para o código <b>${esc(codigo)}</b> encontramos:</p>`
 				+ `<p class="nome-sugerido">${esc(resultado.nome)}</p>`
 				+ `<p class="ajuda">Fonte: ${esc(resultado.fonte)}${atual ? ` · vai substituir “${esc(atual)}”` : ""}. Você pode ajustar depois.</p>`,
 			confirmar: "Usar este nome",
@@ -1446,7 +1450,7 @@ async function dialogoFoto(produto, { pendente = false } = {}) {
 	const editavel = podeEditar();
 	if (!window.Swal) return undefined;
 	let resultado;
-	const html = `<div class="foto-dialogo">
+	const html = `<div class="foto-dialogo">${editavel ? avisoExperimental("a foto encontrada na internet pode não ser exatamente deste produto.") : ""}
 		<div class="foto-grande">${temFoto ? `<img src="${esc(atual.src)}" alt="Foto de ${esc(produto.nome || "produto")}" referrerpolicy="no-referrer">` : `<span class="foto-vazia">${icone("Package")}<small>Sem foto</small></span>`}</div>
 		${temFoto ? `<p class="ajuda">${esc(ROTULO_ORIGEM[atual.origem] || "")}${atual.fonte ? ` · ${esc(atual.fonte)}` : ""}</p>` : ""}
 		${editavel ? `<div class="foto-acoes">
@@ -1742,6 +1746,7 @@ async function escolherDataLida(candidatas, previa) {
 	const rotulo = c => c.fabricacao ? "provável fabricação" : c === principal ? "validade mais provável" : "outra leitura";
 	const html = `${previa ? `<img class="previa-validade" src="${previa}" alt="Área lida">` : ""}`
 		+ (incerta ? `<p class="aviso-incerta">Leitura incerta — confira com a embalagem.</p>` : "")
+		+ avisoExperimental("a leitura pode não ser totalmente precisa. Confira com a embalagem.")
 		+ `<p>Toque na <b>data de validade</b> correta:</p>`
 		+ `<div class="opcoes-data" role="radiogroup" aria-label="Datas encontradas">${opcoes.map(c =>
 			`<button type="button" class="opcao-data" role="radio" data-data="${esc(c.data)}" aria-checked="${c === principal}">`
@@ -1826,7 +1831,7 @@ async function lerDataDaArea() {
 		marcarSugerido(el.vencimento);
 		el.dlgValidade.close();
 		const vencido = escolha < hojeISO() ? " (já vencido)" : "";
-		toast("sucesso", `Validade: <b>${formatarData(escolha)}</b>${vencido}.`, 4000);
+		toast("sucesso", `Validade: <b>${formatarData(escolha)}</b>${vencido}. Confira com a embalagem.`, 4500);
 	} catch (e) {
 		console.error("[ler validade]", e);
 		toast("erro", navigator.onLine === false

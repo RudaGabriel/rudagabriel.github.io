@@ -109,6 +109,10 @@ Não é preciso criar conta. Se quiser guardar na nuvem, veja [Salvar na nuvem](
 - **Produto repetido:** ao cadastrar o mesmo produto com o mesmo vencimento, o app pergunta se você quer **somar** as quantidades ou **substituir** pela nova.
 - Leitores de código de barras **USB ou Bluetooth** também funcionam: basta clicar no campo do código e ler.
 
+## Funções experimentais
+
+> **Atenção:** a **sugestão de nome**, a **foto do produto** (busca automática) e a **leitura da data de validade** são **experimentais** e **não são totalmente precisas**. O app sempre mostra o resultado para você conferir — confira com a embalagem antes de salvar.
+
 ## Foto do produto
 
 Cada produto da lista mostra uma **miniatura** ao lado do nome.
