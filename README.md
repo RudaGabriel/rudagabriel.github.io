@@ -136,6 +136,10 @@ Os cartões no topo mostram quantos produtos estão em cada situação. **Toque 
 | **Vencem este mês** | Produtos que vencem até o fim do mês atual. |
 | **Em dia** | Produtos ainda longe do vencimento. |
 
+No computador, quando há espaço, os cartões ficam compactos na **barra do topo**, liberando a tela para a lista. Em janelas mais estreitas, ou com um nome de loja longo, eles voltam para cima do formulário.
+
+No computador, quando há espaço, os cartões ficam compactos na **barra do topo**, liberando a tela para a lista. Em janelas mais estreitas, ou com um nome de loja longo, eles voltam para cima do formulário.
+
 No celular, deslize os cartões para o lado para ver todos. Uma **seta** na borda indica quando ainda há cartões escondidos daquele lado; toque nela para avançar.
 
 ### Prazo de alerta
@@ -151,7 +155,7 @@ Sempre que você abrir o app, ele avisa quais produtos estão perto do venciment
 As cores ajudam a ler a lista de relance: **vermelho** = vencido, **amarelo** = vencendo, **verde** = em dia.
 
 ### Navegar por listas grandes
-- A lista ocupa o espaço da tela até o rodapé e **rola por dentro**, então resumo, busca e filtros ficam sempre à mão.
+- A lista ocupa o espaço da tela até o rodapé e **rola por dentro**, então resumo, busca e filtros ficam sempre à mão. Ela sempre mostra **pelo menos 3 produtos** inteiros; se a janela for baixa demais, a página rola só o necessário. Ela sempre mostra **pelo menos 3 produtos** inteiros; se a janela for baixa demais, a página rola só o necessário.
 - Depois de rolar bastante, aparece um **botão com seta para cima**: toque nele para voltar ao início da lista.
 - **No celular**, toque em **Novo produto** para mostrar ou esconder o formulário. Com ele recolhido, sobra mais espaço para os produtos. O app lembra sua escolha e abre o formulário sozinho quando você edita um produto.
 - **No celular**, a lista sempre tem espaço para mostrar **pelo menos 3 produtos** inteiros. Os links de **Política de privacidade** e **Código-fonte** ficam no menu **⋮**.

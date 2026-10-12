@@ -737,14 +737,18 @@ function atualizarBotaoTopo() {
 	botao.setAttribute("aria-hidden", String(!mostrar));
 }
 
-/** Celular: a lista tem sempre a altura de pelo menos 3 produtos (medidos de verdade). */
+/** A lista tem sempre espaço para pelo menos 3 produtos (medidos de verdade). */
 function atualizarAlturaMinimaLista() {
 	const envoltorio = $(".tabela-envoltorio");
 	if (!envoltorio) return;
+	// Do topo da área da lista (com o cabeçalho da tabela, se houver) até o fim do
+	// 3º produto — vale para tabela (computador) e cartões (celular/tablet em 2 colunas).
+	// Só age quando faltaria espaço: com 3 ou mais visíveis, nada muda.
 	let altura = 0;
-	if (ehCelular()) {
-		const linhas = [...envoltorio.querySelectorAll("tbody tr")].slice(0, 3);
-		altura = linhas.reduce((soma, tr) => soma + tr.getBoundingClientRect().height, 0);
+	const linhas = [...envoltorio.querySelectorAll("tbody tr")].slice(0, 3);
+	if (linhas.length) {
+		const topo = envoltorio.getBoundingClientRect().top - envoltorio.scrollTop + envoltorio.clientTop;
+		altura = Math.max(...linhas.map(tr => tr.getBoundingClientRect().bottom)) - topo;
 	}
 	const valor = altura > 0 ? `${Math.ceil(altura)}px` : "";
 	if (envoltorio.style.getPropertyValue("--min-lista") !== valor) {
@@ -753,11 +757,30 @@ function atualizarAlturaMinimaLista() {
 	}
 }
 
+/** Computador: leva o resumo para a barra do topo quando cabe inteiro; senão, deixa no lugar. */
+const mqComputador = window.matchMedia?.("(min-width: 1000px)");
+function posicionarResumo() {
+	const envoltorio = $(".resumo-envoltorio"), slot = $("#slotResumoTopo"), pagina = $(".pagina"), topo = $(".topo-conteudo");
+	if (!envoltorio || !slot || !pagina) return;
+	const devolver = () => {
+		if (envoltorio.parentElement !== pagina) pagina.prepend(envoltorio);
+		topo?.classList.remove("com-resumo");
+	};
+	if (!mqComputador?.matches) return devolver();
+	// Testa no topo (tudo no mesmo quadro, sem piscar) e só mantém se couber
+	if (envoltorio.parentElement !== slot) slot.appendChild(envoltorio);
+	topo?.classList.add("com-resumo");
+	const titulo = $(".marca h1");
+	const cabe = envoltorio.scrollWidth <= slot.clientWidth + 1 && (!titulo || titulo.scrollWidth <= titulo.clientWidth + 1);
+	if (!cabe) devolver();
+}
+
 let quadroLayout = 0;
 function agendarLayout() {
 	if (quadroLayout) return;
 	quadroLayout = requestAnimationFrame(() => {
 		quadroLayout = 0;
+		posicionarResumo();
 		atualizarAlturaMinimaLista();
 		atualizarSetasResumo();
 		atualizarBotaoTopo();
@@ -785,6 +808,9 @@ function registrarEventosLayout() {
 	window.addEventListener("scroll", agendarLayout, { passive: true });
 	window.addEventListener("resize", agendarLayout, { passive: true });
 	mqCelular?.addEventListener?.("change", agendarLayout);
+	mqComputador?.addEventListener?.("change", agendarLayout);
+	// A largura do texto muda quando as fontes terminam de carregar
+	document.fonts?.ready?.then(agendarLayout).catch(() => { });
 	$("#btnTopoLista")?.addEventListener("click", () => {
 		const rolador = rolagemDaLista();
 		if (rolador) rolador.scrollTo({ top: 0, behavior: comportamentoRolagem() });
@@ -1162,6 +1188,8 @@ function aplicarNomeLoja() {
 	}
 	document.title = tituloCompleto(loja);
 	$('meta[name="apple-mobile-web-app-title"]')?.setAttribute("content", loja || "Vencimentos");
+	// Nome maior ou menor muda o espaço do resumo no topo
+	if (typeof agendarLayout === "function") agendarLayout();
 }
 
 /**
@@ -2443,6 +2471,7 @@ function iniciar() {
 
 	registrarEventos();
 	registrarEventosLayout();
+	posicionarResumo();
 
 	// Formulário no celular: recolhido quando já há produtos (ou como a pessoa deixou)
 	const recolhidoSalvo = armazenamento.lerTexto(CHAVE.formRecolhido);
