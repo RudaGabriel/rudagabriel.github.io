@@ -403,6 +403,47 @@ async function obterTrabalhador() {
 	return preparando;
 }
 
+/** Fração (0–1) da imagem do lado escuro do limiar de Otsu — numa miniatura. */
+function fracaoEscura(img) {
+	try {
+		const W = img.naturalWidth || img.videoWidth || img.width || 0, H = img.naturalHeight || img.videoHeight || img.height || 0;
+		if (!W || !H) return 0;
+		const escala = Math.min(1, 240 / Math.max(W, H));
+		const w = Math.max(1, Math.round(W * escala)), h = Math.max(1, Math.round(H * escala));
+		const c = document.createElement("canvas");
+		c.width = w; c.height = h;
+		const ctx = c.getContext("2d", { willReadFrequently: true });
+		ctx.drawImage(img, 0, 0, w, h);
+		const d = ctx.getImageData(0, 0, w, h).data;
+		const g = new Float32Array(w * h);
+		for (let i = 0; i < w * h; i++) g[i] = d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114;
+		const b = limiarOtsu(g);
+		let escuros = 0;
+		for (let i = 0; i < b.length; i++) if (b[i] === 0) escuros++;
+		return escuros / b.length;
+	} catch {
+		return 0;
+	}
+}
+
+/** Cópia com as cores invertidas (o leitor espera letra escura em fundo claro). */
+function invertida(img) {
+	try {
+		const W = img.naturalWidth || img.videoWidth || img.width, H = img.naturalHeight || img.videoHeight || img.height;
+		const c = document.createElement("canvas");
+		c.width = W; c.height = H;
+		const ctx = c.getContext("2d", { willReadFrequently: true });
+		ctx.drawImage(img, 0, 0, W, H);
+		const dados = ctx.getImageData(0, 0, W, H);
+		const d = dados.data;
+		for (let i = 0; i < d.length; i += 4) { d[i] = 255 - d[i]; d[i + 1] = 255 - d[i + 1]; d[i + 2] = 255 - d[i + 2]; }
+		ctx.putImageData(dados, 0, 0);
+		return c;
+	} catch {
+		return img;
+	}
+}
+
 /**
  * Recorte em faixa fina (uma linha só, marcada bem justa): as letras encostam na
  * borda e seriam apagadas como "manchas". Ganha uma margem da cor do fundo.
@@ -484,7 +525,13 @@ export async function lerDatas(fonte, { recorte = true, aoProgresso } = {}) {
 	const imagens = [];
 	for (const f of lista) {
 		const img = f instanceof Blob ? await carregarImagem(f) : f;
-		imagens.push(recorte ? comMargemSeFaixa(img) : img);
+		if (!recorte) { imagens.push(img); continue; }
+		// Letra clara em fundo escuro (ex.: data branca em tarja preta): lê invertida;
+		// na dúvida (metade escura), lê das duas formas
+		const escura = fracaoEscura(img);
+		if (escura > 0.62) imagens.push(comMargemSeFaixa(invertida(img)));
+		else if (escura > 0.4) imagens.push(comMargemSeFaixa(img), comMargemSeFaixa(invertida(img)));
+		else imagens.push(comMargemSeFaixa(img));
 	}
 	const imagem = imagens[0];
 	avisar({ etapa: trabalhador ? "lendo" : "baixando" });
