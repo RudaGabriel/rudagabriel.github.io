@@ -3,10 +3,10 @@
    ---------------------------------------------------------
    Prioridade:
      1. Foto colocada pela pessoa (tirada ou escolhida) — sempre vence
-     2. Foto encontrada pelo código de barras (Open Food Facts e
-        afins, UPCitemdb, Wikidata)
-     3. Foto encontrada pelo nome (Open Food Facts), só quando o
-        nome do produto encontrado é bem parecido
+     2. Foto encontrada pelo NOME informado (Open Food Facts), quando
+        o produto encontrado tem um nome bem parecido
+     3. Foto encontrada pelo código de barras (Open Food Facts e
+        afins, UPCitemdb, Wikidata), se não achar pelo nome
    A foto é do PRODUTO (código de barras, ou o nome quando não há
    código): todos os lotes do mesmo produto mostram a mesma foto.
    Fica guardada neste aparelho (IndexedDB); em outro aparelho a
@@ -196,18 +196,19 @@ export async function fotosPorNome(nome, { sinal, limite = 8 } = {}) {
 }
 
 /**
- * Busca automática: primeiro pelo código; sem resultado, pelo nome (só se for bem parecido).
+ * Busca automática: primeiro pelo nome informado (só aceita nome bem parecido);
+ * sem resultado, pelo código de barras.
  * @returns {Promise<{ src: string, origem: "codigo" | "nome", fonte: string } | null>}
  */
 export async function buscarFotoAutomatica(item, { sinal } = {}) {
-	if (item?.codigoBarras) {
-		const porCodigo = await fotosPorCodigo(item.codigoBarras, { sinal });
-		if (porCodigo[0]) return { ...porCodigo[0], origem: "codigo" };
-	}
 	if (item?.nome) {
 		const porNome = await fotosPorNome(item.nome, { sinal, limite: 4 });
 		const melhor = porNome[0];
 		if (melhor && melhor.semelhanca >= 0.75) return { src: melhor.src, fonte: melhor.fonte, origem: "nome" };
+	}
+	if (item?.codigoBarras) {
+		const porCodigo = await fotosPorCodigo(item.codigoBarras, { sinal });
+		if (porCodigo[0]) return { ...porCodigo[0], origem: "codigo" };
 	}
 	return null;
 }

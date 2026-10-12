@@ -113,10 +113,10 @@ Não é preciso criar conta. Se quiser guardar na nuvem, veja [Salvar na nuvem](
 
 Cada produto da lista mostra uma **miniatura** ao lado do nome.
 
-- **Automático:** o app procura a foto sozinho — primeiro **pelo código de barras** (Open Food Facts e bases parecidas, UPCitemdb, Wikidata) e, se não achar, **pelo nome** (só quando o produto encontrado tem um nome bem parecido). Dá para desligar em **⋮ → Buscar fotos automaticamente**.
+- **Automático:** o app procura a foto sozinho — primeiro **pelo nome** que você informou (só aceita um produto com nome bem parecido) e, se não achar, **pelo código de barras** (Open Food Facts e bases parecidas, UPCitemdb, Wikidata). Dá para desligar em **⋮ → Buscar fotos automaticamente**.
 - **Toque na miniatura** para ver a foto grande e:
   - **Tirar ou escolher foto** — use a câmera ou escolha uma imagem do celular/computador. A sua foto **sempre tem prioridade**;
-  - **Buscar na internet** — mostra as fotos encontradas pelo código e pelo nome para você escolher;
+  - **Buscar na internet** — mostra as fotos encontradas pelo nome e pelo código para você escolher;
   - **Remover foto** — o app não busca de novo para esse produto.
 - No formulário, o botão de **foto** (ao lado do ✨) deixa escolher a foto antes de adicionar o produto.
 - A foto vale para o **produto** (mesmo código de barras ou, sem código, mesmo nome): todos os lotes mostram a mesma foto.
