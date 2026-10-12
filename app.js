@@ -1412,7 +1412,7 @@ function alternarFotosAuto() {
 	armazenamento.gravarTexto(CHAVE.fotosAuto, estado.fotosAuto ? "1" : "0");
 	$("#itemFotosAuto")?.setAttribute("aria-checked", String(estado.fotosAuto));
 	toast("info", estado.fotosAuto
-		? "Busca automática de fotos <b>ligada</b>: o app procura a foto pelo código de barras ou pelo nome."
+		? "Busca automática de fotos <b>ligada</b>: o app procura a foto pelo nome e, se não achar, pelo código de barras."
 		: "Busca automática de fotos <b>desligada</b>. Você ainda pode colocar a foto tocando na miniatura do produto.", 5000);
 	if (estado.fotosAuto) agendarBuscaFotos();
 }
@@ -1494,7 +1494,8 @@ async function dialogoFoto(produto, { pendente = false } = {}) {
 						produto.nome ? fotosPorNome(produto.nome, { limite: 8 }) : []
 					]);
 					const vistas = new Set();
-					for (const f of [...porCodigo.map(f => ({ ...f, origem: "codigo" })), ...porNome.map(f => ({ ...f, origem: "nome" }))]) {
+					// Mesma ordem da busca automática: primeiro as do nome, depois as do código
+					for (const f of [...porNome.map(f => ({ ...f, origem: "nome" })), ...porCodigo.map(f => ({ ...f, origem: "codigo" }))]) {
 						if (vistas.has(f.src)) continue;
 						vistas.add(f.src);
 						opcoes.push(f);
