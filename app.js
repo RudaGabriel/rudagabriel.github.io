@@ -28,6 +28,7 @@ const CHAVE = {
 	loja: "cv2:loja",
 	lojaOrigem: "cv2:lojaOrigem",
 	formRecolhido: "cv2:formRecolhido",
+	sugestaoAuto: "cv2:sugestaoAuto",
 	loginPendente: "cv2:loginPendente"
 };
 
@@ -333,6 +334,7 @@ const estado = {
 	silenciados: new Set(),
 	loja: "",
 	lojaVerificadaEm: null,
+	sugestaoAuto: false, // preencher o nome sozinho ao ler um código novo (desligado por padrão)
 	alerta: { valor: 60, unidade: "dias" },
 	filtro: "todos",
 	busca: "",
@@ -419,6 +421,7 @@ const el = {
 	quantidade: $("#quantidade"),
 	vencimento: $("#vencimento"),
 	btnLerValidade: $("#btnLerValidade"),
+	btnSugerirNome: $("#btnSugerirNome"),
 	arquivoValidade: $("#arquivoValidade"),
 	btnSalvar: $("#btnSalvar"),
 	btnCancelarEdicao: $("#btnCancelarEdicao"),
@@ -856,7 +859,7 @@ function registrarEventosLayout() {
 function atualizarEstadoFormulario() {
 	const editavel = podeEditar();
 	el.avisoLeitura.hidden = editavel;
-	[el.codigo, el.nome, el.quantidade, el.vencimento, el.btnSalvar, el.btnEscanear, el.btnLerValidade].forEach(c => { if (c) c.disabled = !editavel; });
+	[el.codigo, el.nome, el.quantidade, el.vencimento, el.btnSalvar, el.btnEscanear, el.btnLerValidade, el.btnSugerirNome].forEach(c => { if (c) c.disabled = !editavel; });
 	const editando = !!estado.editandoId;
 	el.cartaoForm?.classList.toggle("editando", editando);
 	el.tituloForm.textContent = editando ? "Editando produto" : "Novo produto";
@@ -1099,7 +1102,8 @@ function autoPreencherPorCodigo() {
 	if (!codigo || el.nome.value.trim() || estado.editandoId) return false;
 	const conhecido = itensAtuais().slice().sort((a, b) => b.atualizadoEm - a.atualizadoEm).find(i => i.codigoBarras === codigo);
 	if (!conhecido) {
-		sugerirNomeOnline(codigo); // não está na lista: tenta a base pública de produtos
+		// Não está na lista: com a sugestão automática ligada, tenta a base pública de produtos
+		if (estado.sugestaoAuto) sugerirNomeOnline(codigo);
 		return false;
 	}
 	el.nome.value = conhecido.nome;
@@ -1142,6 +1146,73 @@ async function sugerirNomeOnline(codigo) {
 			el.nome.placeholder = PLACEHOLDER_NOME;
 		}
 	}
+}
+
+/* ---------- Sugestão sob demanda (botão ✨ no campo Produto) ---------- */
+let sugerindoManual = false;
+async function sugerirNomeManual() {
+	if (sugerindoManual) return;
+	if (!podeEditar()) return toast("aviso", "Este aparelho está no modo <b>somente leitura</b>.");
+	const codigo = el.codigo.value.replace(/\s+/g, "");
+	if (!codigo) {
+		toast("info", "Leia ou digite o <b>código de barras</b> primeiro; depois toque aqui para sugerir o nome.");
+		el.codigo.focus();
+		return;
+	}
+	if (!codigoConsultavel(codigo)) return toast("aviso", "Esse código não é de um produto comum (EAN/UPC). Digite o nome.");
+	sugerindoManual = true;
+	el.btnSugerirNome?.classList.add("carregando");
+	el.btnSugerirNome?.setAttribute("aria-busy", "true");
+	try {
+		const naLista = itensAtuais().slice().sort((a, b) => b.atualizadoEm - a.atualizadoEm).find(i => i.codigoBarras === codigo);
+		const resultado = naLista ? { nome: naLista.nome, fonte: "sua lista de produtos" } : await buscarNomeProduto(codigo);
+		if (!resultado) {
+			toast("aviso", navigator.onLine === false
+				? "Sem internet para buscar o nome agora."
+				: "Não encontramos esse código nas bases públicas. Digite o nome.", 5000);
+			return;
+		}
+		const atual = el.nome.value.trim();
+		if (atual === resultado.nome) return toast("info", "O nome já está igual à sugestão.");
+		const { acao } = await dialogo({
+			titulo: "Nome sugerido",
+			html: `<p>Para o código <b>${esc(codigo)}</b> encontramos:</p>`
+				+ `<p class="nome-sugerido">${esc(resultado.nome)}</p>`
+				+ `<p class="ajuda">Fonte: ${esc(resultado.fonte)}${atual ? ` · vai substituir “${esc(atual)}”` : ""}. Você pode ajustar depois.</p>`,
+			confirmar: "Usar este nome",
+			cancelar: "Cancelar"
+		});
+		if (acao !== "confirmar") return;
+		// O código pode ter mudado enquanto o diálogo estava aberto
+		if (el.codigo.value.replace(/\s+/g, "") !== codigo) return;
+		el.nome.value = resultado.nome;
+		el.nome.removeAttribute("aria-invalid");
+		marcarSugerido(el.nome);
+		el.quantidade.focus();
+	} catch (e) {
+		console.warn("[sugerir nome]", e);
+		toast("erro", "Não foi possível buscar o nome agora. Tente de novo.");
+	} finally {
+		sugerindoManual = false;
+		el.btnSugerirNome?.classList.remove("carregando");
+		el.btnSugerirNome?.removeAttribute("aria-busy");
+	}
+}
+
+/** Liga/desliga a sugestão automática de nome (menu ⋮). */
+function aplicarSugestaoAuto() {
+	$("#itemSugestaoAuto")?.setAttribute("aria-checked", String(estado.sugestaoAuto));
+}
+
+function alternarSugestaoAuto() {
+	estado.sugestaoAuto = !estado.sugestaoAuto;
+	armazenamento.gravarTexto(CHAVE.sugestaoAuto, estado.sugestaoAuto ? "1" : "0");
+	aplicarSugestaoAuto();
+	toast("info", estado.sugestaoAuto
+		? "Sugestão automática <b>ligada</b>: ao ler um código novo, o nome é preenchido sozinho (confira sempre)."
+		: "Sugestão automática <b>desligada</b>. Use o botão ✨ no campo Produto quando quiser uma sugestão.", 5000);
+	// Ligou com um código já digitado e sem nome: sugere agora
+	if (estado.sugestaoAuto && el.codigo.value.trim() && !el.nome.value.trim()) autoPreencherPorCodigo();
 }
 
 /* ---------- Validade lida por foto (OCR no aparelho) ---------- */
@@ -2313,6 +2384,9 @@ function registrarEventos() {
 	});
 	el.codigo.addEventListener("change", autoPreencherPorCodigo);
 
+	// Sugerir o nome sob demanda
+	el.btnSugerirNome?.addEventListener("click", sugerirNomeManual);
+
 	// Ler a validade por foto
 	el.btnLerValidade?.addEventListener("click", () => {
 		if (!podeEditar()) return toast("aviso", "Este aparelho está no modo <b>somente leitura</b>.");
@@ -2440,6 +2514,7 @@ function registrarEventos() {
 			case "importar": el.arquivo.click(); break;
 			case "sincronizar": abrirDialogoSync(); break;
 			case "loja": configurarNomeLoja(); break;
+			case "sugestao-auto": alternarSugestaoAuto(); break;
 		}
 	});
 	document.addEventListener("click", e => { if (el.menu.open && !el.menu.contains(e.target)) el.menu.open = false; });
@@ -2532,6 +2607,9 @@ function registrarEventos() {
 		} else if (e.key === CHAVE.silenciados) {
 			estado.silenciados = new Set((armazenamento.ler(CHAVE.silenciados, []) || []).map(normalizarId).filter(Boolean));
 			render();
+		} else if (e.key === CHAVE.sugestaoAuto) {
+			estado.sugestaoAuto = armazenamento.lerTexto(CHAVE.sugestaoAuto) === "1";
+			aplicarSugestaoAuto();
 		} else if (e.key === CHAVE.loja || e.key === null) {
 			definirNomeLoja(armazenamento.lerTexto(CHAVE.loja), { salvar: false });
 		}
@@ -2561,6 +2639,8 @@ function iniciar() {
 	estado.itensLocais = sanitizarLista(armazenamento.ler(CHAVE.itens, []));
 	estado.silenciados = new Set((armazenamento.ler(CHAVE.silenciados, []) || []).map(normalizarId).filter(Boolean));
 	definirNomeLoja(armazenamento.lerTexto(CHAVE.loja), { salvar: false });
+	estado.sugestaoAuto = armazenamento.lerTexto(CHAVE.sugestaoAuto) === "1";
+	aplicarSugestaoAuto();
 	const alerta = armazenamento.ler(CHAVE.alerta, null);
 	if (alerta && Number.isFinite(Number(alerta.valor))) {
 		estado.alerta = { valor: Math.max(0, Math.min(3650, Math.floor(Number(alerta.valor)))), unidade: alerta.unidade === "meses" ? "meses" : "dias" };

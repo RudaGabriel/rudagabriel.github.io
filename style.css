@@ -3432,3 +3432,53 @@ input.sugerido {
 		animation-duration: 2.4s;
 	}
 }
+
+/* ---------- Item do menu com chave liga/desliga ---------- */
+.menu-lista button .menu-texto {
+	flex: 1;
+}
+
+.menu-chave {
+	position: relative;
+	flex: none;
+	width: 32px;
+	height: 18px;
+	border-radius: 999px;
+	background: var(--borda-forte);
+	transition: background 220ms ease;
+}
+
+.menu-chave::after {
+	content: "";
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 14px;
+	height: 14px;
+	border-radius: 50%;
+	background: #fff;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, .3);
+	transition: transform 220ms cubic-bezier(.2, .8, .2, 1);
+}
+
+[aria-checked="true"] > .menu-chave {
+	background: var(--primaria);
+}
+
+[aria-checked="true"] > .menu-chave::after {
+	transform: translateX(14px);
+}
+
+/* Diálogo "Nome sugerido" */
+.nome-sugerido {
+	margin: 8px 0 6px;
+	padding: 12px 14px;
+	border-radius: var(--raio-sm);
+	border: 1px solid color-mix(in srgb, var(--ok) 45%, var(--borda-forte));
+	background: var(--ok-fundo);
+	color: var(--texto) !important;
+	font-weight: 700;
+	font-size: 1.02rem;
+	line-height: 1.4;
+	overflow-wrap: anywhere;
+}
