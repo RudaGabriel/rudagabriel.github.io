@@ -36,6 +36,7 @@ Gratuito · Funciona no celular e no computador · Sem instalação · Sem cadas
 - [Capturas de tela](#capturas-de-tela)
 - [Primeiros passos](#primeiros-passos)
 - [Cadastrar produtos](#cadastrar-produtos)
+- [Ler a data de validade por foto](#ler-a-data-de-validade-por-foto)
 - [Ler código de barras](#ler-código-de-barras)
 - [Acompanhar os vencimentos](#acompanhar-os-vencimentos)
 - [Editar e remover](#editar-e-remover)
@@ -99,11 +100,23 @@ Não é preciso criar conta. Se quiser guardar na nuvem, veja [Salvar na nuvem](
 | **Código de barras** | Não | Toque no ícone ao lado do campo para ler com a câmera, ou digite. |
 | **Produto** | Sim | O app sugere nomes que você já usou. |
 | **Quantidade** | Sim | Aceita números grandes (ex.: 1.240). |
-| **Vencimento** | Sim | Data de validade do lote. |
+| **Vencimento** | Sim | Data de validade do lote. Toque no ícone ao lado para **ler a data por foto**. |
 
 - **Nome automático:** se você ler um código de barras que já está na lista, o nome do produto é preenchido sozinho.
+- **Nome sugerido:** se o código ainda não está na sua lista, o app procura o produto na base pública **Open Food Facts** (alimentos, cosméticos e outros) e sugere o nome com marca e tamanho, por exemplo *Leite Integral Piracanjuba 1 L*. O campo fica destacado em verde para você conferir. Funciona com códigos de produtos (EAN/UPC) e precisa de internet.
 - **Produto repetido:** ao cadastrar o mesmo produto com o mesmo vencimento, o app pergunta se você quer **somar** as quantidades ou **substituir** pela nova.
 - Leitores de código de barras **USB ou Bluetooth** também funcionam: basta clicar no campo do código e ler.
+
+## Ler a data de validade por foto
+
+1. Toque no ícone ao lado do campo **Vencimento**.
+2. Fotografe **bem de perto só a parte com a data** (no celular, a câmera abre direto).
+3. O app lê o texto da foto e preenche a validade, com o campo destacado para você conferir.
+
+- Entende os formatos comuns: *15/03/2027*, *15.03.27*, *03/2027* (usa o último dia do mês), *15 MAR 2027*, *VAL: …*, *VENC: …*.
+- Quando a embalagem tem **fabricação e validade**, o app escolhe a validade.
+- A leitura acontece **no próprio aparelho**: a foto não é enviada a nenhum servidor. Na primeira vez, o navegador baixa o leitor de texto (cerca de 3 MB); depois funciona até sem internet.
+- Se não encontrar a data, o app avisa. Tente com mais luz, mais perto ou digite.
 
 ## Ler código de barras
 
@@ -280,6 +293,8 @@ O app é um site estático, rápido e sem instalação. As bibliotecas abaixo s�
 | [Dropbox API](https://www.dropbox.com/developers) | Guarda sua lista em um arquivo dentro do **seu** Dropbox. |
 | [barcode-detector](https://github.com/Sec-ant/barcode-detector) · [ZXing-C++](https://github.com/zxing-cpp/zxing-cpp) | Leitura rápida de códigos de barras (WebAssembly), inclusive no iPhone. |
 | [ZXing JS](https://github.com/zxing-js/library) | Leitor reserva para aparelhos e navegadores mais antigos. |
+| [Tesseract.js](https://tesseract.projectnaptha.com/) | Lê a data de validade de uma foto, no próprio aparelho (OCR). |
+| [Open Food Facts](https://world.openfoodfacts.org/) | Base pública e colaborativa usada para sugerir o nome do produto pelo código de barras. |
 | [SweetAlert2](https://sweetalert2.github.io/) | Janelas de confirmação claras e acessíveis. |
 | [Notyf](https://carlosroso.com/notyf/) | Avisos rápidos, como "Produto adicionado" e "Desfazer". |
 | [Lucide](https://lucide.dev/) | Ícones nítidos em qualquer tela. |

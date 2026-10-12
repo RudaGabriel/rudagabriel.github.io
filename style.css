@@ -3394,3 +3394,41 @@ body.carregado .pagina > *,
 body.carregado .topo {
 	animation: none;
 }
+
+/* ---------- Campo de vencimento com botão "ler validade" ---------- */
+.grupo-data .data-envoltorio {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.btn-anexo.carregando {
+	pointer-events: none;
+	color: var(--primaria);
+}
+
+.btn-anexo.carregando svg {
+	animation: girar 900ms linear infinite;
+}
+
+@keyframes girar {
+	to { transform: rotate(360deg); }
+}
+
+/* Valor preenchido automaticamente (nome sugerido ou data lida): realce até a pessoa mexer */
+input.sugerido {
+	border-color: color-mix(in srgb, var(--ok) 60%, var(--borda-forte));
+	box-shadow: 0 0 0 3px var(--ok-fundo);
+	animation: realce-sugerido 900ms ease;
+}
+
+@keyframes realce-sugerido {
+	0% { box-shadow: 0 0 0 0 var(--ok-fundo); }
+	40% { box-shadow: 0 0 0 7px var(--ok-fundo); }
+	100% { box-shadow: 0 0 0 3px var(--ok-fundo); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.btn-anexo.carregando svg {
+		animation-duration: 2.4s;
+	}
+}
