@@ -110,14 +110,15 @@ Não é preciso criar conta. Se quiser guardar na nuvem, veja [Salvar na nuvem](
 
 ## Ler a data de validade por foto
 
-1. Toque no ícone ao lado do campo **Vencimento**.
-2. Fotografe **bem de perto só a parte com a data** (no celular, a câmera abre direto).
-3. O app lê o texto da foto e preenche a validade, com o campo destacado para você conferir.
+1. Toque no ícone ao lado do campo **Vencimento**. A câmera abre com uma **moldura**.
+2. Deixe **só as linhas da data** dentro da moldura, bem de perto e com luz, e toque em **Ler data**. Se a câmera não abrir, toque em **Usar uma foto**, escolha a foto e **arraste o dedo sobre a data** para marcar a área.
+3. O app mostra a área lida e as datas encontradas, com a **validade mais provável já selecionada**. Confira com a embalagem, toque em outra data se for preciso e confirme. Se nenhuma estiver certa, toque em **Ler de novo**.
 
-- Entende os formatos comuns: *15/03/2027*, *15.03.27*, *03/2027* (usa o último dia do mês), *15 MAR 2027*, *VAL: …*, *VENC: …*.
-- Quando a embalagem tem **fabricação e validade**, o app escolhe a validade.
-- A leitura acontece **no próprio aparelho**: a foto não é enviada a nenhum servidor. Na primeira vez, o navegador baixa o leitor de texto (cerca de 3 MB); depois funciona até sem internet.
-- Se não encontrar a data, o app avisa. Tente com mais luz, mais perto ou digite.
+- Entende os formatos comuns: *15/03/2027*, *15.03.27*, *15 03 27*, *03/2027* (usa o último dia do mês), *15 MAR 2027*, *VAL: …*, *VENC: …*.
+- Funciona com a **impressão de pontinhos** (matricial/jato de tinta) das caixas de leite, latas e embalagens longa vida: o app lê a área várias vezes, de jeitos diferentes, e escolhe a data em que as leituras mais concordam. Dígitos parecidos (como **6 e 8**) são conferidos pelo desenho.
+- Quando a embalagem tem **fabricação e validade** (mesmo juntas, como em *FABRICAÇÃO/VALIDADE*), o app escolhe a validade e indica a provável fabricação.
+- Se a leitura ficar incerta, o app avisa para você conferir com mais atenção.
+- A leitura acontece **no próprio aparelho**: a imagem não é enviada a nenhum servidor. Na primeira vez, o navegador baixa o leitor de texto (cerca de 3 MB); depois funciona até sem internet.
 
 ## Ler código de barras
 

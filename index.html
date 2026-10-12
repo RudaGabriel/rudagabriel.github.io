@@ -170,9 +170,8 @@
 							<input type="date" id="vencimento" min="1900-01-01" max="2200-12-31" enterkeyhint="done" required>
 							<span class="data-dica" aria-hidden="true">dd/mm/aaaa</span>
 						</div>
-						<button type="button" id="btnLerValidade" class="btn-anexo" title="Ler a validade com a câmera (foto da data)" aria-label="Ler a data de validade com a câmera"><i data-lucide="scan-text"></i></button>
+						<button type="button" id="btnLerValidade" class="btn-anexo" title="Ler a validade com a câmera" aria-label="Ler a data de validade com a câmera"><i data-lucide="scan-text"></i></button>
 					</div>
-					<input type="file" id="arquivoValidade" accept="image/*" capture="environment" hidden>
 				</div>
 				<div class="form-acoes">
 					<button type="button" id="btnCancelarEdicao" class="btn btn-fantasma" hidden><i data-lucide="x"></i>Cancelar</button>
@@ -250,6 +249,30 @@
 		<span aria-hidden="true">·</span>
 		<a href="https://github.com/RudaGabriel/rudagabriel.github.io" target="_blank" rel="noopener noreferrer">Código-fonte</a>
 	</footer>
+
+	<!-- ===== Diálogo: leitor da data de validade ===== -->
+	<dialog id="dlgValidade" class="dialogo dialogo-leitor" aria-labelledby="tituloValidade">
+		<div class="dialogo-cabecalho">
+			<h2 id="tituloValidade"><i data-lucide="scan-text"></i>Ler data de validade</h2>
+			<button type="button" class="btn-icone" data-fechar aria-label="Fechar"><i data-lucide="x"></i></button>
+		</div>
+		<div class="leitor-area validade-area" id="validadeArea">
+			<video id="validadeVideo" playsinline muted autoplay aria-label="Imagem da câmera"></video>
+			<img id="validadeFoto" class="validade-foto" alt="Foto escolhida" hidden>
+			<div class="leitor-mira validade-mira" id="validadeMira" aria-hidden="true"></div>
+			<div class="validade-selecao" id="validadeSelecao" aria-hidden="true" hidden></div>
+			<p id="validadeStatus" class="leitor-status" role="status">Iniciando câmera…</p>
+			<div class="leitor-controles">
+				<button type="button" class="btn-redondo" id="btnFlashValidade" aria-pressed="false" title="Ligar flash" aria-label="Ligar flash" hidden><i data-lucide="flashlight"></i></button>
+			</div>
+		</div>
+		<div class="leitor-rodape">
+			<p class="dica" id="validadeDica">Enquadre <strong>só a data de validade</strong> na moldura, bem de perto e reta. Se estiver escuro, ligue o flash.</p>
+			<button type="button" class="btn btn-primario btn-bloco" id="btnCapturarValidade" disabled><i data-lucide="scan-text"></i>Ler data</button>
+			<button type="button" class="btn btn-fantasma btn-bloco" id="btnFotoValidade"><i data-lucide="image"></i>Usar uma foto</button>
+			<input type="file" id="arquivoValidade" accept="image/*" hidden>
+		</div>
+	</dialog>
 
 	<!-- ===== Diálogo: leitor de código de barras ===== -->
 	<dialog id="dlgLeitor" class="dialogo dialogo-leitor" aria-labelledby="tituloLeitor">
