@@ -119,6 +119,8 @@ Não é preciso criar conta. Se quiser guardar na nuvem, veja [Salvar na nuvem](
 - **Foco:** toque na imagem para focar naquele ponto, ou use o botão de **foco** (veja em *Ler código de barras*).
 - Funciona com a **impressão de pontinhos** (matricial/jato de tinta) das caixas de leite, latas e embalagens longa vida: o app lê a área várias vezes, de jeitos diferentes, e escolhe a data em que as leituras mais concordam. Dígitos parecidos (como **6 e 8**) são conferidos pelo desenho.
 - Quando a embalagem tem **fabricação e validade** (mesmo juntas, como em *FABRICAÇÃO/VALIDADE*), o app escolhe a validade e indica a provável fabricação.
+- Lê também **letra clara em fundo escuro** (ex.: data branca em tarja preta).
+- Datas **em relevo** (carimbadas, sem tinta) são difíceis de ler por foto: ilumine de lado para criar sombra nas letras ou digite a data.
 - Se a leitura ficar incerta, o app avisa para você conferir com mais atenção.
 - A leitura acontece **no próprio aparelho**: a imagem não é enviada a nenhum servidor. Na primeira vez, o navegador baixa o leitor de texto (cerca de 3 MB); depois funciona até sem internet.
 

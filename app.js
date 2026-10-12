@@ -1574,7 +1574,7 @@ async function lerDataDaArea() {
 		if (minha !== sessaoValidade || !el.dlgValidade.open) return;
 		if (!candidatas.length) {
 			statusValidade("Não consegui ler — aproxime e tente de novo");
-			toast("aviso", "Não encontrei a data. Deixe <b>só a data</b> na moldura, bem de perto, com luz, e toque em <b>Ler data</b> de novo.", 6500);
+			toast("aviso", "Não encontrei a data. Deixe <b>só a data</b> na moldura, bem de perto, com luz, e toque em <b>Ler data</b> de novo. Data <b>em relevo</b> (sem tinta)? Ilumine de lado para criar sombra nas letras, ou digite a data.", 8000);
 			return;
 		}
 		const escolha = await escolherDataLida(candidatas, previaRecorte(recorte));
