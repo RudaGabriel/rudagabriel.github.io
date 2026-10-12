@@ -12,6 +12,7 @@ import { criarLeitor } from "./leitor.js";
 import { buscarNomeProduto, buscarNomesParecidos, codigoConsultavel, linksPesquisaCodigo } from "./produtos.js";
 import { lerDatas, criarCameraValidade } from "./validade.js";
 import { ligarInterfaceFoco } from "./foco.js";
+import { chaveFoto, carregarFotos, guardarFoto, precisaBuscar, buscarFotoAutomatica, fotosPorCodigo, fotosPorNome, prepararFotoDaPessoa } from "./fotos.js";
 import { iniciarAnuncios } from "./anuncios.js";
 
 const URL_AUTO_ANIMATE = "https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.10.0/index.mjs";
@@ -30,6 +31,7 @@ const CHAVE = {
 	lojaOrigem: "cv2:lojaOrigem",
 	formRecolhido: "cv2:formRecolhido",
 	sugestaoAuto: "cv2:sugestaoAuto",
+	fotosAuto: "cv2:fotosAuto",
 	loginPendente: "cv2:loginPendente"
 };
 
@@ -336,6 +338,8 @@ const estado = {
 	loja: "",
 	lojaVerificadaEm: null,
 	sugestaoAuto: false, // preencher o nome sozinho ao ler um código novo (desligado por padrão)
+	fotosAuto: true,     // buscar a foto dos produtos sozinho (ligado por padrão; desliga no menu)
+	fotos: new Map(),    // chave do produto → { src, origem, fonte }
 	alerta: { valor: 60, unidade: "dias" },
 	filtro: "todos",
 	busca: "",
@@ -456,6 +460,8 @@ const el = {
 	dlgLeitor: $("#dlgLeitor"),
 	leitorStatus: $("#leitorStatus"),
 	leitorArea: $("#leitorArea"),
+	btnFotoForm: $("#btnFotoForm"),
+	arquivoFotoProduto: $("#arquivoFotoProduto"),
 	btnFoco: $("#btnFoco"),
 	painelFoco: $("#painelFoco"),
 	btnFocoValidade: $("#btnFocoValidade"),
@@ -545,8 +551,13 @@ function htmlLinha(item, sit, silenciado, editando, editavel) {
 		? `<button type="button" class="acao" data-acao="editar" title="${editando ? "Cancelar edição" : "Editar"}" aria-label="Editar">${icone(editando ? "X" : "Pencil")}</button>
 		   <button type="button" class="acao acao-remover" data-acao="remover" title="Remover" aria-label="Remover">${icone("Trash2")}</button>`
 		: "";
+	const foto = estado.fotos.get(chaveFoto(item));
+	const src = foto?.origem !== "nenhuma" ? foto?.src : "";
+	const miniatura = `<button type="button" class="miniatura${src ? "" : " sem-foto"}" data-acao="foto" title="Foto do produto" aria-label="Foto de ${esc(item.nome)}">`
+		+ (src ? `<img src="${esc(src)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : icone("Package"))
+		+ `</button>`;
 	return `
-		<td class="celula-nome">${esc(item.nome)}${silenciado ? `<span class="selo-silenciado" title="Alerta silenciado">${icone("BellOff")}</span>` : ""}</td>
+		<td class="celula-nome"><div class="nome-com-foto">${miniatura}<span class="nome-texto">${esc(item.nome)}${silenciado ? `<span class="selo-silenciado" title="Alerta silenciado">${icone("BellOff")}</span>` : ""}</span></div></td>
 		${codigo}
 		<td class="celula-qtd num">${fmtNumero.format(item.quantidade)}</td>
 		<td class="celula-data">${formatarData(item.vencimento)}</td>
@@ -604,7 +615,8 @@ function render() {
 	visiveis.forEach(({ item, sit }) => {
 		const silenciado = estado.silenciados.has(item.id);
 		const editando = estado.editandoId === item.id;
-		const assinatura = [item.nome, item.codigoBarras, item.quantidade, item.vencimento, sit.texto, sit.estado, silenciado, editando, editavel].join("\u0001");
+		const foto = estado.fotos.get(chaveFoto(item));
+		const assinatura = [item.nome, item.codigoBarras, item.quantidade, item.vencimento, sit.texto, sit.estado, silenciado, editando, editavel, foto?.origem === "nenhuma" ? "" : foto?.src || ""].join("\u0001");
 		let tr = linhasPorId.get(item.id);
 		if (!tr) {
 			tr = document.createElement("tr");
@@ -660,6 +672,7 @@ function render() {
 
 	atualizarEstadoFormulario();
 	agendarLayout();
+	agendarBuscaFotos();
 }
 
 /* =========================================================
@@ -946,6 +959,7 @@ function lerFormulario() {
 
 function limparFormulario() {
 	el.form.reset();
+	definirFotoPendente(null);
 	[el.nome, el.quantidade, el.vencimento].forEach(c => c.removeAttribute("aria-invalid"));
 }
 
@@ -992,6 +1006,7 @@ async function enviarFormulario(evento) {
 		} else {
 			aplicarAlteracoes({ salvar: [{ ...original, ...novo, atualizadoEm: agora }] });
 		}
+		await aplicarFotoPendente(novo);
 		toast("sucesso", `Alterações salvas em <b>${esc(novo.nome)}</b>.`);
 		sairDaEdicao();
 		el.codigo.focus();
@@ -1015,11 +1030,13 @@ async function enviarFormulario(evento) {
 		});
 		if (acao === "cancelar") return;
 		const quantidade = acao === "confirmar" ? soma : novo.quantidade;
+		await aplicarFotoPendente(existente);
 		aplicarAlteracoes({ salvar: [{ ...existente, quantidade, atualizadoEm: agora }] });
 		toast("sucesso", `Quantidade de <b>${esc(existente.nome)}</b> atualizada para <b>${fmtNumero.format(quantidade)}</b>.`);
 	} else {
 		const item = sanitizarItem({ ...novo, id: gerarId(), criadoEm: agora, atualizadoEm: agora });
 		if (!item) return toast("erro", "Dados inválidos.");
+		await aplicarFotoPendente(item);
 		aplicarAlteracoes({ salvar: [item] });
 		const dias = diasAte(item.vencimento);
 		if (dias < 0) toast("aviso", `<b>${esc(item.nome)}</b> foi adicionado, mas <b>já está vencido</b>.`);
@@ -1325,6 +1342,225 @@ async function sugerirNomeManual() {
 		el.btnSugerirNome?.classList.remove("carregando");
 		el.btnSugerirNome?.removeAttribute("aria-busy");
 	}
+}
+
+/* =========================================================
+   Fotos dos produtos (ver fotos.js)
+   ========================================================= */
+let fotoPendente = null; // foto escolhida no formulário antes de adicionar o produto
+let filaFotos = [];
+let buscandoFotos = false;
+const tentadasNestaSessao = new Set();
+
+function definirFotoPendente(registro) {
+	fotoPendente = registro;
+	const b = el.btnFotoForm;
+	if (!b) return;
+	b.classList.toggle("com-foto", !!registro);
+	b.innerHTML = registro ? `<img src="${esc(registro.src)}" alt="" referrerpolicy="no-referrer">` : icone("ImagePlus");
+	b.title = registro ? "Foto escolhida (toque para trocar)" : "Foto do produto";
+}
+
+async function aplicarFotoPendente(item) {
+	if (!fotoPendente) return;
+	const chave = chaveFoto(item);
+	if (chave) {
+		await guardarFoto(chave, fotoPendente);
+		estado.fotos.set(chave, { ...fotoPendente });
+	}
+	fotoPendente = null;
+}
+
+/** Fila da busca automática: um produto por vez, com folga entre as consultas. */
+const agendarBuscaFotos = debounce(() => {
+	if (!estado.fotosAuto || navigator.onLine === false) return;
+	const vistos = new Set(filaFotos.map(f => f.chave));
+	for (const item of itensAtuais()) {
+		const chave = chaveFoto(item);
+		if (!chave || vistos.has(chave) || tentadasNestaSessao.has(chave) || !precisaBuscar(estado.fotos.get(chave))) continue;
+		vistos.add(chave);
+		filaFotos.push({ chave, item: { nome: item.nome, codigoBarras: item.codigoBarras } });
+	}
+	processarFilaFotos();
+}, 600);
+
+async function processarFilaFotos() {
+	if (buscandoFotos) return;
+	buscandoFotos = true;
+	try {
+		while (filaFotos.length && estado.fotosAuto && navigator.onLine !== false) {
+			const { chave, item } = filaFotos.shift();
+			if (!precisaBuscar(estado.fotos.get(chave))) continue;
+			tentadasNestaSessao.add(chave);
+			let achada = null;
+			try { achada = await buscarFotoAutomatica(item); } catch (e) { console.warn("[fotos] busca:", e); continue; }
+			// A pessoa pode ter colocado uma foto enquanto buscava: a dela vence
+			if (!precisaBuscar(estado.fotos.get(chave))) continue;
+			const registro = achada ? { src: achada.src, origem: achada.origem, fonte: achada.fonte } : { src: "", origem: "nenhuma" };
+			estado.fotos.set(chave, registro);
+			await guardarFoto(chave, registro);
+			if (achada) render();
+			await new Promise(r => setTimeout(r, 700)); // educado com as bases públicas
+		}
+	} finally {
+		buscandoFotos = false;
+	}
+}
+
+function alternarFotosAuto() {
+	estado.fotosAuto = !estado.fotosAuto;
+	armazenamento.gravarTexto(CHAVE.fotosAuto, estado.fotosAuto ? "1" : "0");
+	$("#itemFotosAuto")?.setAttribute("aria-checked", String(estado.fotosAuto));
+	toast("info", estado.fotosAuto
+		? "Busca automática de fotos <b>ligada</b>: o app procura a foto pelo código de barras ou pelo nome."
+		: "Busca automática de fotos <b>desligada</b>. Você ainda pode colocar a foto tocando na miniatura do produto.", 5000);
+	if (estado.fotosAuto) agendarBuscaFotos();
+}
+
+const ROTULO_ORIGEM = { usuario: "Foto colocada por você", codigo: "Encontrada pelo código de barras", nome: "Encontrada pelo nome (confira)" };
+
+/** Escolhe uma imagem do aparelho (tirar foto ou galeria/arquivos). */
+function escolherArquivoFoto() {
+	return new Promise(resolver => {
+		const input = el.arquivoFotoProduto;
+		if (!input) return resolver(null);
+		let resolvido = false;
+		const terminar = arquivo => { if (resolvido) return; resolvido = true; input.value = ""; resolver(arquivo); };
+		input.onchange = () => terminar(input.files?.[0] || null);
+		// Se a pessoa cancelar a escolha, a janela volta a ter foco sem "change"
+		window.addEventListener("focus", () => setTimeout(() => terminar(input.files?.[0] || null), 800), { once: true });
+		input.click();
+	});
+}
+
+/**
+ * Diálogo da foto de um produto: ver, tirar/escolher, buscar na internet ou remover.
+ * @param {{ nome: string, codigoBarras: string }} produto
+ * @param {{ pendente?: boolean }} opcoes pendente: foto do formulário (o produto ainda não existe)
+ * @returns {Promise<object|null|undefined>} o registro escolhido, null se removeu, undefined se nada mudou
+ */
+async function dialogoFoto(produto, { pendente = false } = {}) {
+	const chave = chaveFoto(produto);
+	const atual = pendente ? fotoPendente : estado.fotos.get(chave);
+	const temFoto = !!atual?.src && atual.origem !== "nenhuma";
+	const editavel = podeEditar();
+	if (!window.Swal) return undefined;
+	let resultado;
+	const html = `<div class="foto-dialogo">
+		<div class="foto-grande">${temFoto ? `<img src="${esc(atual.src)}" alt="Foto de ${esc(produto.nome || "produto")}" referrerpolicy="no-referrer">` : `<span class="foto-vazia">${icone("Package")}<small>Sem foto</small></span>`}</div>
+		${temFoto ? `<p class="ajuda">${esc(ROTULO_ORIGEM[atual.origem] || "")}${atual.fonte ? ` · ${esc(atual.fonte)}` : ""}</p>` : ""}
+		${editavel ? `<div class="foto-acoes">
+			<button type="button" class="btn btn-primario btn-bloco" data-f="arquivo">${icone("Camera")}Tirar ou escolher foto</button>
+			<button type="button" class="btn btn-secundario btn-bloco" data-f="buscar">${icone("Search")}Buscar na internet</button>
+			${temFoto ? `<button type="button" class="btn btn-fantasma btn-bloco" data-f="remover">${icone("Trash2")}Remover foto</button>` : ""}
+		</div>
+		<div class="foto-resultados" hidden></div>` : ""}
+	</div>`;
+	const executar = () => window.Swal.fire({
+		title: produto.nome || "Foto do produto",
+		html,
+		showConfirmButton: false,
+		showCancelButton: true,
+		cancelButtonText: "Fechar",
+		buttonsStyling: false,
+		heightAuto: false,
+		target: document.querySelector("dialog[open]") || "body",
+		customClass: { popup: "sw-popup sw-foto", cancelButton: "btn btn-fantasma" },
+		didOpen: popup => {
+			const resultados = popup.querySelector(".foto-resultados");
+			popup.querySelector('[data-f="arquivo"]')?.addEventListener("click", async () => {
+				const arquivo = await escolherArquivoFoto();
+				if (!arquivo) return;
+				try {
+					resultado = { src: await prepararFotoDaPessoa(arquivo), origem: "usuario", fonte: "" };
+					window.Swal.close();
+				} catch (e) {
+					toast("erro", esc(e?.message || "Não foi possível usar essa imagem."));
+				}
+			});
+			popup.querySelector('[data-f="remover"]')?.addEventListener("click", () => {
+				resultado = null;
+				window.Swal.close();
+			});
+			popup.querySelector('[data-f="buscar"]')?.addEventListener("click", async e => {
+				const botao = e.currentTarget;
+				botao.disabled = true;
+				resultados.hidden = false;
+				resultados.innerHTML = `<p class="ajuda">Procurando fotos…</p>`;
+				let opcoes = [];
+				try {
+					const [porCodigo, porNome] = await Promise.all([
+						produto.codigoBarras ? fotosPorCodigo(produto.codigoBarras) : [],
+						produto.nome ? fotosPorNome(produto.nome, { limite: 8 }) : []
+					]);
+					const vistas = new Set();
+					for (const f of [...porCodigo.map(f => ({ ...f, origem: "codigo" })), ...porNome.map(f => ({ ...f, origem: "nome" }))]) {
+						if (vistas.has(f.src)) continue;
+						vistas.add(f.src);
+						opcoes.push(f);
+					}
+				} catch (erro) {
+					console.warn("[fotos] busca manual:", erro);
+				}
+				botao.disabled = false;
+				if (!popup.isConnected) return;
+				if (!opcoes.length) {
+					resultados.innerHTML = `<p class="ajuda">${navigator.onLine === false ? "Sem internet agora." : "Nenhuma foto encontrada. Tire ou escolha uma foto."}</p>`;
+					return;
+				}
+				opcoes = opcoes.slice(0, 9);
+				resultados.innerHTML = `<p class="ajuda">Toque na foto do produto:</p><div class="grade-fotos">${opcoes.map((f, i) =>
+					`<button type="button" class="opcao-foto" data-i="${i}" title="${esc(f.nome || f.fonte)}"><img src="${esc(f.src)}" alt="${esc(f.nome || "Foto encontrada")}" loading="lazy" referrerpolicy="no-referrer"><small>${f.origem === "codigo" ? "pelo código" : esc(f.nome || "pelo nome")}</small></button>`).join("")}</div>`;
+				resultados.querySelectorAll(".opcao-foto").forEach(b => {
+					b.querySelector("img").addEventListener("error", () => b.remove(), { once: true });
+					b.addEventListener("click", () => {
+						const f = opcoes[Number(b.dataset.i)];
+						resultado = { src: f.src, origem: f.origem, fonte: f.fonte };
+						window.Swal.close();
+					});
+				});
+			});
+		}
+	});
+	const promessa = filaDialogos.then(executar, executar);
+	filaDialogos = promessa.catch(() => { });
+	await promessa.catch(e => console.error(e));
+	return resultado;
+}
+
+/** Toque na miniatura de um produto da lista. */
+async function abrirFotoDoItem(id) {
+	const item = itensAtuais().find(i => i.id === id);
+	if (!item) return;
+	const chave = chaveFoto(item);
+	const escolha = await dialogoFoto(item);
+	if (escolha === undefined || !chave) return;
+	if (escolha === null) {
+		// Removida: não busca de novo automaticamente (fica "sem foto" até a pessoa escolher)
+		const registro = { src: "", origem: "nenhuma", removidaPeloUsuario: true };
+		estado.fotos.set(chave, registro);
+		await guardarFoto(chave, { ...registro });
+		toast("info", "Foto removida.");
+	} else {
+		estado.fotos.set(chave, escolha);
+		await guardarFoto(chave, escolha);
+		toast("sucesso", "Foto do produto atualizada.", 2500);
+	}
+	render();
+}
+
+/** Botão de foto no formulário (produto ainda não adicionado). */
+async function fotoDoFormulario() {
+	if (!podeEditar()) return toast("aviso", "Este aparelho está no modo <b>somente leitura</b>.");
+	const produto = { nome: el.nome.value.trim(), codigoBarras: el.codigo.value.replace(/\s+/g, "") };
+	// Editando um produto: a foto já vale direto para ele
+	if (estado.editandoId) {
+		const item = itensAtuais().find(i => i.id === estado.editandoId);
+		if (item) return abrirFotoDoItem(item.id);
+	}
+	const escolha = await dialogoFoto(produto, { pendente: true });
+	if (escolha === undefined) return;
+	definirFotoPendente(escolha);
 }
 
 /** Liga/desliga a sugestão automática de nome (menu ⋮). */
@@ -2832,6 +3068,7 @@ function registrarEventos() {
 			if (acao === "editar") iniciarEdicao(id);
 			else if (acao === "remover") removerItem(id);
 			else if (acao === "silenciar") alternarSilencio(id);
+			else if (acao === "foto") abrirFotoDoItem(id);
 			return;
 		}
 		const celulaCodigo = e.target.closest("[data-copiar]");
@@ -2839,6 +3076,25 @@ function registrarEventos() {
 			copiarTexto(celulaCodigo.textContent.trim()).then(ok => ok && toast("info", "Código copiado.", 1800));
 		}
 	});
+	// Foto que não carrega (link quebrado): mostra o ícone e tenta de novo daqui a alguns dias
+	el.lista.addEventListener("error", e => {
+		const img = e.target;
+		if (!(img instanceof HTMLImageElement) || !img.closest(".miniatura")) return;
+		const linha = img.closest("tr[data-id]");
+		const item = linha && itensAtuais().find(i => i.id === linha.dataset.id);
+		const botao = img.closest(".miniatura");
+		botao.classList.add("sem-foto");
+		img.replaceWith(document.createRange().createContextualFragment(icone("Package")));
+		const chave = item && chaveFoto(item);
+		const atual = chave && estado.fotos.get(chave);
+		if (atual && atual.origem !== "usuario" && atual.origem !== "nenhuma") {
+			const registro = { src: "", origem: "nenhuma" };
+			estado.fotos.set(chave, registro);
+			guardarFoto(chave, registro);
+		}
+	}, true);
+	el.btnFotoForm?.addEventListener("click", fotoDoFormulario);
+
 	el.lista.addEventListener("dblclick", e => {
 		const linha = e.target.closest("tr[data-id]");
 		if (linha && !e.target.closest("button,[data-copiar]")) iniciarEdicao(linha.dataset.id);
@@ -2894,6 +3150,7 @@ function registrarEventos() {
 			case "sincronizar": abrirDialogoSync(); break;
 			case "loja": configurarNomeLoja(); break;
 			case "sugestao-auto": alternarSugestaoAuto(); break;
+			case "fotos-auto": alternarFotosAuto(); break;
 		}
 	});
 	document.addEventListener("click", e => { if (el.menu.open && !el.menu.contains(e.target)) el.menu.open = false; });
@@ -3020,6 +3277,9 @@ function iniciar() {
 	definirNomeLoja(armazenamento.lerTexto(CHAVE.loja), { salvar: false });
 	estado.sugestaoAuto = armazenamento.lerTexto(CHAVE.sugestaoAuto) === "1";
 	aplicarSugestaoAuto();
+	estado.fotosAuto = armazenamento.lerTexto(CHAVE.fotosAuto) !== "0";
+	$("#itemFotosAuto")?.setAttribute("aria-checked", String(estado.fotosAuto));
+	carregarFotos().then(mapa => { estado.fotos = mapa; render(); }).catch(e => console.warn("[fotos]", e));
 	const alerta = armazenamento.ler(CHAVE.alerta, null);
 	if (alerta && Number.isFinite(Number(alerta.valor))) {
 		estado.alerta = { valor: Math.max(0, Math.min(3650, Math.floor(Number(alerta.valor)))), unidade: alerta.unidade === "meses" ? "meses" : "dias" };
