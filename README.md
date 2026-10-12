@@ -104,6 +104,7 @@ Não é preciso criar conta. Se quiser guardar na nuvem, veja [Salvar na nuvem](
 
 - **Nome automático:** se você ler um código de barras que já está na lista, o nome do produto é preenchido sozinho.
 - **Nome sugerido:** depois de ler ou digitar o código, toque no botão **✨** do campo *Produto*. O app procura o produto em bases públicas (**Open Food Facts** — versão Brasil, em português — e outras) e mostra o nome encontrado, com marca e tamanho (ex.: *Leite UHT Integral Piracanjuba 1 L*) e a fonte. Você escolhe **Usar este nome** ou **Cancelar**.
+- **Não encontrou?** O app mostra atalhos para **pesquisar o código no Google** ou no **Cosmos (Bluesoft)**, a maior base de códigos de barras do Brasil. Eles abrem em outra aba; depois é só digitar o nome.
 - **Sugestão automática (opcional):** no menu **⋮**, ligue **Sugerir nome automaticamente** para o nome ser preenchido sozinho ao ler um código novo. Vem **desligada**. Funciona com códigos de produtos (EAN/UPC) e precisa de internet.
 - **Produto repetido:** ao cadastrar o mesmo produto com o mesmo vencimento, o app pergunta se você quer **somar** as quantidades ou **substituir** pela nova.
 - Leitores de código de barras **USB ou Bluetooth** também funcionam: basta clicar no campo do código e ler.
@@ -114,7 +115,8 @@ Não é preciso criar conta. Se quiser guardar na nuvem, veja [Salvar na nuvem](
 2. Deixe **só as linhas da data** dentro da moldura, bem de perto e com luz, e toque em **Ler data**. Se a câmera não abrir, toque em **Usar uma foto**, escolha a foto e **arraste o dedo sobre a data** para marcar a área.
 3. O app mostra a área lida e as datas encontradas, com a **validade mais provável já selecionada**. Confira com a embalagem, toque em outra data se for preciso e confirme. Se nenhuma estiver certa, toque em **Ler de novo**.
 
-- Entende os formatos comuns: *15/03/2027*, *15.03.27*, *15 03 27*, *03/2027* (usa o último dia do mês), *15 MAR 2027*, *VAL: …*, *VENC: …*.
+- Entende os formatos comuns: *15/03/2027*, *15.03.27*, *15 03 27*, *03/2027* e *VENC: MAR/27* (usam o último dia do mês), *15 MAR 2027*, *VAL: …*, *FABR: SET/25*.
+- **Foco:** toque na imagem para focar naquele ponto, ou use o botão de **foco** (veja em *Ler código de barras*).
 - Funciona com a **impressão de pontinhos** (matricial/jato de tinta) das caixas de leite, latas e embalagens longa vida: o app lê a área várias vezes, de jeitos diferentes, e escolhe a data em que as leituras mais concordam. Dígitos parecidos (como **6 e 8**) são conferidos pelo desenho.
 - Quando a embalagem tem **fabricação e validade** (mesmo juntas, como em *FABRICAÇÃO/VALIDADE*), o app escolhe a validade e indica a provável fabricação.
 - Se a leitura ficar incerta, o app avisa para você conferir com mais atenção.
@@ -132,6 +134,7 @@ Na tela do leitor você encontra:
 | Botão | Para que serve |
 |---|---|
 | **Flash** | Liga a lanterna em lugares escuros (quando o aparelho permite). |
+| **Foco** | **Automático**, **De perto** ou **De longe**, com ajuste fino quando o aparelho permite. No iPhone, *De perto* usa a câmera múltipla, que troca sozinha para a lente macro. Também dá para **tocar na imagem** para focar num ponto. |
 | **Zoom** | Aproxima códigos pequenos sem precisar encostar o celular. Arraste a barra ou toque nas **lupas** (− e +) para ajustar passo a passo. |
 | **Trocar câmera** | Alterna entre a câmera traseira e a frontal. |
 | **Tirar foto do código** | Abre a câmera do próprio celular para fotografar o código. Use quando a câmera ao vivo não abrir. |
@@ -296,7 +299,7 @@ O app é um site estático, rápido e sem instalação. As bibliotecas abaixo s�
 | [barcode-detector](https://github.com/Sec-ant/barcode-detector) · [ZXing-C++](https://github.com/zxing-cpp/zxing-cpp) | Leitura rápida de códigos de barras (WebAssembly), inclusive no iPhone. |
 | [ZXing JS](https://github.com/zxing-js/library) | Leitor reserva para aparelhos e navegadores mais antigos. |
 | [Tesseract.js](https://tesseract.projectnaptha.com/) | Lê a data de validade de uma foto, no próprio aparelho (OCR). |
-| [Open Food Facts](https://world.openfoodfacts.org/) · [UPCitemdb](https://www.upcitemdb.com/) | Bases públicas usadas para sugerir o nome do produto pelo código de barras (só quando você pede ou liga a sugestão automática). |
+| [Open Food Facts](https://world.openfoodfacts.org/) · [UPCitemdb](https://www.upcitemdb.com/) · [Wikidata](https://www.wikidata.org/) | Bases públicas usadas para sugerir o nome do produto pelo código de barras (só quando você pede ou liga a sugestão automática). |
 | [SweetAlert2](https://sweetalert2.github.io/) | Janelas de confirmação claras e acessíveis. |
 | [Notyf](https://carlosroso.com/notyf/) | Avisos rápidos, como "Produto adicionado" e "Desfazer". |
 | [Lucide](https://lucide.dev/) | Ícones nítidos em qualquer tela. |

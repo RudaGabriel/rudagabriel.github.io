@@ -5,13 +5,17 @@
      1. Open Food Facts (alimentos) — versão Brasil, em português
      2. Open Products Facts (outros produtos)
      3. Open Beauty Facts (higiene e cosméticos)
-     4. UPCitemdb (base internacional, último recurso)
+     4. Open Pet Food Facts (produtos para animais)
+     5. UPCitemdb (base internacional)
+     6. Wikidata (base livre da Wikipédia)
+   Se nenhuma conhecer o código, o app oferece pesquisar na web
+   (Google e Cosmos/Bluesoft) — ver linksPesquisaCodigo().
    Só o número do código de barras é enviado. Os resultados
    ficam guardados no aparelho para não consultar de novo.
    ========================================================= */
 
 const CHAVE_CACHE = "cv2:nomesCodigo";
-const VERSAO_CACHE = 2; // muda quando a montagem do nome melhora (ignora nomes antigos)
+const VERSAO_CACHE = 3; // muda quando a montagem do nome ou as fontes melhoram (ignora resultados antigos)
 const MAX_CACHE = 400;
 const VALIDADE_NEGATIVO_MS = 24 * 60 * 60 * 1000; // "não encontrado" vale 1 dia
 const TEMPO_LIMITE_MS = 6000;
@@ -25,8 +29,39 @@ const FONTES = [
 	{ nome: "Open Food Facts", url: c => `https://br.openfoodfacts.org/api/v2/product/${c}.json?fields=${CAMPOS_OFF}&lc=pt&cc=br`, ler: lerOff },
 	{ nome: "Open Products Facts", url: c => `https://world.openproductsfacts.org/api/v2/product/${c}.json?fields=${CAMPOS_OFF}&lc=pt`, ler: lerOff },
 	{ nome: "Open Beauty Facts", url: c => `https://world.openbeautyfacts.org/api/v2/product/${c}.json?fields=${CAMPOS_OFF}&lc=pt`, ler: lerOff },
-	{ nome: "UPCitemdb", url: c => `https://api.upcitemdb.com/prod/trial/lookup?upc=${c}`, ler: lerUpc }
+	{ nome: "Open Pet Food Facts", url: c => `https://world.openpetfoodfacts.org/api/v2/product/${c}.json?fields=${CAMPOS_OFF}&lc=pt`, ler: lerOff },
+	{ nome: "UPCitemdb", url: c => `https://api.upcitemdb.com/prod/trial/lookup?upc=${c}`, ler: lerUpc },
+	{ nome: "Wikidata", url: urlWikidata, ler: lerWikidata, aceitar: "application/sparql-results+json" }
 ];
+
+/** Consulta SPARQL pelo GTIN (propriedade P3962), com e sem zeros à esquerda. */
+function urlWikidata(codigo) {
+	const variantes = [...new Set([codigo, codigo.replace(/^0+/, ""), codigo.padStart(13, "0"), codigo.padStart(14, "0")])]
+		.filter(c => /^\d{8,14}$/.test(c)).map(c => `"${c}"`).join(" ");
+	const consulta = `SELECT ?itemLabel ?marcaLabel WHERE { VALUES ?gtin { ${variantes} } ?item wdt:P3962 ?gtin . `
+		+ `OPTIONAL { ?item wdt:P1716 ?marca } SERVICE wikibase:label { bd:serviceParam wikibase:language "pt-br,pt,en". } } LIMIT 1`;
+	return `https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(consulta)}`;
+}
+
+function lerWikidata(dados) {
+	const linha = dados?.results?.bindings?.[0];
+	const base = limpar(linha?.itemLabel?.value);
+	if (!base || /^Q\d+$/.test(base)) return null; // sem nome legível
+	const marca = limpar(linha?.marcaLabel?.value);
+	return montarNome({ base, marca: /^Q\d+$/.test(marca) ? "" : marca });
+}
+
+/**
+ * Links para a pessoa pesquisar o código fora das bases públicas
+ * (abrem em outra aba; nada é consultado sem ela tocar).
+ */
+export function linksPesquisaCodigo(codigo) {
+	const c = encodeURIComponent(String(codigo || "").replace(/\D/g, ""));
+	return [
+		{ nome: "Pesquisar no Google", url: `https://www.google.com/search?q=${c}` },
+		{ nome: "Ver no Cosmos (Bluesoft)", url: `https://cosmos.bluesoft.com.br/produtos/${c}` }
+	];
+}
 
 /** Só códigos numéricos de produto (EAN-8, UPC-A, EAN-13, GTIN-14). */
 export const codigoConsultavel = codigo => /^\d{8,14}$/.test(String(codigo || ""));
@@ -66,7 +101,10 @@ const SIGLAS = new Set(["uht", "pet", "fps", "led", "usb", "pvc", "abs", "tv", "
 function capitalizar(texto) {
 	const letras = texto.replace(/[^A-Za-zÀ-ÿ]/g, "");
 	if (!letras || letras.replace(/[^A-ZÀ-Þ]/g, "").length / letras.length < 0.7) return texto;
-	return texto.toLocaleLowerCase("pt-BR").split(" ").map((p, i) => {
+	return texto.split(" ").map((original, i) => {
+		// Sigla sem vogal ("SBP", "BRF") continua em maiúsculas
+		if (/^[A-Z]{2,4}$/.test(original) && !/[AEIOU]/.test(original)) return original;
+		const p = original.toLocaleLowerCase("pt-BR");
 		if (SIGLAS.has(p)) return p.toLocaleUpperCase("pt-BR");
 		if (i > 0 && MINUSCULAS.has(p)) return p;
 		if (/^\d/.test(p)) return p; // "500g", "1l" ficam para a normalização de quantidade
@@ -119,7 +157,7 @@ async function consultar(fonte, codigo, sinalExterno) {
 	const tempo = setTimeout(cancelar, TEMPO_LIMITE_MS);
 	sinalExterno?.addEventListener("abort", cancelar, { once: true });
 	try {
-		const r = await fetch(fonte.url(codigo), { signal: controle.signal, headers: { Accept: "application/json" } });
+		const r = await fetch(fonte.url(codigo), { signal: controle.signal, headers: { Accept: fonte.aceitar || "application/json" } });
 		if (r.status === 404) return null;
 		if (!r.ok) throw new Error(`HTTP ${r.status}`);
 		return fonte.ler(await r.json());

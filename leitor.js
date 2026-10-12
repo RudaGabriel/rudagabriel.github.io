@@ -11,6 +11,8 @@
    "Tirar foto do código" sempre funciona.
    ========================================================= */
 
+import { criarFoco } from "./foco.js";
+
 const URL_ZXING_WASM = "https://cdn.jsdelivr.net/npm/barcode-detector@3.2.2/dist/iife/ponyfill.js";
 const URL_ZXING_JS = "https://cdn.jsdelivr.net/npm/@zxing/library@0.23.0/umd/index.min.js";
 
@@ -228,6 +230,12 @@ export function criarLeitor({ video, mira, aoLer, aoStatus, aoCapacidades }) {
 	const ctx = canvas.getContext("2d", { willReadFrequently: true });
 
 	const status = t => { try { aoStatus?.(t); } catch { /* ignora */ } };
+	const foco = criarFoco({
+		obterTrilha: () => trilha,
+		listarCameras: () => listarCameras(),
+		cameraAtual: () => cameraAtualId,
+		trocarPara: deviceId => usarCamera(deviceId)
+	});
 
 	function obterMotor() {
 		if (motor) return Promise.resolve(motor);
@@ -301,6 +309,7 @@ export function criarLeitor({ video, mira, aoLer, aoStatus, aoCapacidades }) {
 		if (Object.keys(avancado).length) {
 			try { await trilha.applyConstraints({ advanced: [avancado] }); } catch { /* ignora */ }
 		}
+		await foco.reaplicar();
 		informarCapacidades();
 	}
 
@@ -467,6 +476,7 @@ export function criarLeitor({ video, mira, aoLer, aoStatus, aoCapacidades }) {
 		geracao++;
 		rodando = false;
 		flashLigado = false;
+		foco.reiniciar();
 		pararStream();
 	}
 
@@ -494,21 +504,37 @@ export function criarLeitor({ video, mira, aoLer, aoStatus, aoCapacidades }) {
 		try { await trilha.applyConstraints({ advanced: [{ zoom: Number(valor) }] }); } catch (e) { console.warn("[leitor] zoom:", e); }
 	}
 
+	/** Reabre com outra câmera (null = a padrão) e volta a procurar o código. */
+	async function usarCamera(deviceId) {
+		const minhaGeracao = ++geracao;
+		rodando = false;
+		flashLigado = false;
+		status("Trocando câmera…");
+		try {
+			await abrirCamera(deviceId);
+		} catch (e) {
+			console.warn("[leitor] troca de câmera falhou, voltando à padrão:", e);
+			deviceId = null;
+			await abrirCamera(null);
+		}
+		try {
+			if (deviceId) localStorage.setItem(CHAVE_CAMERA, deviceId);
+			else localStorage.removeItem(CHAVE_CAMERA);
+		} catch { /* ignora */ }
+		if (minhaGeracao !== geracao) return;
+		await configurarTrilha();
+		rodando = true;
+		const info = cameras.find(c => c.deviceId === cameraAtualId);
+		status(info?.label ? `Câmera: ${info.label}` : "Procurando código…");
+		if (motor || await obterMotor().catch(() => null)) agendar(minhaGeracao);
+	}
+
 	async function trocarCamera() {
 		if (cameras.length < 2) await listarCameras();
 		if (cameras.length < 2) return false;
 		const i = cameras.findIndex(c => c.deviceId === cameraAtualId);
 		const proxima = cameras[(i + 1) % cameras.length];
-		const minhaGeracao = ++geracao;
-		rodando = false;
-		flashLigado = false;
-		status("Trocando câmera…");
-		await abrirCamera(proxima.deviceId);
-		try { localStorage.setItem(CHAVE_CAMERA, proxima.deviceId); } catch { /* ignora */ }
-		await configurarTrilha();
-		rodando = true;
-		status(proxima.label ? `Câmera: ${proxima.label}` : "Procurando código…");
-		if (motor || await obterMotor().catch(() => null)) agendar(minhaGeracao);
+		await usarCamera(proxima.deviceId);
 		return true;
 	}
 
@@ -551,6 +577,7 @@ export function criarLeitor({ video, mira, aoLer, aoStatus, aoCapacidades }) {
 		trocarCamera,
 		lerFoto,
 		traduzirErro: traduzirErroCamera,
+		foco,
 		get ativo() { return rodando; },
 		get motor() { return motor?.tipo || ""; }
 	};

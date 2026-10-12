@@ -10,6 +10,7 @@
    - O app mostra as datas encontradas para a pessoa confirmar.
    ========================================================= */
 import { carregarScript } from "./nuvem/comum.js";
+import { criarFoco } from "./foco.js";
 
 const URL_TESSERACT = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
 
@@ -21,12 +22,47 @@ const MESES = {
 	JUL: 7, AGO: 8, AUG: 8, SET: 9, SEP: 9, OUT: 10, OCT: 10, NOV: 11, DEZ: 12, DEC: 12
 };
 // Letras que o OCR costuma confundir com números
-const PARA_DIGITO = { O: "0", Q: "0", D: "0", I: "1", L: "1", "|": "1", T: "1", Z: "2", S: "5", B: "8", G: "6" };
+// (o "7" da impressão de pontinhos costuma sair como "T")
+const PARA_DIGITO = { O: "0", Q: "0", D: "0", I: "1", L: "1", "|": "1", T: "7", Z: "2", S: "5", B: "8", G: "6" };
 const D = "[0-9OQDILTZSBG|]"; // "dígito" tolerante a erros de OCR
 const digitos = t => t.replace(/[OQDILTZSBG|]/g, c => PARA_DIGITO[c]);
 
-const PALAVRAS_VALIDADE = /(VAL|VALID|VALIDADE|VENC|VENCIMENTO|VCTO|VTO|EXP|EXPIRA|BB|BEST|CONSUMIR|USE ATE|V\s?[:.])\W{0,4}$/;
-const PALAVRAS_FABRICACAO = /(FAB|FABR|FABRICACAO|FABRICADO|PROD|PRODUCAO|EMB|EMBALADO|F\s?[:.]|L\s?[:.]|LOTE)\W{0,4}$/;
+// Inclui leituras comuns com erro de OCR: "VENC" → "UENC"/"ENC"/"VENG"; "FABR" → "FRER"/"FABER"
+const PALAVRAS_VALIDADE = /(VAL|VALID|VALIDADE|VENC|VENCIMENTO|VCTO|VTO|EXP|EXPIRA|BB|BEST|CONSUMIR|USE ATE|V\s?[:.]|[UVL]?I?EN[CG])\W{0,4}$/;
+const PALAVRAS_FABRICACAO = /(FAB|FABR|FABRICACAO|FABRICADO|PROD|PRODUCAO|EMB|EMBALADO|F\s?[:.]|L\s?[:.]|LOTE|F[A-Z]{2,4}R)\W{0,4}$/;
+
+// Letras que o OCR troca entre si em letras de pontinhos (custo menor na comparação)
+const LETRAS_PARECIDAS = ["AR", "MH", "MN", "O0", "UV", "EF", "B8", "S5", "I1", "L1", "Z2", "G6", "T7", "DO", "CG", "PR", "EB"];
+const parecidas = (a, b) => LETRAS_PARECIDAS.some(p => (p[0] === a && p[1] === b) || (p[0] === b && p[1] === a));
+
+/** Distância de edição tolerante a letras parecidas. */
+function distanciaOCR(a, b) {
+	const m = a.length, n = b.length;
+	const d = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+	for (let i = 1; i <= m; i++) d[i][0] = i * 1.5;
+	for (let j = 1; j <= n; j++) d[0][j] = j * 1.5;
+	for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++) {
+		// Trocar letras parecidas custa 0,5; qualquer outro erro custa 1,5 (passa do limite de 1)
+		const troca = a[i - 1] === b[j - 1] ? 0 : parecidas(a[i - 1], b[j - 1]) ? 0.5 : 1.5;
+		d[i][j] = Math.min(d[i - 1][j] + 1.5, d[i][j - 1] + 1.5, d[i - 1][j - 1] + troca);
+	}
+	return d[m][n];
+}
+
+/** "MRR" → 3 (MAR), "HAR" → 3, "SEI" → 9… null se não parecer claramente um mês. */
+function mesAproximado(token) {
+	const t = String(token || "").toUpperCase();
+	if (t.length < 3 || t.length > 4 || (t.match(/[A-Z]/g) || []).length < 2) return null;
+	let melhor = null, segunda = Infinity;
+	for (const [nome, mes] of Object.entries(MESES)) {
+		const dist = distanciaOCR(t, nome);
+		if (!melhor || dist < melhor.dist) {
+			if (melhor && melhor.mes !== mes) segunda = Math.min(segunda, melhor.dist);
+			melhor = { dist, mes };
+		} else if (mes !== melhor.mes) segunda = Math.min(segunda, dist);
+	}
+	return melhor && melhor.dist <= 1 && segunda - melhor.dist >= 0.5 ? melhor.mes : null;
+}
 
 const doisDigitos = n => String(n).padStart(2, "0");
 const ultimoDiaDoMes = (ano, mes) => new Date(Date.UTC(ano, mes, 0)).getUTCDate();
@@ -57,9 +93,10 @@ function repararNumero(texto, max) {
 
 /**
  * Todas as datas plausíveis num texto lido por OCR (em ordem de aparição).
- * @returns {{ data: string, trecho: string, reparada: boolean, validade: boolean, fabricacao: boolean }[]}
+ * @param {{ soDigitos?: boolean }} [opcoes] soDigitos: o texto veio de uma leitura que só reconhece números
+ * @returns {{ data: string, trecho: string, reparada: boolean, extenso: boolean, validade: boolean, fabricacao: boolean }[]}
  */
-export function extrairCandidatas(texto, hoje = new Date()) {
+export function extrairCandidatas(texto, hoje = new Date(), { soDigitos = false } = {}) {
 	const original = String(texto || "")
 		.normalize("NFD").replace(/[̀-ͯ]/g, "")
 		.toUpperCase()
@@ -67,16 +104,17 @@ export function extrairCandidatas(texto, hoje = new Date()) {
 	let resto = original;
 	const candidatas = [];
 
-	const registrar = (inicio, trecho, data, reparada = false) => {
+	const registrar = (inicio, trecho, data, reparada = false, extenso = false) => {
 		if (!data) return;
 		const antes = original.slice(Math.max(0, inicio - 16), inicio).replace(/¦/g, " ");
 		// "FABRICAÇÃO/VALIDADE:" antes das duas datas não diz qual é qual
-		const ambas = /FAB\w*\W{0,3}VAL/.test(antes);
+		const ambas = /(FAB|F[A-Z]{3,})\w*\W{0,3}VAL/.test(antes) || /\/ ?VAL/.test(antes);
 		candidatas.push({
 			inicio,
 			data,
 			trecho: trecho.replace(/\s*¦\s*/g, " ").trim(),
 			reparada,
+			extenso,
 			validade: !ambas && PALAVRAS_VALIDADE.test(antes),
 			fabricacao: !ambas && PALAVRAS_FABRICACAO.test(antes)
 		});
@@ -104,12 +142,25 @@ export function extrairCandidatas(texto, hoje = new Date()) {
 		const mes = MESES[m[2]], ano = anoCompleto(digitos(m[3]));
 		const dia = m[1] ? Number(digitos(m[1])) : ultimoDiaDoMes(ano, mes);
 		const data = dataValida(ano, mes, dia);
-		if (data) { registrar(m.index, m[0], data); apagar(m.index, m.index + m[0].length); }
+		if (data) { registrar(m.index, m[0], data, false, true); apagar(m.index, m.index + m[0].length); }
+	}
+
+	// 2b) Mês por extenso lido com erro ("MRR/27", "HAR-2T" = MAR/27): só com separador antes do ano
+	const reMesAprox = new RegExp(`(?<![A-Z0-9])(?:(${D}{1,2})[ ]?[/.\\- ][ ]?)?([A-Z0-9]{3,4})[ ]?[/.\\- ][ ]?((?:2${D})?${D}{2})(?![0-9])`, "g");
+	for (const m of resto.matchAll(reMesAprox)) {
+		const mes = mesAproximado(m[2]);
+		if (!mes) continue;
+		const ano = anoCompleto(digitos(m[3]));
+		const dia = m[1] ? Number(digitos(m[1])) : ultimoDiaDoMes(ano, mes);
+		const data = dataValida(ano, mes, dia);
+		if (data) { registrar(m.index, m[0], data, true, true); apagar(m.index, m.index + m[0].length); }
 	}
 
 	// 3) Mês/ano: 03/2027, 03/27 (validade = último dia do mês)
 	const reMA = new RegExp(`(?<![0-9A-Z/.\\-])(${D}{1,2})[ ]?[/.\\-][ ]?((?:2${D})?${D}{2})(?![0-9/.\\-])`, "g");
 	for (const m of resto.matchAll(reMA)) {
+		// Leitura só de números: mês de 1 dígito costuma ser lixo de um mês por extenso ("MAR/27" → "1/27")
+		if (soDigitos && digitos(m[1]).length < 2) continue;
 		const mes = Number(digitos(m[1])), ano = anoCompleto(digitos(m[2]));
 		if (mes >= 1 && mes <= 12) registrar(m.index, m[0], dataValida(ano, mes, ultimoDiaDoMes(ano, mes)));
 	}
@@ -272,7 +323,9 @@ function limparManchas(g, W, H) {
 		}
 		const larg = x1 - x0 + 1, alt = y1 - y0 + 1;
 		const naBorda = x0 === 0 || y0 === 0 || x1 === W - 1 || y1 === H - 1;
-		const grande = alt > H * 0.5 || larg > W * 0.5 || n > W * H * 0.08;
+		// Recorte de uma linha só: as letras podem ocupar quase toda a altura
+		const grande = alt > H * 0.92 || larg > W * 0.5 || n > W * H * 0.08;
+		// Na borda: faixas (dedo, aba, sombra) e linhas cortadas pela moldura
 		const bordaGrande = naBorda && (alt > H * 0.3 || larg > W * 0.3);
 		if (grande || bordaGrande || n < minPontos) for (const i of membros) o[i] = 255;
 	}
@@ -280,6 +333,7 @@ function limparManchas(g, W, H) {
 }
 
 const SO_DIGITOS = { tessedit_pageseg_mode: "6", tessedit_char_whitelist: "0123456789/.-: " };
+const LETRAS_E_DIGITOS = { tessedit_pageseg_mode: "6", tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/:.- " };
 const TEXTO_LIVRE = { tessedit_pageseg_mode: "11", tessedit_char_whitelist: "" };
 
 /**
@@ -295,12 +349,14 @@ const localDerretido = (passos, raio, folga) => (g, W, H) => limiarLocal(derrete
  * Leituras do recorte, em vários tamanhos (o tamanho das letras na foto varia
  * com a distância). Alternadas para a votação ficar boa mesmo se parar cedo.
  */
-const PALPITES_ALTURA = [0.2, 0.27, 0.15, 0.32, 0.12];
+const PALPITES_ALTURA = [0.2, 0.32, 0.5, 0.15, 0.27, 0.12, 0.65]; // 0,5+: recorte de uma linha só
 
 const LEITURAS_RECORTE = [
 	{ alvo: 70, tratar: otsuDerretido([3, 3]), ocr: SO_DIGITOS },
+	{ alvo: 60, tratar: localDerretido([4, 4], 70, 3), ocr: LETRAS_E_DIGITOS }, // mês por extenso (MAR/27)
 	{ alvo: 65, tratar: localDerretido([4, 4], 70, 3), ocr: SO_DIGITOS },
 	{ alvo: 65, tratar: otsuDerretido([3, 3]), ocr: SO_DIGITOS },
+	{ alvo: 60, tratar: (g, W, H) => limiarLocal(g, W, H, 30, 12), ocr: LETRAS_E_DIGITOS },
 	{ alvo: 70, tratar: localDerretido([4, 4], 70, 3), ocr: SO_DIGITOS },
 	{ alvo: 70, tratar: otsuDerretido([3, 2]), ocr: SO_DIGITOS },
 	{ alvo: 65, tratar: localDerretido([3, 3], 60, 4), ocr: SO_DIGITOS },
@@ -308,6 +364,7 @@ const LEITURAS_RECORTE = [
 	{ alvo: 70, tratar: localDerretido([3, 3], 60, 4), ocr: SO_DIGITOS },
 	{ alvo: 65, tratar: otsuDerretido([3, 2]), ocr: SO_DIGITOS },
 	{ alvo: 68, tratar: otsuDerretido([3, 3]), ocr: SO_DIGITOS },
+	{ alvo: 75, tratar: localDerretido([4, 4], 70, 3), ocr: LETRAS_E_DIGITOS },
 	{ lado: 1200, tratar: (g, W, H) => limiarLocal(g, W, H, 30, 12), ocr: TEXTO_LIVRE } // pega datas com mês por extenso (MAR, OUT…)
 ].map(l => ({ ...l, tratar: (g, W, H) => limparManchas(l.tratar(g, W, H), W, H) }));
 
@@ -408,7 +465,7 @@ export async function lerDatas(fonte, { recorte = true, aoProgresso } = {}) {
 		const { tratar, ocr, alvo } = leituras[i];
 		let lado = leituras[i].lado;
 		if (alvo) {
-			// Sem medida ainda: a data costuma ocupar ~15–32% da altura do recorte (palpites alternados)
+			// Sem medida ainda: a letra costuma ter 12–65% da altura do recorte (palpites alternados)
 			const letra = alturaLetra || Math.max(8, alturaImagem * PALPITES_ALTURA[i % PALPITES_ALTURA.length]);
 			lado = Math.round(Math.min(2000, Math.max(400, maiorLado * alvo / letra)) / 25) * 25;
 		}
@@ -436,7 +493,8 @@ export async function lerDatas(fonte, { recorte = true, aoProgresso } = {}) {
 		// Cada leitura vota uma vez em cada data que encontrou, com peso pela confiança do leitor
 		const vistas = new Set();
 		const linhas = linhasDe(data);
-		const achadas = extrairCandidatas(texto);
+		const soDigitos = !/[A-Z]/.test(ocr.tessedit_char_whitelist ?? "A");
+		const achadas = extrairCandidatas(texto, new Date(), { soDigitos });
 		// Voto de validade desta leitura: com 2+ datas, a mais distante (a fabricação vem antes);
 		// com uma só, meio voto (pode ser qualquer uma das linhas)
 		// (ano absurdo, como 27 lido 37, ainda é a linha da validade — a ordenação corrige o ano depois)
@@ -445,7 +503,8 @@ export async function lerDatas(fonte, { recorte = true, aoProgresso } = {}) {
 		for (const c of achadas) {
 			const atual = votos.get(c.data) || { data: c.data, votos: 0, peso: 0, pesoVal: 0, fabricacao: false, validade: false, glifos: [] };
 			if (!vistas.has(c.data)) {
-				const peso = confiancaDe(c.trecho, linhas) * (c.reparada ? 0.8 : 1);
+				// Mês por extenso reconhecido é um sinal forte; dígito consertado, um pouco mais fraco
+				const peso = confiancaDe(c.trecho, linhas) * (c.reparada ? 0.8 : 1) * (c.extenso ? 1.4 : 1);
 				atual.votos++;
 				atual.peso += peso;
 				atual.pesoVal += designada ? (c.data === designada ? peso : 0) : peso * 0.5;
@@ -568,30 +627,41 @@ function medirSegmentos(imagem, caixa) {
 function conferirDigitoDuvidoso(candidatas, imagens) {
 	if (candidatas.length < 2 || typeof document === "undefined") return candidatas;
 	const principal = candidatas[0];
-	const rival = candidatas.slice(1).find(c => !c.fabricacao && c.data.slice(0, 7) === principal.data.slice(0, 7) && c.peso >= principal.peso * 0.3);
-	if (!rival || !principal.glifos?.length || !rival.glifos?.length) return candidatas;
-	// Posição do dígito diferente (mesma forma de escrever nas duas)
-	const formaP = principal.glifos[0].digitos, formaR = rival.glifos.find(gl => gl.digitos.length === formaP.length)?.digitos;
-	if (!formaR) return candidatas;
-	const difs = [...formaP].map((ch, i) => (ch !== formaR[i] ? i : -1)).filter(i => i >= 0);
-	if (difs.length !== 1) return candidatas;
-	const pos = difs[0], dP = formaP[pos], dR = formaR[pos];
+	if (!principal.glifos?.length) return candidatas;
+	// Data escrita como dia-mês-ano só com dígitos (6 ou 8), na ordem em que aparece impressa
+	const formaDe = (data, tamanho) => {
+		const [a, m, d] = data.split("-");
+		return tamanho === 6 ? d + m + a.slice(2) : tamanho === 8 ? d + m + a : null;
+	};
+	// Rival: data forte que difere da escolhida em UM único dígito
+	let rival = null, pos = -1, tamanho = 0;
+	for (const c of candidatas.slice(1)) {
+		if (c.fabricacao || c.peso < principal.peso * 0.3) continue;
+		for (const t of [6, 8]) {
+			const fp = formaDe(principal.data, t), fr = formaDe(c.data, t);
+			const d = [...fp].map((ch, i) => (ch !== fr[i] ? i : -1)).filter(i => i >= 0);
+			if (d.length === 1) { rival = c; pos = d[0]; tamanho = t; break; }
+		}
+		if (rival) break;
+	}
+	if (!rival) return candidatas;
+	const dP = formaDe(principal.data, tamanho)[pos], dR = formaDe(rival.data, tamanho)[pos];
 	const segP = SEGMENTOS_DIGITO[dP], segR = SEGMENTOS_DIGITO[dR];
 	if (!segP || !segR) return candidatas; // só pares que dá para separar com segurança
 	const distintivos = Object.keys(REGIOES).filter(seg => segP.includes(seg) !== segR.includes(seg));
 	if (!distintivos.length) return candidatas;
 	// Mede o mesmo dígito em todas as leituras que o localizaram (das duas datas)
 	let placar = 0, medidas = 0;
-	for (const gl of [...principal.glifos, ...rival.glifos]) {
-		if (gl.digitos.length !== formaP.length || !gl.caixas[pos]) continue;
+	for (const gl of [...principal.glifos, ...(rival.glifos || [])]) {
+		if (gl.digitos.length !== tamanho || !gl.caixas[pos]) continue; // mesma forma de escrever
 		const m = medirSegmentos(imagens[gl.quadro] || imagens[0], gl.caixas[pos]);
 		if (!m) continue;
 		medidas++;
 		// > 0 favorece a principal; < 0, a rival
 		for (const seg of distintivos) placar += segP.includes(seg) ? (m[seg] - 0.5) : (0.5 - m[seg]);
 	}
+	const media = placar / (Math.max(1, medidas) * distintivos.length);
 	if (medidas < 2) return candidatas;
-	const media = placar / (medidas * distintivos.length);
 	if (media < -0.15) {
 		// A imagem mostra claramente o dígito da rival: ela passa a ser a escolhida
 		rival.conferida = true;
@@ -643,10 +713,11 @@ export function ordenarCandidatas(lista, hoje = new Date()) {
 	const temVotoVal = todos.some(g => g.forcaVal > 0);
 	const maxForca = Math.max(...todos.map(g => g.forca));
 	// A linha da validade às vezes sai pior que a da fabricação: basta 1/3 da força do grupo mais forte
-	const corte = Math.max(Math.min(1, maxForca), maxForca / 3);
+	const corte = maxForca / 3;
 	let fortes = todos.filter(g => g.forca >= corte);
-	// Marcadas como validade têm prioridade; grupos só com FAB ficam por último
-	const comVal = fortes.filter(g => g.membros.some(c => c.validade));
+	// Marcadas como validade ("VAL", "VENC") têm prioridade, mesmo com menos leituras;
+	// grupos só com FAB ficam por último
+	const comVal = todos.filter(g => g.forca >= maxForca / 6 && g.membros.some(c => c.validade));
 	if (comVal.length) fortes = comVal;
 	else {
 		const semFab = fortes.filter(g => !g.membros.every(c => c.fabricacao));
@@ -661,15 +732,8 @@ export function ordenarCandidatas(lista, hoje = new Date()) {
 	const grupo = temVotoVal
 		? fortes.reduce((a, b) => (b.forcaVal > a.forcaVal || (b.forcaVal === a.forcaVal && b.chave > a.chave) ? b : a))
 		: fortes.reduce((a, b) => (b.chave > a.chave || (b.chave === a.chave && b.forca > a.forca) ? b : a));
-	// Dia: soma também as leituras com o mesmo dia/mês e o ano trocado num dígito (27 → 37)
-	const umDigito = (a, b) => a !== b && [...a].filter((ch, i) => ch !== b[i]).length === 1;
-	const apoio = c => c.peso + candidatas
-		.filter(o => o.data.slice(5) === c.data.slice(5) && umDigito(o.data.slice(0, 4), c.data.slice(0, 4)))
-		.reduce((t, o) => t + o.peso, 0);
-	const marcadas = grupo.membros.filter(c => c.validade);
-	const principal = (marcadas.length ? marcadas : grupo.membros)
-		.map(c => ({ c, a: apoio(c) }))
-		.reduce((x, y) => (y.a > x.a || (y.a === x.a && y.c.data > x.c.data) ? y : x)).c;
+	// Dia: o mais lido dentro do grupo (anos absurdos já passaram seus votos acima)
+	const principal = grupo.membros.reduce((a, b) => (b.peso > a.peso || (b.peso === a.peso && b.data > a.data) ? b : a));
 	for (const c of candidatas) {
 		if (c !== principal && !c.validade && c.data < principal.data && diasEntre(c.data, principal.data) > 45) c.fabricacao = true;
 	}
@@ -706,17 +770,58 @@ async function carregarImagem(arquivo) {
  * @param {HTMLVideoElement} video
  * @returns {{ iniciar: () => Promise<{flash: boolean}>, parar: () => void, recortar: (mira: Element) => HTMLCanvasElement | null, alternarFlash: () => Promise<boolean> }}
  */
+const CHAVE_CAMERA_VALIDADE = "cv2:cameraValidade";
+
 export function criarCameraValidade(video) {
 	let fluxo = null;
 	let flashLigado = false;
+	let cameraAtualId = null;
+	const trilhaAtual = () => fluxo?.getVideoTracks()[0] || null;
+	const listarCameras = async () => {
+		try { return (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === "videoinput"); } catch { return []; }
+	};
+	const foco = criarFoco({
+		obterTrilha: trilhaAtual,
+		listarCameras,
+		cameraAtual: () => cameraAtualId,
+		trocarPara: async deviceId => {
+			try {
+				if (deviceId) localStorage.setItem(CHAVE_CAMERA_VALIDADE, deviceId);
+				else localStorage.removeItem(CHAVE_CAMERA_VALIDADE);
+			} catch { /* ignora */ }
+			try {
+				await abrir(deviceId);
+			} catch (e) {
+				console.warn("[validade] troca de câmera falhou, voltando à padrão:", e);
+				try { localStorage.removeItem(CHAVE_CAMERA_VALIDADE); } catch { /* ignora */ }
+				await abrir(null);
+			}
+		}
+	});
 
+	/** Abre a câmera escolhida (ou a salva, ou a traseira padrão). */
 	async function iniciar() {
-		parar();
+		let salva = null;
+		try { salva = localStorage.getItem(CHAVE_CAMERA_VALIDADE); } catch { /* ignora */ }
+		try {
+			return await abrir(salva);
+		} catch (e) {
+			if (!salva || e?.name === "NotAllowedError" || e?.name === "SecurityError") throw e;
+			try { localStorage.removeItem(CHAVE_CAMERA_VALIDADE); } catch { /* ignora */ }
+			return abrir(null);
+		}
+	}
+
+	async function abrir(deviceId) {
+		const tinha = !!fluxo;
+		pararFluxo();
+		if (tinha) await new Promise(r => setTimeout(r, 300)); // o iPhone precisa de um tempo para liberar a câmera
 		if (!navigator.mediaDevices?.getUserMedia) throw Object.assign(new Error("Câmera indisponível neste navegador."), { name: "NotSupportedError" });
+		const alvo = deviceId ? { deviceId: { exact: deviceId } } : { facingMode: { ideal: "environment" } };
 		const tentativas = [
-			{ video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false },
-			{ video: { facingMode: { ideal: "environment" } }, audio: false },
-			{ video: true, audio: false }
+			{ video: { ...alvo, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false },
+			{ video: { ...alvo }, audio: false },
+			{ video: deviceId ? { deviceId: { exact: deviceId } } : true, audio: false }
 		];
 		let ultimoErro = null;
 		for (const restricoes of tentativas) {
@@ -732,18 +837,28 @@ export function criarCameraValidade(video) {
 		await video.play().catch(() => { });
 		if (!video.videoWidth) await new Promise(r => video.addEventListener("loadedmetadata", r, { once: true }));
 		const trilha = fluxo.getVideoTracks()[0];
+		try { cameraAtualId = trilha?.getSettings?.().deviceId || deviceId || null; } catch { cameraAtualId = deviceId || null; }
 		let flash = false;
 		try { flash = !!trilha?.getCapabilities?.().torch; } catch { /* ignora */ }
-		// Foco contínuo, se o aparelho deixar
-		try { await trilha?.applyConstraints?.({ advanced: [{ focusMode: "continuous" }] }); } catch { /* ignora */ }
+		// Foco contínuo, se o aparelho deixar (ou o foco manual escolhido)
+		try {
+			const modos = trilha?.getCapabilities?.().focusMode || [];
+			if (modos.includes("continuous")) await trilha.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
+		} catch { /* ignora */ }
+		await foco.reaplicar();
 		return { flash };
 	}
 
-	function parar() {
+	function pararFluxo() {
 		try { fluxo?.getTracks().forEach(t => t.stop()); } catch { /* ignora */ }
 		fluxo = null;
 		flashLigado = false;
 		try { video.srcObject = null; } catch { /* ignora */ }
+	}
+
+	function parar() {
+		foco.reiniciar();
+		pararFluxo();
 	}
 
 	async function alternarFlash() {
@@ -772,5 +887,5 @@ export function criarCameraValidade(video) {
 		return canvas;
 	}
 
-	return { iniciar, parar, recortar, alternarFlash };
+	return { iniciar, parar, recortar, alternarFlash, foco };
 }

@@ -9,8 +9,9 @@ import { criarSupabase } from "./nuvem/supabase.js";
 import { criarDropbox } from "./nuvem/dropbox.js";
 import { NUVEM } from "./config-nuvem.js";
 import { criarLeitor } from "./leitor.js";
-import { buscarNomeProduto, codigoConsultavel } from "./produtos.js";
+import { buscarNomeProduto, codigoConsultavel, linksPesquisaCodigo } from "./produtos.js";
 import { lerDatas, criarCameraValidade } from "./validade.js";
+import { ligarInterfaceFoco } from "./foco.js";
 import { iniciarAnuncios } from "./anuncios.js";
 
 const URL_AUTO_ANIMATE = "https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.10.0/index.mjs";
@@ -454,7 +455,11 @@ const el = {
 	arquivo: $("#arquivoImportar"),
 	dlgLeitor: $("#dlgLeitor"),
 	leitorStatus: $("#leitorStatus"),
-	leitorArea: $(".leitor-area"),
+	leitorArea: $("#leitorArea"),
+	btnFoco: $("#btnFoco"),
+	painelFoco: $("#painelFoco"),
+	btnFocoValidade: $("#btnFocoValidade"),
+	painelFocoValidade: $("#painelFocoValidade"),
 	leitorVideo: $("#leitorVideo"),
 	leitorMira: $("#leitorMira"),
 	btnFlash: $("#btnFlash"),
@@ -1142,7 +1147,14 @@ async function sugerirNomeOnline(codigo) {
 	el.nome.placeholder = "Buscando o nome do produto…";
 	try {
 		const resultado = await buscarNomeProduto(codigo, { sinal: controle.signal });
-		if (controle.signal.aborted || !resultado) return;
+		if (controle.signal.aborted) return;
+		if (!resultado) {
+			// Não achou: só avisa (com links para pesquisar) se a pessoa ainda não digitou o nome
+			if (navigator.onLine !== false && !el.nome.value.trim() && el.codigo.value.replace(/\s+/g, "") === codigo && !estado.editandoId) {
+				toast("info", `Nome não encontrado nas bases públicas. ${htmlLinksPesquisa(codigo, true)}`, 8000);
+			}
+			return;
+		}
 		// Só preenche se a pessoa não digitou nada e o código continua o mesmo
 		if (el.nome.value.trim() || el.codigo.value.replace(/\s+/g, "") !== codigo || estado.editandoId) return;
 		el.nome.value = resultado.nome;
@@ -1157,6 +1169,13 @@ async function sugerirNomeOnline(codigo) {
 			el.nome.placeholder = PLACEHOLDER_NOME;
 		}
 	}
+}
+
+/** Links "Pesquisar no Google" / "Ver no Cosmos" para o código (abrem em outra aba). */
+function htmlLinksPesquisa(codigo, compacto = false) {
+	return linksPesquisaCodigo(codigo).map(l =>
+		`<a class="${compacto ? "link-toast" : "btn btn-secundario btn-bloco"}" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.nome)}</a>`
+	).join(compacto ? " · " : "");
 }
 
 /* ---------- Sugestão sob demanda (botão ✨ no campo Produto) ---------- */
@@ -1178,9 +1197,17 @@ async function sugerirNomeManual() {
 		const naLista = itensAtuais().slice().sort((a, b) => b.atualizadoEm - a.atualizadoEm).find(i => i.codigoBarras === codigo);
 		const resultado = naLista ? { nome: naLista.nome, fonte: "sua lista de produtos" } : await buscarNomeProduto(codigo);
 		if (!resultado) {
-			toast("aviso", navigator.onLine === false
-				? "Sem internet para buscar o nome agora."
-				: "Não encontramos esse código nas bases públicas. Digite o nome.", 5000);
+			if (navigator.onLine === false) return toast("aviso", "Sem internet para buscar o nome agora.", 5000);
+			// Fora das bases públicas: oferece pesquisar o código na web (abre em outra aba)
+			const { acao } = await dialogo({
+				titulo: "Produto não encontrado",
+				html: `<p>O código <b>${esc(codigo)}</b> não está nas bases públicas consultadas.</p>`
+					+ `<p>Pesquise o código na web e depois <b>digite o nome</b>:</p>`
+					+ `<div class="links-pesquisa">${htmlLinksPesquisa(codigo)}</div>`,
+				confirmar: "Digitar o nome",
+				cancelar: "Fechar"
+			});
+			if (acao === "confirmar") el.nome.focus();
 			return;
 		}
 		const atual = el.nome.value.trim();
@@ -1253,6 +1280,7 @@ async function abrirLeitorValidade() {
 	el.btnCapturarValidade.disabled = true;
 	el.btnFlashValidade.hidden = true;
 	el.btnFlashValidade.setAttribute("aria-pressed", "false");
+	esconderFoco(el.btnFocoValidade, uiFocoValidade);
 	if (!el.dlgValidade.open) el.dlgValidade.showModal();
 	await iniciarCameraValidade();
 }
@@ -1266,6 +1294,7 @@ async function iniciarCameraValidade() {
 		el.btnFlashValidade.hidden = !flash;
 		el.btnCapturarValidade.disabled = false;
 		statusValidade("Enquadre a data na moldura");
+		uiFocoValidade?.atualizar();
 	} catch (e) {
 		if (minha !== sessaoValidade) return;
 		console.warn("[validade] câmera:", e);
@@ -1277,6 +1306,7 @@ async function iniciarCameraValidade() {
 function fecharLeitorValidade() {
 	sessaoValidade++;
 	cameraValidade?.parar();
+	esconderFoco(el.btnFocoValidade, uiFocoValidade);
 	el.btnFotoValidade.classList.remove("destaque");
 	el.validadeArea.classList.remove("lendo");
 }
@@ -1286,6 +1316,7 @@ function carregarFotoValidade(arquivo) {
 	if (!arquivo || !/^image\//.test(arquivo.type || "image/")) return toast("aviso", "Escolha uma foto (imagem).");
 	sessaoValidade++;
 	cameraValidade?.parar();
+	esconderFoco(el.btnFocoValidade, uiFocoValidade);
 	const url = URL.createObjectURL(arquivo);
 	el.validadeFoto.onload = () => setTimeout(() => URL.revokeObjectURL(url), 60000);
 	el.validadeFoto.src = url;
@@ -1378,7 +1409,7 @@ async function escolherDataLida(candidatas, previa) {
 	}
 	const rotulo = c => c.fabricacao ? "provável fabricação" : c === principal ? "validade mais provável" : "outra leitura";
 	const html = `${previa ? `<img class="previa-validade" src="${previa}" alt="Área lida">` : ""}`
-		+ (incerta ? `<p class="aviso-leitura">Leitura incerta — confira com a embalagem.</p>` : "")
+		+ (incerta ? `<p class="aviso-incerta">Leitura incerta — confira com a embalagem.</p>` : "")
 		+ `<p>Toque na <b>data de validade</b> correta:</p>`
 		+ `<div class="opcoes-data" role="radiogroup" aria-label="Datas encontradas">${opcoes.map(c =>
 			`<button type="button" class="opcao-data" role="radio" data-data="${esc(c.data)}" aria-checked="${c === principal}">`
@@ -1796,6 +1827,15 @@ async function importarArquivo(arquivo) {
    ========================================================= */
 let leitor = null;
 let leituraConcluida = false;
+let uiFocoLeitor = null;
+let uiFocoValidade = null;
+
+/** Esconde o botão e o painel de foco (até a câmera dizer o que permite). */
+function esconderFoco(botao, ui) {
+	botao.hidden = true;
+	botao.setAttribute("aria-pressed", "false");
+	ui?.fecharPainel();
+}
 
 function obterLeitor() {
 	if (leitor) return leitor;
@@ -1818,6 +1858,7 @@ function obterLeitor() {
 				el.leitorZoom.step = cap.zoom.passo;
 				el.leitorZoom.value = cap.zoom.valor;
 			}
+			uiFocoLeitor?.atualizar();
 		}
 	});
 	return leitor;
@@ -1834,6 +1875,7 @@ async function abrirLeitor() {
 	el.btnFlash.classList.remove("indisponivel");
 	el.btnTrocarCamera.hidden = true;
 	el.leitorZoomCaixa.hidden = true;
+	esconderFoco(el.btnFoco, uiFocoLeitor);
 	if (!el.dlgLeitor.open) el.dlgLeitor.showModal();
 	const l = obterLeitor();
 	try {
@@ -1852,6 +1894,7 @@ async function abrirLeitor() {
 
 function pararLeitor() {
 	leitor?.parar();
+	esconderFoco(el.btnFoco, uiFocoLeitor);
 }
 
 function leituraOk(codigo) {
@@ -2624,6 +2667,19 @@ function registrarEventos() {
 	});
 	el.dlgValidade?.addEventListener("close", fecharLeitorValidade);
 	registrarSelecaoFoto();
+	// Foco: botão com as opções e toque na imagem para focar (código de barras e validade)
+	uiFocoLeitor = ligarInterfaceFoco({
+		area: el.leitorArea, video: el.leitorVideo, botao: el.btnFoco, painel: el.painelFoco,
+		obterFoco: () => leitor?.foco || null,
+		podeTocar: () => !!leitor?.ativo,
+		aviso: (tipo, html) => toast(tipo, html)
+	});
+	uiFocoValidade = ligarInterfaceFoco({
+		area: el.validadeArea, video: el.validadeVideo, botao: el.btnFocoValidade, painel: el.painelFocoValidade,
+		obterFoco: () => cameraValidade?.foco || null,
+		podeTocar: () => !el.validadeArea.classList.contains("modo-foto") && !lendoValidade,
+		aviso: (tipo, html) => toast(tipo, html)
+	});
 	el.nome.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); el.quantidade.focus(); } });
 	el.quantidade.addEventListener("keydown", e => {
 		if (e.key === "Enter") { e.preventDefault(); el.vencimento.focus(); try { el.vencimento.showPicker?.(); } catch { /* ignora */ } }
