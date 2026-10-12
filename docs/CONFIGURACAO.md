@@ -139,6 +139,27 @@ O Firebase não permite trocar o texto do e-mail de login por link, mas permite 
    - **Corpo:** cole o conteúdo de [`docs/email-login.html`](email-login.html) (botão "Entrar no app" + código de 6 dígitos, em português, com o ícone do app).
 2. **Remetente profissional** (recomendado): em *Authentication → SMTP Settings*, configure um SMTP (ex.: Brevo, Resend ou Amazon SES) com remetente `Controle de Vencimento <noreply@seudominio>` — também aumenta o limite de envios.
 
+## Cosmos (Bluesoft) — nome e foto pelo código de barras (opcional)
+
+O [Cosmos](https://cosmos.bluesoft.com.br) é a maior base de códigos de barras do Brasil e melhora muito a **sugestão de nome** e a **foto do produto**. Ele exige um token, que **não pode ficar no site** (qualquer pessoa veria). Por isso o app consulta o Cosmos por um pequeno intermediário gratuito na Cloudflare, que guarda o token em segredo.
+
+1. Crie uma conta em <https://cosmos.bluesoft.com.br> e copie o seu **token** da API (área do desenvolvedor). O plano gratuito tem um limite diário de consultas; o intermediário guarda as respostas por 7 dias para economizar.
+2. Crie uma conta grátis em <https://dash.cloudflare.com> → **Workers & Pages** → **Create** → **Create Worker** → dê um nome (ex.: `cosmos`) → **Deploy**.
+3. Clique em **Edit code**, apague o conteúdo e cole o arquivo [`docs/proxy-cosmos.js`](proxy-cosmos.js). Clique em **Deploy**.
+4. Em **Settings → Variables and Secrets**, adicione:
+   - `COSMOS_TOKEN` (tipo **Secret**) — o token do passo 1;
+   - `ORIGEM` (tipo **Text**) — o endereço do app, ex.: `https://rudagabriel.github.io`.
+5. Copie o endereço do Worker (ex.: `https://cosmos.seu-nome.workers.dev`) e cole em `config-busca.js`:
+
+   ```js
+   export const BUSCA = {
+   	proxyCosmos: "https://cosmos.seu-nome.workers.dev"
+   };
+   ```
+6. Publique. Pronto: o app passa a consultar o Cosmos **primeiro** (pelo código e pelo nome) e usa as bases abertas como reserva.
+
+Teste no navegador: `https://cosmos.seu-nome.workers.dev/?gtin=7891000100103` deve devolver os dados do produto (abrindo direto no navegador, sem o app, funciona porque não há "Origin").
+
 ## Anúncios (Google AdSense)
 
 O site já está preparado para o AdSense (editor `pub-2042570332495044`):
@@ -169,17 +190,22 @@ O site já está preparado para o AdSense (editor `pub-2042570332495044`):
 ├── style.css             # Design (tema claro/escuro, responsivo)
 ├── app.js                # Lógica principal: lista, filtros, alertas, backup, nuvem
 ├── leitor.js             # Leitor de código de barras (3 motores, flash, zoom, foto)
+├── foco.js               # Foco da câmera (perto/longe, toque, lente macro no iPhone)
+├── validade.js           # Leitura da data de validade (OCR no aparelho)
+├── produtos.js           # Sugestão de nome pelo código de barras
+├── fotos.js              # Foto do produto (busca automática e foto própria)
 ├── nuvem/
 │   ├── comum.js          # Códigos de lista, UUIDs, erros e fila offline
 │   ├── firebase.js       # Google: Firestore, login Google e link no e-mail
 │   ├── supabase.js       # E-mail (alternativo): funções SQL seguras
 │   └── dropbox.js        # Dropbox: OAuth PKCE e arquivo na pasta do app
 ├── config-nuvem.js       # Chaves públicas da nuvem (dono do site)
+├── config-busca.js       # Intermediário do Cosmos (opcional)
 ├── anuncios.js           # Bloco de anúncio responsivo (AdSense)
 ├── config-anuncios.js    # ID de editor e bloco de anúncio
 ├── privacidade.html      # Política de Privacidade
 ├── ads.txt               # Autorização de vendedores do AdSense
-├── docs/                 # Capturas de tela e modelo de e-mail de login
+├── docs/                 # Capturas, modelo de e-mail e proxy-cosmos.js (Cloudflare)
 ├── icones/               # Ícone do app (SVG original + PNGs) 
 └── manifest.webmanifest  # Instalação na tela inicial (PWA)
 ```

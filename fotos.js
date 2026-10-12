@@ -13,6 +13,8 @@
    busca automática encontra de novo a foto pelo código.
    ========================================================= */
 
+import { BUSCA } from "./config-busca.js";
+
 const BANCO = "cv2-fotos";
 const LOJA = "fotos";
 const TEMPO_LIMITE_MS = 7000;
@@ -107,6 +109,23 @@ export function precisaBuscar(registro) {
 }
 
 /* ---------- Busca na internet ---------- */
+/** Falha de consulta (rede, limite de uso, servidor): não significa "não existe". */
+export class FalhaBusca extends Error { }
+
+const proxyCosmos = () => String(BUSCA?.proxyCosmos || "").trim().replace(/\/+$/, "");
+const esperar = ms => new Promise(r => setTimeout(r, ms));
+
+// A busca por texto do Open Food Facts aceita ~10 consultas por minuto: uma a cada 6,5 s
+const INTERVALO_BUSCA_TEXTO_MS = 6500;
+let proximaBuscaTexto = 0;
+async function aguardarVezBuscaTexto(sinal) {
+	const agora = Date.now();
+	const espera = Math.max(0, proximaBuscaTexto - agora);
+	proximaBuscaTexto = Math.max(agora, proximaBuscaTexto) + INTERVALO_BUSCA_TEXTO_MS;
+	if (espera) await esperar(espera);
+	if (sinal?.aborted) throw new FalhaBusca("cancelada");
+}
+
 async function buscarJson(url, sinal, aceitar = "application/json") {
 	const controle = new AbortController();
 	const cancelar = () => controle.abort();
@@ -142,10 +161,19 @@ export async function fotosPorCodigo(codigo, { sinal } = {}) {
 	codigo = String(codigo || "").replace(/\s+/g, "");
 	if (!/^\d{8,14}$/.test(codigo)) return [];
 	const achadas = [];
-	const consultas = BASES_OFF.map((base, ordem) =>
+	let falhas = 0, total = 0;
+	const contar = p => { total++; return p.catch(() => { falhas++; }); };
+	const consultas = [];
+	if (proxyCosmos()) {
+		consultas.push(buscarJson(`${proxyCosmos()}?gtin=${codigo}`, sinal).then(d => {
+			const src = urlSegura(d?.thumbnail);
+			if (src) achadas.push({ src, fonte: "Cosmos (Bluesoft)", ordem: -1 });
+		}));
+	}
+	consultas.push(...BASES_OFF.map((base, ordem) =>
 		buscarJson(`${base.url}/api/v2/product/${codigo}.json?fields=${CAMPOS_IMAGEM}&lc=pt${base.extra}`, sinal)
 			.then(d => { const src = imagemOff(d?.product); if (src) achadas.push({ src, fonte: base.nome, ordem }); })
-	);
+	));
 	consultas.push(buscarJson(`https://api.upcitemdb.com/prod/trial/lookup?upc=${codigo}`, sinal)
 		.then(d => {
 			const imagens = Array.isArray(d?.items?.[0]?.images) ? d.items[0].images : [];
@@ -161,37 +189,86 @@ export async function fotosPorCodigo(codigo, { sinal } = {}) {
 			const src = urlSegura(bruto.replace(/^http:\/\//, "https://"));
 			if (src) achadas.push({ src: `${src}${src.includes("?") ? "&" : "?"}width=480`, fonte: "Wikidata", ordem: 20 });
 		}));
-	await Promise.allSettled(consultas);
+	await Promise.all(consultas.map(contar));
+	// Nada achado e alguma base não respondeu: pode existir — não conta como "não achei"
+	if (!achadas.length && falhas) throw new FalhaBusca(`${falhas} de ${total} bases não responderam`);
 	return achadas.sort((a, b) => a.ordem - b.ordem).map(({ src, fonte }) => ({ src, fonte }));
 }
 
-/** Semelhança (0–1) entre dois nomes: palavras em comum. */
+// Tamanhos e palavras que não ajudam a achar o produto ("5kg", "1 L", "de", "tipo"…)
+const TAMANHOS = /\b\d+(?:[.,]\d+)?\s*(?:kg|kgs|g|gr|grs|gramas?|mg|ml|l|lt|lts|litros?|un|und|unid|unidades?|cx|pct|pc|pcs|x)\b/g;
+const PALAVRAS_VAZIAS = new Set(["de", "da", "do", "das", "dos", "e", "com", "sem", "para", "a", "o", "as", "os", "em", "no", "na", "tipo", "un", "und", "c", "s"]);
+const singular = p => (p.length > 4 && /[^s]s$/.test(p) ? p.slice(0, -1) : p);
+
+/** Palavras que identificam o produto (sem tamanho, sem acento, no singular). */
+export function termosNome(nome) {
+	return normalizarNome(String(nome || "").toLowerCase().replace(TAMANHOS, " "))
+		.split(" ")
+		.filter(p => p.length > 1 && !PALAVRAS_VAZIAS.has(p) && !/^\d+$/.test(p))
+		.map(singular);
+}
+
+/** Semelhança (0–1) entre dois nomes: palavras em comum (ignorando tamanho, acento e plural). */
 export function semelhancaNomes(a, b) {
-	const pa = new Set(normalizarNome(a).split(" ").filter(p => p.length > 1));
-	const pb = new Set(normalizarNome(b).split(" ").filter(p => p.length > 1));
+	const pa = new Set(termosNome(a)), pb = new Set(termosNome(b));
 	if (!pa.size || !pb.size) return 0;
 	let comuns = 0;
 	for (const p of pa) if (pb.has(p)) comuns++;
+	// Com 2+ palavras de cada lado, uma palavra só em comum ("integral") não basta
+	if (comuns < 2 && Math.min(pa.size, pb.size) >= 2) return Math.min(0.5, comuns / Math.min(pa.size, pb.size));
 	return comuns / Math.min(pa.size, pb.size);
 }
 
+/** A foto achada pelo nome é confiável o bastante para usar sozinha? */
+export const NOME_CONFIAVEL = 0.67;
+
 /**
- * Fotos de produtos com nome parecido (Open Food Facts), da mais parecida para a menos.
+ * Fotos de produtos com nome parecido, da mais parecida para a menos.
+ * Busca no Cosmos (se configurado), no Open Food Facts do Brasil e no mundial.
+ * @param {{ sinal?: AbortSignal, limite?: number, rapido?: boolean }} opcoes rapido: para a busca
+ *   automática — para assim que achar um nome confiável
  * @returns {Promise<{ src: string, fonte: string, nome: string, semelhanca: number }[]>}
  */
-export async function fotosPorNome(nome, { sinal, limite = 8 } = {}) {
-	const termos = normalizarNome(nome);
-	if (termos.length < 3) return [];
-	const d = await buscarJson(`https://br.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(termos)}&search_simple=1&action=process&json=1&page_size=${limite * 2}&fields=code,${CAMPOS_IMAGEM}&lc=pt&cc=br`, sinal).catch(() => null);
+export async function fotosPorNome(nome, { sinal, limite = 8, rapido = false } = {}) {
+	const termos = termosNome(nome);
+	if (!termos.length || termos.join("").length < 3) return [];
+	const consulta = encodeURIComponent(termos.join(" "));
 	const lista = [];
 	const vistas = new Set();
-	for (const p of Array.isArray(d?.products) ? d.products : []) {
-		const src = imagemOff(p);
-		const nomeProduto = [p?.product_name_pt || p?.product_name, String(p?.brands || "").split(",")[0]].filter(Boolean).join(" ");
-		if (!src || vistas.has(src) || !nomeProduto) continue;
+	let falhas = 0, tentativas = 0;
+	const juntar = (src, fonte, nomeProduto) => {
+		src = urlSegura(src);
+		if (!src || vistas.has(src) || !nomeProduto) return;
 		vistas.add(src);
-		lista.push({ src, fonte: "Open Food Facts", nome: nomeProduto, semelhanca: semelhancaNomes(nome, nomeProduto) });
+		lista.push({ src, fonte, nome: nomeProduto, semelhanca: semelhancaNomes(nome, nomeProduto) });
+	};
+	const bastou = () => rapido && lista.some(f => f.semelhanca >= NOME_CONFIAVEL);
+	const etapas = [];
+	if (proxyCosmos()) {
+		etapas.push(async () => {
+			const d = await buscarJson(`${proxyCosmos()}?q=${consulta}`, sinal);
+			for (const p of Array.isArray(d?.products) ? d.products : []) {
+				juntar(p?.thumbnail, "Cosmos (Bluesoft)", [p?.description, p?.brand?.name].filter(Boolean).join(" "));
+			}
+		});
 	}
+	const buscarOff = (base, extra) => async () => {
+		await aguardarVezBuscaTexto(sinal);
+		const d = await buscarJson(`${base}/cgi/search.pl?search_terms=${consulta}&search_simple=1&action=process&json=1&page_size=${Math.max(10, limite * 2)}&fields=code,${CAMPOS_IMAGEM}&lc=pt${extra}`, sinal);
+		for (const p of Array.isArray(d?.products) ? d.products : []) {
+			juntar(imagemOff(p), "Open Food Facts", [p?.product_name_pt || p?.product_name, String(p?.brands || "").split(",")[0]].filter(Boolean).join(" "));
+		}
+	};
+	// Automática: primeiro os produtos vendidos no Brasil, depois a base mundial (muitos produtos
+	// brasileiros não têm o país marcado). Manual: só a mundial (inclui a do Brasil e responde mais rápido).
+	if (rapido) etapas.push(buscarOff("https://br.openfoodfacts.org", "&cc=br"));
+	etapas.push(buscarOff("https://world.openfoodfacts.org", ""));
+	for (const etapa of etapas) {
+		if (bastou()) break;
+		tentativas++;
+		try { await etapa(); } catch (e) { if (sinal?.aborted) throw e; falhas++; }
+	}
+	if (!lista.length && falhas && falhas === tentativas) throw new FalhaBusca("busca por nome indisponível");
 	return lista.sort((a, b) => b.semelhanca - a.semelhanca).slice(0, limite);
 }
 
@@ -201,15 +278,28 @@ export async function fotosPorNome(nome, { sinal, limite = 8 } = {}) {
  * @returns {Promise<{ src: string, origem: "codigo" | "nome", fonte: string } | null>}
  */
 export async function buscarFotoAutomatica(item, { sinal } = {}) {
+	let falhou = null;
 	if (item?.nome) {
-		const porNome = await fotosPorNome(item.nome, { sinal, limite: 4 });
-		const melhor = porNome[0];
-		if (melhor && melhor.semelhanca >= 0.75) return { src: melhor.src, fonte: melhor.fonte, origem: "nome" };
+		try {
+			const porNome = await fotosPorNome(item.nome, { sinal, limite: 4, rapido: true });
+			const melhor = porNome[0];
+			if (melhor && melhor.semelhanca >= NOME_CONFIAVEL) return { src: melhor.src, fonte: melhor.fonte, origem: "nome" };
+		} catch (e) {
+			if (sinal?.aborted) throw e;
+			falhou = e;
+		}
 	}
 	if (item?.codigoBarras) {
-		const porCodigo = await fotosPorCodigo(item.codigoBarras, { sinal });
-		if (porCodigo[0]) return { ...porCodigo[0], origem: "codigo" };
+		try {
+			const porCodigo = await fotosPorCodigo(item.codigoBarras, { sinal });
+			if (porCodigo[0]) return { ...porCodigo[0], origem: "codigo" };
+		} catch (e) {
+			if (sinal?.aborted) throw e;
+			falhou = e;
+		}
 	}
+	// Alguma busca falhou (rede/limite): não afirma "não existe" — tenta de novo depois
+	if (falhou) throw falhou instanceof FalhaBusca ? falhou : new FalhaBusca(String(falhou?.message || falhou));
 	return null;
 }
 
