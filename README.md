@@ -103,7 +103,8 @@ Não é preciso criar conta. Se quiser guardar na nuvem, veja [Salvar na nuvem](
 | **Vencimento** | Sim | Data de validade do lote. Toque no ícone ao lado para **ler a data por foto**. |
 
 - **Nome automático:** se você ler um código de barras que já está na lista, o nome do produto é preenchido sozinho.
-- **Nome sugerido:** se o código ainda não está na sua lista, o app procura o produto na base pública **Open Food Facts** (alimentos, cosméticos e outros) e sugere o nome com marca e tamanho, por exemplo *Leite Integral Piracanjuba 1 L*. O campo fica destacado em verde para você conferir. Funciona com códigos de produtos (EAN/UPC) e precisa de internet.
+- **Nome sugerido:** depois de ler ou digitar o código, toque no botão **✨** do campo *Produto*. O app procura o produto em bases públicas (**Open Food Facts** — versão Brasil, em português — e outras) e mostra o nome encontrado, com marca e tamanho (ex.: *Leite UHT Integral Piracanjuba 1 L*) e a fonte. Você escolhe **Usar este nome** ou **Cancelar**.
+- **Sugestão automática (opcional):** no menu **⋮**, ligue **Sugerir nome automaticamente** para o nome ser preenchido sozinho ao ler um código novo. Vem **desligada**. Funciona com códigos de produtos (EAN/UPC) e precisa de internet.
 - **Produto repetido:** ao cadastrar o mesmo produto com o mesmo vencimento, o app pergunta se você quer **somar** as quantidades ou **substituir** pela nova.
 - Leitores de código de barras **USB ou Bluetooth** também funcionam: basta clicar no campo do código e ler.
 
@@ -294,7 +295,7 @@ O app é um site estático, rápido e sem instalação. As bibliotecas abaixo s�
 | [barcode-detector](https://github.com/Sec-ant/barcode-detector) · [ZXing-C++](https://github.com/zxing-cpp/zxing-cpp) | Leitura rápida de códigos de barras (WebAssembly), inclusive no iPhone. |
 | [ZXing JS](https://github.com/zxing-js/library) | Leitor reserva para aparelhos e navegadores mais antigos. |
 | [Tesseract.js](https://tesseract.projectnaptha.com/) | Lê a data de validade de uma foto, no próprio aparelho (OCR). |
-| [Open Food Facts](https://world.openfoodfacts.org/) | Base pública e colaborativa usada para sugerir o nome do produto pelo código de barras. |
+| [Open Food Facts](https://world.openfoodfacts.org/) · [UPCitemdb](https://www.upcitemdb.com/) | Bases públicas usadas para sugerir o nome do produto pelo código de barras (só quando você pede ou liga a sugestão automática). |
 | [SweetAlert2](https://sweetalert2.github.io/) | Janelas de confirmação claras e acessíveis. |
 | [Notyf](https://carlosroso.com/notyf/) | Avisos rápidos, como "Produto adicionado" e "Desfazer". |
 | [Lucide](https://lucide.dev/) | Ícones nítidos em qualquer tela. |
