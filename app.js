@@ -9,6 +9,8 @@ import { criarSupabase } from "./nuvem/supabase.js";
 import { criarDropbox } from "./nuvem/dropbox.js";
 import { NUVEM } from "./config-nuvem.js";
 import { criarLeitor } from "./leitor.js";
+import { buscarNomeProduto, codigoConsultavel } from "./produtos.js";
+import { lerValidadeDaImagem } from "./validade.js";
 import { iniciarAnuncios } from "./anuncios.js";
 
 const URL_AUTO_ANIMATE = "https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.10.0/index.mjs";
@@ -416,6 +418,8 @@ const el = {
 	nome: $("#produto"),
 	quantidade: $("#quantidade"),
 	vencimento: $("#vencimento"),
+	btnLerValidade: $("#btnLerValidade"),
+	arquivoValidade: $("#arquivoValidade"),
 	btnSalvar: $("#btnSalvar"),
 	btnCancelarEdicao: $("#btnCancelarEdicao"),
 	btnEscanear: $("#btnEscanear"),
@@ -852,7 +856,7 @@ function registrarEventosLayout() {
 function atualizarEstadoFormulario() {
 	const editavel = podeEditar();
 	el.avisoLeitura.hidden = editavel;
-	[el.codigo, el.nome, el.quantidade, el.vencimento, el.btnSalvar, el.btnEscanear].forEach(c => { c.disabled = !editavel; });
+	[el.codigo, el.nome, el.quantidade, el.vencimento, el.btnSalvar, el.btnEscanear, el.btnLerValidade].forEach(c => { if (c) c.disabled = !editavel; });
 	const editando = !!estado.editandoId;
 	el.cartaoForm?.classList.toggle("editando", editando);
 	el.tituloForm.textContent = editando ? "Editando produto" : "Novo produto";
@@ -1094,11 +1098,91 @@ function autoPreencherPorCodigo() {
 	const codigo = el.codigo.value.replace(/\s+/g, "");
 	if (!codigo || el.nome.value.trim() || estado.editandoId) return false;
 	const conhecido = itensAtuais().slice().sort((a, b) => b.atualizadoEm - a.atualizadoEm).find(i => i.codigoBarras === codigo);
-	if (!conhecido) return false;
+	if (!conhecido) {
+		sugerirNomeOnline(codigo); // não está na lista: tenta a base pública de produtos
+		return false;
+	}
 	el.nome.value = conhecido.nome;
 	el.nome.removeAttribute("aria-invalid");
 	toast("info", `Produto reconhecido: <b>${esc(conhecido.nome)}</b>`, 2500);
 	return true;
+}
+
+/** Realça um campo preenchido automaticamente até a pessoa mexer nele. */
+function marcarSugerido(campo) {
+	campo.classList.remove("sugerido");
+	void campo.offsetWidth; // reinicia a animação do realce
+	campo.classList.add("sugerido");
+	campo.addEventListener("input", () => campo.classList.remove("sugerido"), { once: true });
+}
+
+/* ---------- Nome sugerido pelo código de barras (Open Food Facts) ---------- */
+const PLACEHOLDER_NOME = el.nome?.placeholder || "";
+let buscaNome = null;
+async function sugerirNomeOnline(codigo) {
+	if (!codigoConsultavel(codigo) || !podeEditar() || estado.editandoId) return;
+	buscaNome?.abort();
+	const controle = new AbortController();
+	buscaNome = controle;
+	el.nome.placeholder = "Buscando o nome do produto…";
+	try {
+		const resultado = await buscarNomeProduto(codigo, { sinal: controle.signal });
+		if (controle.signal.aborted || !resultado) return;
+		// Só preenche se a pessoa não digitou nada e o código continua o mesmo
+		if (el.nome.value.trim() || el.codigo.value.replace(/\s+/g, "") !== codigo || estado.editandoId) return;
+		el.nome.value = resultado.nome;
+		el.nome.removeAttribute("aria-invalid");
+		marcarSugerido(el.nome);
+		toast("info", `Nome sugerido: <b>${esc(resultado.nome)}</b>. Confira e ajuste se precisar.`, 5000);
+	} catch (e) {
+		console.warn("[nome sugerido]", e);
+	} finally {
+		if (buscaNome === controle) {
+			buscaNome = null;
+			el.nome.placeholder = PLACEHOLDER_NOME;
+		}
+	}
+}
+
+/* ---------- Validade lida por foto (OCR no aparelho) ---------- */
+let lendoValidade = false;
+async function lerValidadePorFoto(arquivo) {
+	if (lendoValidade || !arquivo) return;
+	if (!podeEditar()) return toast("aviso", "Este aparelho está no modo <b>somente leitura</b>.");
+	if (!/^image\//.test(arquivo.type || "image/")) return toast("aviso", "Escolha uma foto (imagem).");
+	lendoValidade = true;
+	el.btnLerValidade?.classList.add("carregando");
+	el.btnLerValidade?.setAttribute("aria-busy", "true");
+	let avisouDownload = false;
+	try {
+		const resultado = await lerValidadeDaImagem(arquivo, {
+			aoProgresso: ({ etapa }) => {
+				if (etapa === "baixando" && !avisouDownload) {
+					avisouDownload = true;
+					toast("info", "Preparando o leitor de datas (só na primeira vez)…", 4000);
+				}
+			}
+		});
+		if (!resultado) {
+			toast("aviso", "Não encontrei a data na foto. Tire de novo <b>bem de perto</b>, só com a data, ou digite.", 6500);
+			return;
+		}
+		el.vencimento.value = resultado.data;
+		el.vencimento.removeAttribute("aria-invalid");
+		el.vencimento.dispatchEvent(new Event("input", { bubbles: true }));
+		marcarSugerido(el.vencimento);
+		const vencido = resultado.data < hojeISO() ? " (já vencido)" : "";
+		toast("sucesso", `Validade lida: <b>${formatarData(resultado.data)}</b>${vencido}. Confira antes de adicionar.`, 6000);
+	} catch (e) {
+		console.error("[ler validade]", e);
+		toast("erro", navigator.onLine === false
+			? "Sem internet para preparar o leitor de datas (necessário só na primeira vez)."
+			: "Não foi possível ler a foto. Tente de novo ou digite a data.", 6500);
+	} finally {
+		lendoValidade = false;
+		el.btnLerValidade?.classList.remove("carregando");
+		el.btnLerValidade?.removeAttribute("aria-busy");
+	}
 }
 
 /* =========================================================
@@ -2228,6 +2312,17 @@ function registrarEventos() {
 		(reconhecido || el.nome.value.trim() ? el.quantidade : el.nome).focus();
 	});
 	el.codigo.addEventListener("change", autoPreencherPorCodigo);
+
+	// Ler a validade por foto
+	el.btnLerValidade?.addEventListener("click", () => {
+		if (!podeEditar()) return toast("aviso", "Este aparelho está no modo <b>somente leitura</b>.");
+		el.arquivoValidade?.click();
+	});
+	el.arquivoValidade?.addEventListener("change", () => {
+		const arquivo = el.arquivoValidade.files?.[0];
+		el.arquivoValidade.value = "";
+		lerValidadePorFoto(arquivo);
+	});
 	el.nome.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); el.quantidade.focus(); } });
 	el.quantidade.addEventListener("keydown", e => {
 		if (e.key === "Enter") { e.preventDefault(); el.vencimento.focus(); try { el.vencimento.showPicker?.(); } catch { /* ignora */ } }

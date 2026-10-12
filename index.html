@@ -161,10 +161,14 @@
 				</div>
 				<div class="campo campo-data">
 					<label for="vencimento">Vencimento</label>
-					<div class="data-envoltorio">
-						<input type="date" id="vencimento" min="1900-01-01" max="2200-12-31" enterkeyhint="done" required>
-						<span class="data-dica" aria-hidden="true">dd/mm/aaaa</span>
+					<div class="grupo-entrada grupo-data">
+						<div class="data-envoltorio">
+							<input type="date" id="vencimento" min="1900-01-01" max="2200-12-31" enterkeyhint="done" required>
+							<span class="data-dica" aria-hidden="true">dd/mm/aaaa</span>
+						</div>
+						<button type="button" id="btnLerValidade" class="btn-anexo" title="Ler a validade com a câmera (foto da data)" aria-label="Ler a data de validade com a câmera"><i data-lucide="scan-text"></i></button>
 					</div>
+					<input type="file" id="arquivoValidade" accept="image/*" capture="environment" hidden>
 				</div>
 				<div class="form-acoes">
 					<button type="button" id="btnCancelarEdicao" class="btn btn-fantasma" hidden><i data-lucide="x"></i>Cancelar</button>
