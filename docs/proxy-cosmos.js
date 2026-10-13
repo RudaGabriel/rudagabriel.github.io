@@ -44,7 +44,13 @@ export default {
 				headers: { "X-Cosmos-Token": env.COSMOS_TOKEN, "User-Agent": "Cosmos-API-Request", "Content-Type": "application/json" }
 			});
 			if (r.status === 404) return json(404, { erro: "não encontrado" });
-			if (!r.ok) return json(r.status === 429 ? 429 : 502, { erro: `cosmos ${r.status}` });
+			if (!r.ok) {
+				// Devolve o motivo dado pelo Cosmos (ajuda a descobrir limite, token ou bloqueio)
+				const detalhe = (await r.text().catch(() => "")).slice(0, 400);
+				const limites = {};
+				for (const [k, v] of r.headers) if (/rate|limit|retry/i.test(k)) limites[k] = v;
+				return json(r.status === 429 ? 429 : 502, { erro: `cosmos ${r.status}`, detalhe, limites });
+			}
 			resposta = new Response(await r.text(), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=604800" } });
 			ctx.waitUntil(cache.put(chave, resposta.clone()));
 		}

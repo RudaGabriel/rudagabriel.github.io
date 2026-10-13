@@ -13,7 +13,7 @@
    busca automática encontra de novo a foto pelo código.
    ========================================================= */
 
-import { BUSCA } from "./config-busca.js";
+import { proxyCosmos, pausarCosmos } from "./produtos.js";
 
 const BANCO = "cv2-fotos";
 const LOJA = "fotos";
@@ -112,7 +112,15 @@ export function precisaBuscar(registro) {
 /** Falha de consulta (rede, limite de uso, servidor): não significa "não existe". */
 export class FalhaBusca extends Error { }
 
-const proxyCosmos = () => String(BUSCA?.proxyCosmos || "").trim().replace(/\/+$/, "");
+/** Consulta o Cosmos; "consultas demais" (429) pausa o Cosmos por um tempo. */
+async function buscarCosmos(parametros, sinal) {
+	try {
+		return await buscarJson(`${proxyCosmos()}?${parametros}`, sinal);
+	} catch (e) {
+		if (/HTTP 429/.test(String(e?.message))) pausarCosmos();
+		throw e;
+	}
+}
 const esperar = ms => new Promise(r => setTimeout(r, ms));
 
 // A busca por texto do Open Food Facts aceita ~10 consultas por minuto: uma a cada 6,5 s
@@ -165,7 +173,7 @@ export async function fotosPorCodigo(codigo, { sinal } = {}) {
 	const contar = p => { total++; return p.catch(() => { falhas++; }); };
 	const consultas = [];
 	if (proxyCosmos()) {
-		consultas.push(buscarJson(`${proxyCosmos()}?gtin=${codigo}`, sinal).then(d => {
+		consultas.push(buscarCosmos(`gtin=${codigo}`, sinal).then(d => {
 			const src = urlSegura(d?.thumbnail);
 			if (src) achadas.push({ src, fonte: "Cosmos (Bluesoft)", ordem: -1 });
 		}));
@@ -246,7 +254,7 @@ export async function fotosPorNome(nome, { sinal, limite = 8, rapido = false } =
 	const etapas = [];
 	if (proxyCosmos()) {
 		etapas.push(async () => {
-			const d = await buscarJson(`${proxyCosmos()}?q=${consulta}`, sinal);
+			const d = await buscarCosmos(`q=${consulta}`, sinal);
 			for (const p of Array.isArray(d?.products) ? d.products : []) {
 				juntar(p?.thumbnail, "Cosmos (Bluesoft)", [p?.description, p?.brand?.name].filter(Boolean).join(" "));
 			}

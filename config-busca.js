@@ -13,5 +13,5 @@
 
 export const BUSCA = {
 	// Endereço do intermediário publicado, ex.: "https://cosmos.seu-nome.workers.dev"
-	proxyCosmos: ""
+	proxyCosmos: "https://cosmos.rudag3.workers.dev"
 };
