@@ -139,26 +139,32 @@ O Firebase não permite trocar o texto do e-mail de login por link, mas permite 
    - **Corpo:** cole o conteúdo de [`docs/email-login.html`](email-login.html) (botão "Entrar no app" + código de 6 dígitos, em português, com o ícone do app).
 2. **Remetente profissional** (recomendado): em *Authentication → SMTP Settings*, configure um SMTP (ex.: Brevo, Resend ou Amazon SES) com remetente `Controle de Vencimento <noreply@seudominio>` — também aumenta o limite de envios.
 
-## Cosmos (Bluesoft) — nome e foto pelo código de barras (opcional)
+## Intermediário de produtos — nome e foto pelo código de barras (opcional)
 
-O [Cosmos](https://cosmos.bluesoft.com.br) é a maior base de códigos de barras do Brasil e melhora muito a **sugestão de nome** e a **foto do produto**. Ele exige um token, que **não pode ficar no site** (qualquer pessoa veria). Por isso o app consulta o Cosmos por um pequeno intermediário gratuito na Cloudflare, que guarda o token em segredo.
+As bases brasileiras de códigos de barras exigem uma **chave** que não pode ficar no site (qualquer pessoa veria). Por isso o app consulta essas bases por um **intermediário gratuito na Cloudflare** ([`docs/intermediario.js`](intermediario.js)), que guarda as chaves em segredo, só atende o site do app e guarda as respostas por 7 dias (economiza as cotas).
 
-1. Crie uma conta em <https://cosmos.bluesoft.com.br> e copie o seu **token** da API (área do desenvolvedor). O plano gratuito tem um limite diário de consultas; o intermediário guarda as respostas por 7 dias para economizar.
-2. Crie uma conta grátis em <https://dash.cloudflare.com> → **Workers & Pages** → **Create** → **Create Worker** → dê um nome (ex.: `cosmos`) → **Deploy**.
-3. Clique em **Edit code**, apague o conteúdo e cole o arquivo [`docs/proxy-cosmos.js`](proxy-cosmos.js). Clique em **Deploy**.
-4. Em **Settings → Variables and Secrets**, adicione:
-   - `COSMOS_TOKEN` (tipo **Secret**) — o token do passo 1;
-   - `ORIGEM` (tipo **Text**) — o endereço do app, ex.: `https://rudagabriel.github.io`.
-5. Copie o endereço do Worker (ex.: `https://cosmos.seu-nome.workers.dev`) e cole em `config-busca.js`:
+Cada base é **opcional** — ligue as que quiser. O intermediário tenta na ordem abaixo, junta nome e foto e para quando já tem os dois. Base que estourar a cota do dia fica pausada até a meia-noite.
 
-   ```js
-   export const BUSCA = {
-   	proxyCosmos: "https://cosmos.seu-nome.workers.dev"
-   };
-   ```
-6. Publique. Pronto: o app passa a consultar o Cosmos **primeiro** (pelo código e pelo nome) e usa as bases abertas como reserva.
+| Base | Grátis | Onde criar a chave | Variável (tipo **Secret**) |
+|---|---|---|---|
+| SI5 Global | 100 consultas/dia | <https://global.si5.com.br/login> (entra com Google) → **Minha conta** → gerar token | `SI5_TOKEN` |
+| Kodebar | 50 consultas/dia | <https://kodebar.korvensistemas.com.br> → cadastro → **Painel do Usuário** → chave | `KODEBAR_KEY` |
+| OSCBR – API GTIN | 20 consultas/minuto | <https://gtin.rscsistemas.com.br/cadastro> → usuário e senha | `OSCBR_USUARIO` e `OSCBR_SENHA` |
+| Cosmos (Bluesoft) | depende do plano (conta gratuita veio com franquia 0) | <https://cosmos.bluesoft.com.br/api> → token | `COSMOS_TOKEN` |
 
-Teste no navegador: `https://cosmos.seu-nome.workers.dev/?gtin=7891000100103` deve devolver os dados do produto (abrindo direto no navegador, sem o app, funciona porque não há "Origin").
+### Publicar o intermediário
+1. Crie uma conta grátis em <https://dash.cloudflare.com> → **Workers & Pages** → **Create** → **Create Worker** → nome (ex.: `cosmos`) → **Deploy**.
+2. **Edit code** → apague tudo → cole o arquivo [`docs/intermediario.js`](intermediario.js) (no GitHub: **Raw** → Ctrl+A → Ctrl+C) → **Deploy**.
+3. **Settings → Variables and Secrets**:
+   - `ORIGEM` (tipo **Text**) = `https://rudagabriel.github.io`;
+   - as chaves das bases que você criou (tipo **Secret**), com os nomes da tabela.
+4. Coloque o endereço do Worker em `config-busca.js` (`intermediario: "https://…workers.dev"`).
+
+### Testar (pela barra de endereço do navegador)
+- `https://SEU-WORKER.workers.dev/status` → mostra cada base como `ativa`, `sem chave` ou `pausada até meia-noite` (nunca mostra as chaves).
+- `https://SEU-WORKER.workers.dev/produto?gtin=7891000100103` → nome, marca, foto e qual base achou.
+
+O painel de teste da própria Cloudflare (aba **HTTP**) responde `{"erro":"origem"}` — é a proteção (só o app e a barra de endereço são aceitos). Teste pela barra de endereço.
 
 ## Anúncios (Google AdSense)
 
@@ -200,12 +206,12 @@ O site já está preparado para o AdSense (editor `pub-2042570332495044`):
 │   ├── supabase.js       # E-mail (alternativo): funções SQL seguras
 │   └── dropbox.js        # Dropbox: OAuth PKCE e arquivo na pasta do app
 ├── config-nuvem.js       # Chaves públicas da nuvem (dono do site)
-├── config-busca.js       # Intermediário do Cosmos (opcional)
+├── config-busca.js       # Endereço do intermediário de produtos (opcional)
 ├── anuncios.js           # Bloco de anúncio responsivo (AdSense)
 ├── config-anuncios.js    # ID de editor e bloco de anúncio
 ├── privacidade.html      # Política de Privacidade
 ├── ads.txt               # Autorização de vendedores do AdSense
-├── docs/                 # Capturas, modelo de e-mail e proxy-cosmos.js (Cloudflare)
+├── docs/                 # Capturas, modelo de e-mail e intermediario.js (Cloudflare)
 ├── icones/               # Ícone do app (SVG original + PNGs) 
 └── manifest.webmanifest  # Instalação na tela inicial (PWA)
 ```

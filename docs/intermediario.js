@@ -1,0 +1,269 @@
+/* =========================================================
+   Intermediário de produtos — Cloudflare Workers (grátis)
+   ---------------------------------------------------------
+   Consulta bases brasileiras de códigos de barras guardando as
+   chaves em SEGREDO (elas nunca aparecem no site) e só atende o
+   site do app. Cada base é opcional: só é usada se a chave dela
+   estiver configurada em Settings → Variables and Secrets.
+
+     SI5_TOKEN       (Secret) SI5 Global — 100 consultas/dia grátis
+     KODEBAR_KEY     (Secret) Kodebar — 50 consultas/dia grátis
+     OSCBR_USUARIO   (Secret) OSCBR API GTIN — usuário
+     OSCBR_SENHA     (Secret) OSCBR API GTIN — senha (20/min grátis)
+     COSMOS_TOKEN    (Secret) Cosmos (Bluesoft) — exige franquia
+     ORIGEM          (Text)   ex.: https://rudagabriel.github.io
+
+   Endereços:
+     GET /produto?gtin=7891000100103
+         → { gtin, nome, marca, foto, fonte, fonteFoto, fontes } (formato único)
+     GET /foto?gtin=...&fonte=oscbr
+         → a foto (para bases que exigem a chave até na imagem)
+     GET /?gtin=...  e  GET /?q=texto
+         → Cosmos direto (compatibilidade)
+     GET /status
+         → quais bases estão configuradas (sem mostrar chaves)
+
+   Respostas ficam no cache da Cloudflare (7 dias; "não achei",
+   1 dia). Base que estourar a cota diária fica pausada até a
+   meia-noite (horário de Brasília).
+   ========================================================= */
+
+const UM_DIA = 24 * 60 * 60;
+const CACHE_ACHADO = 7 * UM_DIA;
+const CACHE_NAO_ACHADO = UM_DIA;
+
+// Segundos até a próxima meia-noite em Brasília (UTC-3)
+function ateMeiaNoiteBrasilia() {
+	const agora = Date.now();
+	const brasilia = new Date(agora - 3 * 3600 * 1000);
+	const proxima = Date.UTC(brasilia.getUTCFullYear(), brasilia.getUTCMonth(), brasilia.getUTCDate() + 1) + 3 * 3600 * 1000;
+	return Math.max(60, Math.round((proxima - agora) / 1000));
+}
+
+const limpar = t => String(t ?? "").replace(/\s+/g, " ").trim();
+const urlHttps = u => (typeof u === "string" && /^https:\/\/[^\s"'<>]+$/i.test(u) ? u : "");
+
+// Memória de reserva (vale enquanto o Worker estiver "quente"), além do cache da Cloudflare
+const memoria = new Map();
+
+async function lerCache(chave) {
+	const m = memoria.get(chave);
+	if (m && m.ate > Date.now()) return new Response(m.corpo, { status: m.status, headers: m.cabecalhos });
+	memoria.delete(chave);
+	try {
+		return await caches.default.match(new Request(`https://cache.intermediario/${chave}`));
+	} catch {
+		return undefined;
+	}
+}
+async function gravarCache(ctx, chave, resposta, segundos) {
+	const corpo = await resposta.arrayBuffer();
+	const cabecalhos = Object.fromEntries(resposta.headers);
+	if (memoria.size > 500) memoria.clear();
+	memoria.set(chave, { corpo, status: resposta.status, cabecalhos, ate: Date.now() + segundos * 1000 });
+	const r = new Response(corpo, { status: resposta.status, headers: { ...cabecalhos, "Cache-Control": `public, max-age=${segundos}` } });
+	try { ctx.waitUntil(caches.default.put(new Request(`https://cache.intermediario/${chave}`), r)); } catch { /* sem cache */ }
+}
+async function pausada(fonte) {
+	return !!(await lerCache(`pausa/${fonte}`));
+}
+function pausar(ctx, fonte) {
+	return gravarCache(ctx, `pausa/${fonte}`, new Response("1"), ateMeiaNoiteBrasilia());
+}
+
+/** Busca JSON com tempo limite; devolve { status, dados }. */
+async function buscar(url, cabecalhos) {
+	const controle = new AbortController();
+	const tempo = setTimeout(() => controle.abort(), 8000);
+	try {
+		const r = await fetch(url, { headers: { Accept: "application/json", ...cabecalhos }, signal: controle.signal });
+		const texto = await r.text().catch(() => "");
+		let dados = null;
+		try { dados = JSON.parse(texto); } catch { /* não é JSON */ }
+		return { status: r.status, dados, texto: texto.slice(0, 300) };
+	} catch (e) {
+		return { status: 0, dados: null, texto: String(e?.message || e).slice(0, 200) };
+	} finally {
+		clearTimeout(tempo);
+	}
+}
+
+/* ---------- Bases ---------- */
+const BASES = [
+	{
+		id: "si5", nome: "SI5 Global",
+		ativa: env => !!env.SI5_TOKEN,
+		async consultar(gtin, env) {
+			const r = await buscar(`https://global.si5.com.br/api/produtos/${gtin}`, { Authorization: `Bearer ${env.SI5_TOKEN}` });
+			const p = r.dados && (r.dados.produto !== undefined ? r.dados : r.dados.data || r.dados);
+			return { status: r.status, nome: limpar(p?.produto || p?.nome), marca: limpar(p?.marca), foto: urlHttps(p?.imagem_url), texto: r.texto };
+		}
+	},
+	{
+		id: "kodebar", nome: "Kodebar",
+		ativa: env => !!env.KODEBAR_KEY,
+		async consultar(gtin, env) {
+			const r = await buscar(`https://kodebar.korvensistemas.com.br/gtin/lookup?gtin=${gtin}`, { "X-API-Key": env.KODEBAR_KEY });
+			const p = r.dados?.produto || r.dados?.data || r.dados;
+			return { status: r.status, nome: limpar(p?.nome || p?.name), marca: limpar(p?.marca || p?.brand), foto: urlHttps(p?.thumbnail || p?.imagem || p?.image), texto: r.texto };
+		}
+	},
+	{
+		id: "oscbr", nome: "OSCBR (API GTIN)",
+		ativa: env => !!(env.OSCBR_USUARIO && env.OSCBR_SENHA),
+		async consultar(gtin, env, ctx, origemPedido) {
+			const token = await tokenOscbr(env, ctx);
+			if (!token) return { status: 401, texto: "não foi possível obter o token da OSCBR (usuário/senha?)" };
+			const r = await buscar(`https://gtin.rscsistemas.com.br/api/gtin/infor/${gtin}`, { Authorization: `Bearer ${token}` });
+			const p = r.dados;
+			// A foto da OSCBR também exige o token: o app pega pelo próprio intermediário
+			const foto = p?.link_foto ? `${origemPedido}/foto?gtin=${gtin}&fonte=oscbr` : "";
+			return { status: r.status, nome: limpar(p?.nome), marca: limpar(p?.marca), foto, texto: r.texto };
+		}
+	},
+	{
+		id: "cosmos", nome: "Cosmos (Bluesoft)",
+		ativa: env => !!env.COSMOS_TOKEN,
+		async consultar(gtin, env) {
+			const cab = { "X-Cosmos-Token": env.COSMOS_TOKEN, "User-Agent": "Cosmos-API-Request", "Content-Type": "application/json" };
+			let r = await buscar(`https://cosmos.bluesoft.com.br/api/gtins/${gtin}.json`, cab);
+			if (r.status !== 200 && r.status !== 404 && r.status !== 429) r = await buscar(`https://api.cosmos.bluesoft.com.br/gtins/${gtin}.json`, cab);
+			const p = r.dados;
+			return { status: r.status, nome: limpar(p?.description), marca: limpar(p?.brand?.name), foto: urlHttps(p?.thumbnail), texto: r.texto };
+		}
+	}
+];
+
+async function tokenOscbr(env, ctx) {
+	const guardado = await lerCache("token/oscbr");
+	if (guardado) return (await guardado.text()) || "";
+	const basico = btoa(`${env.OSCBR_USUARIO}:${env.OSCBR_SENHA}`);
+	try {
+		const r = await fetch("https://gtin.rscsistemas.com.br/oauth/token", { method: "POST", headers: { Authorization: `Basic ${basico}`, Accept: "application/json" } });
+		if (!r.ok) return "";
+		const { token } = await r.json();
+		if (!token) return "";
+		await gravarCache(ctx, "token/oscbr", new Response(token), 50 * 60); // vale 1 h; renova antes
+		return token;
+	} catch {
+		return "";
+	}
+}
+
+/* ---------- Rotas ---------- */
+async function rotaProduto(gtin, env, ctx, origemPedido, json) {
+	const emCache = await lerCache(`produto/${gtin}`);
+	if (emCache) return json(emCache.status, await emCache.json());
+	const resultado = { gtin, nome: "", marca: "", foto: "", fonte: "", fonteFoto: "", fontes: [] };
+	const tentativas = [];
+	let algumaRespondeu = false;
+	for (const base of BASES) {
+		if (!base.ativa(env)) continue;
+		if (await pausada(base.id)) { tentativas.push({ fonte: base.id, status: "pausada até meia-noite" }); continue; }
+		const r = await base.consultar(gtin, env, ctx, origemPedido);
+		tentativas.push({ fonte: base.id, status: r.status });
+		if (r.status === 429) { await pausar(ctx, base.id); continue; }
+		if (r.status === 200 || r.status === 404 || r.status === 204) algumaRespondeu = true;
+		if (r.status !== 200) continue;
+		if (!resultado.nome && r.nome) { resultado.nome = r.nome; resultado.marca = r.marca; resultado.fonte = base.nome; }
+		if (!resultado.foto && r.foto) { resultado.foto = r.foto; resultado.fonteFoto = base.nome; }
+		if (r.nome || r.foto) resultado.fontes.push(base.nome);
+		if (resultado.nome && resultado.foto) break; // já tem tudo: não gasta cota das outras
+	}
+	if (resultado.nome || resultado.foto) {
+		await gravarCache(ctx, `produto/${gtin}`, new Response(JSON.stringify(resultado), { status: 200, headers: { "Content-Type": "application/json" } }), CACHE_ACHADO);
+		return json(200, resultado);
+	}
+	if (algumaRespondeu) {
+		const corpo = { erro: "não encontrado", gtin, tentativas };
+		await gravarCache(ctx, `produto/${gtin}`, new Response(JSON.stringify(corpo), { status: 404, headers: { "Content-Type": "application/json" } }), CACHE_NAO_ACHADO);
+		return json(404, corpo);
+	}
+	// Nenhuma base respondeu (cotas, rede, chaves): o app tenta de novo mais tarde
+	const semCota = tentativas.length && tentativas.every(t => t.status === 429 || t.status === "pausada até meia-noite");
+	return json(semCota ? 429 : 502, { erro: tentativas.length ? "bases indisponíveis" : "nenhuma base configurada", tentativas });
+}
+
+async function rotaFoto(gtin, fonte, env, ctx, cors) {
+	const base = BASES.find(b => b.id === fonte);
+	if (fonte !== "oscbr" || !base?.ativa(env)) return new Response("fonte", { status: 400, headers: cors });
+	const chave = `foto/${fonte}/${gtin}`;
+	let foto = await lerCache(chave);
+	if (!foto) {
+		const token = await tokenOscbr(env, ctx);
+		if (!token) return new Response("token", { status: 502, headers: cors });
+		const r = await fetch(`https://gtin.rscsistemas.com.br/api/gtin/img/${gtin}`, { headers: { Authorization: `Bearer ${token}` } });
+		if (r.status !== 200) return new Response("sem foto", { status: 404, headers: cors });
+		const bytes = await r.arrayBuffer();
+		const tipo = r.headers.get("Content-Type") || "image/png";
+		await gravarCache(ctx, chave, new Response(bytes, { headers: { "Content-Type": tipo } }), 30 * UM_DIA);
+		foto = new Response(bytes, { headers: { "Content-Type": tipo } });
+	}
+	const saida = new Response(foto.body, foto);
+	for (const [k, v] of Object.entries(cors)) saida.headers.set(k, v);
+	saida.headers.set("Cache-Control", "public, max-age=2592000");
+	return saida;
+}
+
+async function rotaCosmosDireto(url, env, ctx, json) {
+	if (!env.COSMOS_TOKEN) return json(404, { erro: "cosmos não configurado" });
+	if (await pausada("cosmos")) return json(429, { erro: "cosmos pausado até meia-noite" });
+	const gtin = (url.searchParams.get("gtin") || "").replace(/\D/g, "");
+	const q = (url.searchParams.get("q") || "").trim();
+	let caminho;
+	if (/^\d{8,14}$/.test(gtin)) caminho = `/gtins/${gtin}.json`;
+	else if (q.length >= 3 && q.length <= 80) caminho = `/products?query=${encodeURIComponent(q)}`;
+	else return json(400, { erro: "use /produto?gtin=, ?gtin= ou ?q=" });
+	const chave = `cosmos${caminho}`;
+	const emCache = await lerCache(chave);
+	if (emCache) return json(200, await emCache.json());
+	const cab = { "X-Cosmos-Token": env.COSMOS_TOKEN, "User-Agent": "Cosmos-API-Request", "Content-Type": "application/json" };
+	let r = await buscar(`https://cosmos.bluesoft.com.br/api${caminho}`, cab);
+	if (r.status !== 200 && r.status !== 404 && r.status !== 429) r = await buscar(`https://api.cosmos.bluesoft.com.br${caminho}`, cab);
+	if (r.status === 200 && r.dados) {
+		await gravarCache(ctx, chave, new Response(JSON.stringify(r.dados), { headers: { "Content-Type": "application/json" } }), CACHE_ACHADO);
+		return json(200, r.dados);
+	}
+	if (r.status === 429) await pausar(ctx, "cosmos");
+	return json(r.status === 404 ? 404 : r.status === 429 ? 429 : 502, { erro: `cosmos ${r.status}`, detalhe: r.texto });
+}
+
+export default {
+	async fetch(pedido, env, ctx) {
+		const origemPermitida = env.ORIGEM || "https://rudagabriel.github.io";
+		const origem = pedido.headers.get("Origin") || "";
+		const cors = {
+			"Access-Control-Allow-Origin": origemPermitida,
+			"Access-Control-Allow-Methods": "GET, OPTIONS",
+			"Access-Control-Allow-Headers": "Accept",
+			"Vary": "Origin"
+		};
+		const json = (status, corpo) => new Response(JSON.stringify(corpo), { status, headers: { ...cors, "Content-Type": "application/json" } });
+		if (pedido.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+		if (pedido.method !== "GET") return json(405, { erro: "método" });
+		// Só o site do app pode usar (evita que outros gastem as suas cotas)
+		if (origem && origem !== origemPermitida) return json(403, { erro: "origem" });
+
+		const url = new URL(pedido.url);
+		const origemPedido = `${url.protocol}//${url.host}`;
+		const gtin = (url.searchParams.get("gtin") || "").replace(/\D/g, "");
+		try {
+			if (url.pathname === "/status") {
+				const bases = {};
+				for (const b of BASES) bases[b.id] = !b.ativa(env) ? "sem chave" : (await pausada(b.id)) ? "pausada até meia-noite" : "ativa";
+				return json(200, { bases, origem: origemPermitida });
+			}
+			if (url.pathname === "/produto") {
+				if (!/^\d{8,14}$/.test(gtin)) return json(400, { erro: "gtin inválido" });
+				return await rotaProduto(gtin, env, ctx, origemPedido, json);
+			}
+			if (url.pathname === "/foto") {
+				if (!/^\d{8,14}$/.test(gtin)) return json(400, { erro: "gtin inválido" });
+				return await rotaFoto(gtin, url.searchParams.get("fonte") || "", env, ctx, cors);
+			}
+			return await rotaCosmosDireto(url, env, ctx, json);
+		} catch (e) {
+			return json(500, { erro: "falha interna", detalhe: String(e?.message || e).slice(0, 200) });
+		}
+	}
+};

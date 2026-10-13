@@ -27,23 +27,33 @@ const CAMPOS_OFF = [
 	"brands", "quantity", "lang"
 ].join(",");
 
-// Cosmos respondeu "consultas demais" (429): pausa por 1 hora para não gastar tempo nem cota
-const CHAVE_PAUSA_COSMOS = "cv2:cosmosPausa";
-const PAUSA_COSMOS_MS = 60 * 60 * 1000;
-export function cosmosPausado() {
-	try { return Date.now() < Number(localStorage.getItem(CHAVE_PAUSA_COSMOS) || 0); } catch { return false; }
+/* ---------- Intermediário (config-busca.js) ----------
+   Um Worker na Cloudflare que consulta bases brasileiras (SI5 Global,
+   Kodebar, OSCBR, Cosmos) guardando as chaves em segredo.
+   - /produto?gtin=…  → nome, marca e foto (várias bases)
+   - ?q=texto          → busca por nome no Cosmos
+   Cada uso tem sua pausa: quando responde "sem cota" (429), fica 1 hora
+   sem ser consultado (uma pausa não bloqueia a outra). */
+const PAUSA_MS = 60 * 60 * 1000;
+const chavePausa = uso => `cv2:pausa:${uso}`;
+export function pausado(uso) {
+	try { return Date.now() < Number(localStorage.getItem(chavePausa(uso)) || 0); } catch { return false; }
 }
-export function pausarCosmos() {
-	try { localStorage.setItem(CHAVE_PAUSA_COSMOS, String(Date.now() + PAUSA_COSMOS_MS)); } catch { /* ignora */ }
+export function pausar(uso) {
+	try { localStorage.setItem(chavePausa(uso), String(Date.now() + PAUSA_MS)); } catch { /* ignora */ }
 }
-/** Endereço do intermediário do Cosmos ("" se não configurado ou pausado). */
-export const proxyCosmos = () => (cosmosPausado() ? "" : String(BUSCA?.proxyCosmos || "").trim().replace(/\/+$/, ""));
+/** Endereço do intermediário ("" se não configurado ou se aquele uso estiver pausado). */
+export function intermediario(uso = "produto") {
+	if (pausado(uso)) return "";
+	return String(BUSCA?.intermediario || BUSCA?.proxyCosmos || "").trim().replace(/\/+$/, "");
+}
 
-/** Cosmos (Bluesoft): a maior base brasileira — só com o intermediário configurado (config-busca.js). */
-function lerCosmos(dados) {
-	const base = limpar(dados?.description);
+/** Resposta do /produto do intermediário → nome e a base que achou. */
+function lerIntermediario(dados) {
+	const base = limpar(dados?.nome);
 	if (!base) return null;
-	return montarNome({ base, marca: dados?.brand?.name });
+	const nome = montarNome({ base, marca: dados?.marca });
+	return nome ? { nome, fonte: limpar(dados?.fonte) || "Bases brasileiras" } : null;
 }
 
 const FONTES_BASE = [
@@ -54,9 +64,9 @@ const FONTES_BASE = [
 	{ nome: "UPCitemdb", url: c => `https://api.upcitemdb.com/prod/trial/lookup?upc=${c}`, ler: lerUpc },
 	{ nome: "Wikidata", url: urlWikidata, ler: lerWikidata, aceitar: "application/sparql-results+json" }
 ];
-// Com o Cosmos configurado, ele é consultado primeiro (melhor cobertura de produtos brasileiros)
-const fontes = () => (proxyCosmos()
-	? [{ nome: "Cosmos (Bluesoft)", url: c => `${proxyCosmos()}?gtin=${c}`, ler: lerCosmos, cosmos: true }, ...FONTES_BASE]
+// Com o intermediário configurado, as bases brasileiras são consultadas primeiro
+const fontes = () => (intermediario("produto")
+	? [{ nome: "Bases brasileiras", url: c => `${intermediario("produto")}/produto?gtin=${c}`, ler: lerIntermediario, uso: "produto" }, ...FONTES_BASE]
 	: FONTES_BASE);
 
 /** Consulta SPARQL pelo GTIN (propriedade P3962), com e sem zeros à esquerda. */
@@ -184,7 +194,7 @@ async function consultar(fonte, codigo, sinalExterno) {
 	try {
 		const r = await fetch(fonte.url(codigo), { signal: controle.signal, headers: { Accept: fonte.aceitar || "application/json" } });
 		if (r.status === 404) return null;
-		if (r.status === 429 && fonte.cosmos) pausarCosmos();
+		if (r.status === 429 && fonte.uso) pausar(fonte.uso);
 		if (!r.ok) throw new Error(`HTTP ${r.status}`);
 		return fonte.ler(await r.json());
 	} finally {
@@ -212,10 +222,12 @@ export async function buscarNomeProduto(codigo, { sinal } = {}) {
 	for (const fonte of fontes()) {
 		if (sinal?.aborted) return null;
 		try {
-			const nome = await consultar(fonte, codigo, sinal);
+			const lido = await consultar(fonte, codigo, sinal);
 			algumaRespondeu = true;
+			// A fonte pode devolver só o nome, ou { nome, fonte } (o intermediário diz qual base achou)
+			const nome = typeof lido === "string" ? lido : lido?.nome;
 			if (nome) {
-				const resultado = { nome, fonte: fonte.nome };
+				const resultado = { nome, fonte: (typeof lido === "object" && lido?.fonte) || fonte.nome };
 				gravarCache(codigo, resultado);
 				return resultado;
 			}
