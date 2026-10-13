@@ -27,7 +27,17 @@ const CAMPOS_OFF = [
 	"brands", "quantity", "lang"
 ].join(",");
 
-const proxyCosmos = () => String(BUSCA?.proxyCosmos || "").trim().replace(/\/+$/, "");
+// Cosmos respondeu "consultas demais" (429): pausa por 1 hora para não gastar tempo nem cota
+const CHAVE_PAUSA_COSMOS = "cv2:cosmosPausa";
+const PAUSA_COSMOS_MS = 60 * 60 * 1000;
+export function cosmosPausado() {
+	try { return Date.now() < Number(localStorage.getItem(CHAVE_PAUSA_COSMOS) || 0); } catch { return false; }
+}
+export function pausarCosmos() {
+	try { localStorage.setItem(CHAVE_PAUSA_COSMOS, String(Date.now() + PAUSA_COSMOS_MS)); } catch { /* ignora */ }
+}
+/** Endereço do intermediário do Cosmos ("" se não configurado ou pausado). */
+export const proxyCosmos = () => (cosmosPausado() ? "" : String(BUSCA?.proxyCosmos || "").trim().replace(/\/+$/, ""));
 
 /** Cosmos (Bluesoft): a maior base brasileira — só com o intermediário configurado (config-busca.js). */
 function lerCosmos(dados) {
@@ -46,7 +56,7 @@ const FONTES_BASE = [
 ];
 // Com o Cosmos configurado, ele é consultado primeiro (melhor cobertura de produtos brasileiros)
 const fontes = () => (proxyCosmos()
-	? [{ nome: "Cosmos (Bluesoft)", url: c => `${proxyCosmos()}?gtin=${c}`, ler: lerCosmos }, ...FONTES_BASE]
+	? [{ nome: "Cosmos (Bluesoft)", url: c => `${proxyCosmos()}?gtin=${c}`, ler: lerCosmos, cosmos: true }, ...FONTES_BASE]
 	: FONTES_BASE);
 
 /** Consulta SPARQL pelo GTIN (propriedade P3962), com e sem zeros à esquerda. */
@@ -174,6 +184,7 @@ async function consultar(fonte, codigo, sinalExterno) {
 	try {
 		const r = await fetch(fonte.url(codigo), { signal: controle.signal, headers: { Accept: fonte.aceitar || "application/json" } });
 		if (r.status === 404) return null;
+		if (r.status === 429 && fonte.cosmos) pausarCosmos();
 		if (!r.ok) throw new Error(`HTTP ${r.status}`);
 		return fonte.ler(await r.json());
 	} finally {
