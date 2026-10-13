@@ -4,6 +4,8 @@
    Guarda o token do Cosmos em segredo e libera a consulta só
    para o site do app. Dois usos:
      GET /?gtin=7891000100103   → produto pelo código de barras
+     (usa https://cosmos.bluesoft.com.br/api/gtins/{código} e, como reserva,
+      o endereço antigo https://api.cosmos.bluesoft.com.br/gtins/{código}.json)
      GET /?q=leite integral     → produtos pelo nome
    Variáveis (Workers → Settings → Variables):
      COSMOS_TOKEN  (Secret) — token do Cosmos
@@ -31,28 +33,51 @@ export default {
 		const url = new URL(pedido.url);
 		const gtin = (url.searchParams.get("gtin") || "").replace(/\D/g, "");
 		const q = (url.searchParams.get("q") || "").trim();
-		let alvo;
-		if (/^\d{8,14}$/.test(gtin)) alvo = `https://api.cosmos.bluesoft.com.br/gtins/${gtin}.json`;
-		else if (q.length >= 3 && q.length <= 80) alvo = `https://api.cosmos.bluesoft.com.br/products?query=${encodeURIComponent(q)}`;
+		// Endereço atual da API (documentação do Cosmos: /gtins/{código}) e o antigo
+		// (/gtins/{código}.json), como reserva
+		let caminhos;
+		if (/^\d{8,14}$/.test(gtin)) caminhos = [`/gtins/${gtin}`, `/gtins/${gtin}.json`];
+		else if (q.length >= 3 && q.length <= 80) caminhos = Array(2).fill(`/products?query=${encodeURIComponent(q)}`);
 		else return json(400, { erro: "use ?gtin= ou ?q=" });
-
+		const BASES = ["https://cosmos.bluesoft.com.br/api", "https://api.cosmos.bluesoft.com.br"];
+		const enderecos = BASES.map((base, i) => ({ base, alvo: base + caminhos[i] }));
 		const cache = caches.default;
-		const chave = new Request(alvo);
-		let resposta = await cache.match(chave);
+		let resposta = null;
+		for (const { alvo } of enderecos) {
+			resposta = await cache.match(new Request(alvo));
+			if (resposta) break;
+		}
 		if (!resposta) {
-			const r = await fetch(alvo, {
-				headers: { "X-Cosmos-Token": env.COSMOS_TOKEN, "User-Agent": "Cosmos-API-Request", "Content-Type": "application/json" }
-			});
-			if (r.status === 404) return json(404, { erro: "não encontrado" });
-			if (!r.ok) {
-				// Devolve o motivo dado pelo Cosmos (ajuda a descobrir limite, token ou bloqueio)
-				const detalhe = (await r.text().catch(() => "")).slice(0, 400);
+			const tentativas = [];
+			for (const { base, alvo } of enderecos) {
+				let r;
+				try {
+					r = await fetch(alvo, {
+						headers: { "X-Cosmos-Token": env.COSMOS_TOKEN, "User-Agent": "Cosmos-API-Request", "Content-Type": "application/json", "Accept": "application/json" }
+					});
+				} catch (e) {
+					tentativas.push({ erro: "falha de rede", base, detalhe: String(e?.message || e).slice(0, 200) });
+					continue;
+				}
+				const tipo = r.headers.get("Content-Type") || "";
+				const texto = await r.text().catch(() => "");
+				if (r.ok && /json/i.test(tipo)) {
+					resposta = new Response(texto, { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=604800", "X-Cosmos-Base": base } });
+					ctx.waitUntil(cache.put(new Request(alvo), resposta.clone()));
+					break;
+				}
+				// 404 em JSON = produto não existe no Cosmos (não adianta tentar o outro endereço)
+				if (r.status === 404 && /json/i.test(tipo)) return json(404, { erro: "não encontrado", base });
+				// Outro erro: devolve o motivo do Cosmos e tenta o próximo endereço
 				const limites = {};
 				for (const [k, v] of r.headers) if (/rate|limit|retry/i.test(k)) limites[k] = v;
-				return json(r.status === 429 ? 429 : 502, { erro: `cosmos ${r.status}`, detalhe, limites });
+				tentativas.push({ erro: `cosmos ${r.status}`, base, detalhe: texto.slice(0, 400), limites, status: r.status });
 			}
-			resposta = new Response(await r.text(), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=604800" } });
-			ctx.waitUntil(cache.put(chave, resposta.clone()));
+			if (!resposta) {
+				// Mostra o que cada endereço respondeu (ajuda a descobrir token, limite ou caminho errado)
+				const limite = tentativas.some(t => t.status === 429);
+				return json(limite ? 429 : 502, { erro: tentativas[0]?.erro || "sem resposta", tentativas });
+			}
 		}
 		const saida = new Response(resposta.body, resposta);
 		for (const [k, v] of Object.entries(cors)) saida.headers.set(k, v);
