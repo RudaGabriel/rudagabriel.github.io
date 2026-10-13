@@ -13,7 +13,7 @@
    busca automática encontra de novo a foto pelo código.
    ========================================================= */
 
-import { proxyCosmos, pausarCosmos } from "./produtos.js";
+import { intermediario, pausar } from "./produtos.js";
 
 const BANCO = "cv2-fotos";
 const LOJA = "fotos";
@@ -112,12 +112,12 @@ export function precisaBuscar(registro) {
 /** Falha de consulta (rede, limite de uso, servidor): não significa "não existe". */
 export class FalhaBusca extends Error { }
 
-/** Consulta o Cosmos; "consultas demais" (429) pausa o Cosmos por um tempo. */
-async function buscarCosmos(parametros, sinal) {
+/** Consulta o intermediário; "sem cota" (429) pausa aquele uso por um tempo. */
+async function buscarIntermediario(uso, caminho, sinal) {
 	try {
-		return await buscarJson(`${proxyCosmos()}?${parametros}`, sinal);
+		return await buscarJson(`${intermediario(uso)}${caminho}`, sinal);
 	} catch (e) {
-		if (/HTTP 429/.test(String(e?.message))) pausarCosmos();
+		if (/HTTP 429/.test(String(e?.message))) pausar(uso);
 		throw e;
 	}
 }
@@ -172,10 +172,10 @@ export async function fotosPorCodigo(codigo, { sinal } = {}) {
 	let falhas = 0, total = 0;
 	const contar = p => { total++; return p.catch(() => { falhas++; }); };
 	const consultas = [];
-	if (proxyCosmos()) {
-		consultas.push(buscarCosmos(`gtin=${codigo}`, sinal).then(d => {
-			const src = urlSegura(d?.thumbnail);
-			if (src) achadas.push({ src, fonte: "Cosmos (Bluesoft)", ordem: -1 });
+	if (intermediario("produto")) {
+		consultas.push(buscarIntermediario("produto", `/produto?gtin=${codigo}`, sinal).then(d => {
+			const src = urlSegura(d?.foto);
+			if (src) achadas.push({ src, fonte: String(d?.fonteFoto || d?.fonte || "Bases brasileiras"), ordem: -1 });
 		}));
 	}
 	consultas.push(...BASES_OFF.map((base, ordem) =>
@@ -252,9 +252,9 @@ export async function fotosPorNome(nome, { sinal, limite = 8, rapido = false } =
 	};
 	const bastou = () => rapido && lista.some(f => f.semelhanca >= NOME_CONFIAVEL);
 	const etapas = [];
-	if (proxyCosmos()) {
+	if (intermediario("busca")) {
 		etapas.push(async () => {
-			const d = await buscarCosmos(`q=${consulta}`, sinal);
+			const d = await buscarIntermediario("busca", `/?q=${consulta}`, sinal);
 			for (const p of Array.isArray(d?.products) ? d.products : []) {
 				juntar(p?.thumbnail, "Cosmos (Bluesoft)", [p?.description, p?.brand?.name].filter(Boolean).join(" "));
 			}

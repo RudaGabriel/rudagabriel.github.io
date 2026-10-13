@@ -1,17 +1,16 @@
 /* =========================================================
-   Busca de nome e foto — configuração opcional (dono do site)
+   Busca de nome e foto — intermediário opcional (dono do site)
    ---------------------------------------------------------
-   Cosmos (Bluesoft) é a maior base de códigos de barras do
-   Brasil. Para usar, crie um token gratuito em
-   https://cosmos.bluesoft.com.br e publique o intermediário
-   docs/proxy-cosmos.js (Cloudflare Workers, grátis) — assim o
-   token fica em segredo e não aparece no site.
-   Passo a passo: docs/CONFIGURACAO.md (seção "Cosmos").
+   Um Worker gratuito na Cloudflare (docs/intermediario.js) que
+   consulta bases brasileiras de códigos de barras guardando as
+   chaves em SEGREDO: SI5 Global, Kodebar, OSCBR (API GTIN) e
+   Cosmos. Cada base é opcional (só funciona com a chave dela).
+   Passo a passo: docs/CONFIGURACAO.md (seção "Intermediário").
 
-   Com proxyCosmos vazio, o app usa só as bases abertas.
+   Vazio: o app usa só as bases abertas (Open Food Facts etc.).
    ========================================================= */
 
 export const BUSCA = {
-	// Endereço do intermediário publicado, ex.: "https://cosmos.seu-nome.workers.dev"
-	proxyCosmos: "https://cosmos.rudag3.workers.dev"
+	// Endereço do Worker publicado
+	intermediario: "https://cosmos.rudag3.workers.dev"
 };
