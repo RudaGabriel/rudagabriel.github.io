@@ -117,7 +117,7 @@ Não é preciso criar conta. Se quiser guardar na nuvem, veja [Salvar na nuvem](
 
 Cada produto da lista mostra uma **miniatura** ao lado do nome.
 
-- **Automático:** o app procura a foto sozinho — primeiro **pelo nome** que você informou (só aceita um produto com nome bem parecido) e, se não achar, **pelo código de barras** (Open Food Facts e bases parecidas, UPCitemdb, Wikidata). Dá para desligar em **⋮ → Buscar fotos automaticamente**.
+- **Automático:** o app procura a foto sozinho — primeiro **pelo nome** que você informou (só aceita um produto com nome bem parecido) e, se não achar, **pelo código de barras** (bases brasileiras e catálogos de lojas pelo intermediário, Open Food Facts e bases parecidas, UPCitemdb, Wikidata). A foto encontrada é baixada **uma vez** e guardada no aparelho — não depende mais da internet para aparecer. Dá para desligar em **⋮ → Buscar fotos automaticamente**.
 - **Toque na miniatura** para ver a foto grande e:
   - **Tirar ou escolher foto** — use a câmera ou escolha uma imagem do celular/computador. A sua foto **sempre tem prioridade**;
   - **Buscar na internet** — mostra as fotos encontradas pelo nome e pelo código para você escolher;
@@ -237,7 +237,11 @@ Todos veem as alterações **em tempo real**.
 
 > ⚠️ Quem tiver o link, o QR Code ou o código pode acessar a lista. Compartilhe apenas com pessoas de confiança.
 
-**Controlar a edição neste aparelho:** em uma lista compartilhada, a opção **"Permitir edição neste aparelho"** deixa o aparelho como editor ou somente leitura.
+**Dono e convidados:** quem criou a lista (ou entra com a conta dona dela, ou digita o código da lista) é o **dono**. Quem entra por um link compartilhado é **convidado**:
+
+- só o **dono** vê o código da lista, gera links e QR Codes e muda a opção **"Permitir edição neste aparelho"**;
+- o **convidado** fica com a permissão do link que recebeu (**Pode editar** ou **Só visualizar**) e não consegue trocá-la — para mudar, o dono envia um novo link;
+- o link novo é embaralhado e tem verificação: trocar "visualizar" por "editar" no texto do link deixa o link inválido.
 
 ## Backup e planilha
 
@@ -338,7 +342,7 @@ Recursos modernos do navegador também entram em ação: **BarcodeDetector** (le
 | **Abri o link do e-mail em outro aparelho** | O app pede para confirmar seu e-mail; digite o mesmo e-mail usado no pedido. |
 | **O navegador bloqueou a janela de login** | Permita pop-ups para o site e tente de novo. |
 | **A lista não aparece no outro aparelho** | Confirme se entrou com a **mesma conta** (ou o mesmo código) nos dois aparelhos e se há internet. |
-| **Não consigo editar uma lista compartilhada** | O link pode ser do tipo **Só visualizar**. Peça um link **Pode editar** ou ative **"Permitir edição neste aparelho"**. |
+| **Não consigo editar uma lista compartilhada** | O link pode ser do tipo **Só visualizar**. Peça ao dono da lista um link **Pode editar** (o convidado não consegue mudar a permissão sozinho). No aparelho do dono, ative **"Permitir edição neste aparelho"**. |
 | **"Nuvem indisponível no momento"** | Seus produtos continuam salvos no aparelho. Tente outra forma de entrar ou tente mais tarde. |
 | **Perdi meus produtos ao limpar o navegador** | Restaure um **backup** (menu ⋮ → *Restaurar*) ou entre na nuvem com a conta usada antes. |
 

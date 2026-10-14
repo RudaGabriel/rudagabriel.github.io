@@ -5,12 +5,16 @@
      1. Foto colocada pela pessoa (tirada ou escolhida) — sempre vence
      2. Foto encontrada pelo NOME informado (Open Food Facts), quando
         o produto encontrado tem um nome bem parecido
-     3. Foto encontrada pelo código de barras (Open Food Facts e
-        afins, UPCitemdb, Wikidata), se não achar pelo nome
+     3. Foto encontrada pelo código de barras (intermediário: bases
+        brasileiras, lojas e UPCitemdb; Open Food Facts e afins;
+        Wikidata), se não achar pelo nome
    A foto é do PRODUTO (código de barras, ou o nome quando não há
    código): todos os lotes do mesmo produto mostram a mesma foto.
-   Fica guardada neste aparelho (IndexedDB); em outro aparelho a
-   busca automática encontra de novo a foto pelo código.
+   Fica guardada neste aparelho (IndexedDB). Foto achada na internet
+   é baixada UMA vez, reduzida e guardada como imagem própria (base64):
+   a lista não depende mais do site de origem (sem novos downloads,
+   sem limite de uso, funciona offline). Em outro aparelho a busca
+   automática encontra de novo a foto pelo código.
    ========================================================= */
 
 import { intermediario, pausar } from "./produtos.js";
@@ -21,6 +25,9 @@ const TEMPO_LIMITE_MS = 7000;
 const REPETIR_BUSCA_MS = 7 * 24 * 60 * 60 * 1000; // "não achei" vale 7 dias
 const LADO_FOTO = 480;          // foto da pessoa: lado maior em px (pequena e nítida)
 const QUALIDADE_FOTO = 0.82;
+const LADO_COPIA = 360;         // cópia guardada da foto achada na internet (~20–40 KB)
+const MAX_DOWNLOAD = 6 * 1024 * 1024;
+const REPETIR_COPIA_MS = 24 * 60 * 60 * 1000; // cópia que falhou: tenta de novo no dia seguinte
 
 const semAcento = t => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 const normalizarNome = t => semAcento(t).replace(/[^a-z0-9]+/g, " ").trim();
@@ -92,6 +99,81 @@ export async function guardarFoto(chave, registro) {
 	const valor = { ...registro, quando: Date.now() };
 	memoria.set(chave, valor);
 	await transacao("readwrite", loja => loja.put(valor, chave));
+	if (ehRemota(valor.src)) agendarCopia(chave);
+}
+
+/* ---------- Cópia local das fotos da internet ----------
+   A foto achada é guardada primeiro como endereço (aparece na hora) e,
+   em segundo plano, baixada uma única vez e trocada pela cópia local. */
+const ehRemota = src => /^https:\/\//i.test(String(src || ""));
+const filaCopia = [];
+let copiando = false;
+let ouvinteCopia = null;
+/** Avisa o app quando uma foto passa a ser cópia local (para atualizar a tela). */
+export function aoCopiarFoto(fn) { ouvinteCopia = typeof fn === "function" ? fn : null; }
+
+function agendarCopia(chave) {
+	if (!filaCopia.includes(chave)) filaCopia.push(chave);
+	processarCopias();
+}
+
+async function processarCopias() {
+	if (copiando) return;
+	copiando = true;
+	try {
+		while (filaCopia.length) {
+			if (typeof navigator !== "undefined" && navigator.onLine === false) break; // volta a tentar ao abrir o app de novo
+			const chave = filaCopia.shift();
+			try { await copiarParaAparelho(chave); } catch (e) { console.warn("[fotos] cópia local:", e?.message || e); }
+		}
+	} finally {
+		copiando = false;
+	}
+}
+
+/** Baixa a imagem: direto do site (se ele permitir) ou pelo intermediário. */
+async function baixarImagem(src) {
+	const tentar = async url => {
+		const controle = new AbortController();
+		const tempo = setTimeout(() => controle.abort(), 12000);
+		try {
+			const r = await fetch(url, { signal: controle.signal, mode: "cors", credentials: "omit", referrerPolicy: "no-referrer" });
+			if (!r.ok) throw new Error(`HTTP ${r.status}`);
+			const blob = await r.blob();
+			if (!/^image\//i.test(blob.type || "") || !blob.size || blob.size > MAX_DOWNLOAD) throw new Error("não é imagem");
+			return blob;
+		} finally {
+			clearTimeout(tempo);
+		}
+	};
+	try { return await tentar(src); } catch { /* o site não permite: tenta pelo intermediário */ }
+	const base = intermediario("imagem");
+	if (base && !src.startsWith(base)) {
+		try { return await tentar(`${base}/imagem?url=${encodeURIComponent(src)}`); } catch { /* sem cópia por enquanto */ }
+	}
+	return null;
+}
+
+async function copiarParaAparelho(chave) {
+	const atual = memoria.get(chave);
+	if (!atual || !ehRemota(atual.src)) return;
+	if (atual.semCopiaEm && Date.now() - atual.semCopiaEm < REPETIR_COPIA_MS) return;
+	const blob = await baixarImagem(atual.src);
+	let local = "";
+	if (blob) { try { local = await reduzirParaJpeg(blob, LADO_COPIA, 0.8); } catch { local = ""; } }
+	const agora = memoria.get(chave);
+	if (!agora || agora.src !== atual.src) return; // a foto mudou enquanto baixava
+	const novo = { ...agora };
+	if (local) { novo.src = local; novo.original = atual.src; delete novo.semCopiaEm; }
+	else novo.semCopiaEm = Date.now();
+	memoria.set(chave, novo);
+	await transacao("readwrite", loja => loja.put(novo, chave));
+	if (local) { try { ouvinteCopia?.(chave, novo); } catch (e) { console.error(e); } }
+}
+
+/** Ao abrir o app: copia para o aparelho as fotos que ainda dependem da internet. */
+export function copiarFotosPendentes(mapa) {
+	for (const [chave, registro] of mapa || []) if (ehRemota(registro?.src)) agendarCopia(chave);
 }
 
 export async function apagarFoto(chave) {
@@ -182,12 +264,7 @@ export async function fotosPorCodigo(codigo, { sinal } = {}) {
 		buscarJson(`${base.url}/api/v2/product/${codigo}.json?fields=${CAMPOS_IMAGEM}&lc=pt${base.extra}`, sinal)
 			.then(d => { const src = imagemOff(d?.product); if (src) achadas.push({ src, fonte: base.nome, ordem }); })
 	));
-	consultas.push(buscarJson(`https://api.upcitemdb.com/prod/trial/lookup?upc=${codigo}`, sinal)
-		.then(d => {
-			const imagens = Array.isArray(d?.items?.[0]?.images) ? d.items[0].images : [];
-			const src = imagens.map(urlSegura).find(Boolean);
-			if (src) achadas.push({ src, fonte: "UPCitemdb", ordem: 10 });
-		}));
+	// UPCitemdb e lojas: só pelo intermediário (o site deles não permite consulta direta do navegador)
 	const variantes = [...new Set([codigo, codigo.replace(/^0+/, ""), codigo.padStart(13, "0"), codigo.padStart(14, "0")])]
 		.filter(c => /^\d{8,14}$/.test(c)).map(c => `"${c}"`).join(" ");
 	const consulta = `SELECT ?imagem WHERE { VALUES ?gtin { ${variantes} } ?item wdt:P3962 ?gtin ; wdt:P18 ?imagem . } LIMIT 1`;
@@ -252,9 +329,21 @@ export async function fotosPorNome(nome, { sinal, limite = 8, rapido = false } =
 	};
 	const bastou = () => rapido && lista.some(f => f.semelhanca >= NOME_CONFIAVEL);
 	const etapas = [];
+	let mundialPeloIntermediario = false;
 	if (intermediario("busca")) {
+		// Lojas brasileiras (catálogo público) + Open Food Facts mundial, pelo intermediário
 		etapas.push(async () => {
-			const d = await buscarIntermediario("busca", `/?q=${consulta}`, sinal);
+			const d = await buscarIntermediario("busca", `/busca?q=${consulta}`, sinal);
+			mundialPeloIntermediario = true;
+			for (const p of Array.isArray(d?.produtos) ? d.produtos : []) {
+				const nomeProduto = [p?.nome, p?.marca].filter(Boolean).join(" ");
+				juntar(p?.foto, String(p?.fonte || "Lojas"), nomeProduto);
+			}
+		});
+	}
+	if (intermediario("cosmos")) {
+		etapas.push(async () => {
+			const d = await buscarIntermediario("cosmos", `/?q=${consulta}`, sinal);
 			for (const p of Array.isArray(d?.products) ? d.products : []) {
 				juntar(p?.thumbnail, "Cosmos (Bluesoft)", [p?.description, p?.brand?.name].filter(Boolean).join(" "));
 			}
@@ -270,7 +359,8 @@ export async function fotosPorNome(nome, { sinal, limite = 8, rapido = false } =
 	// Automática: primeiro os produtos vendidos no Brasil, depois a base mundial (muitos produtos
 	// brasileiros não têm o país marcado). Manual: só a mundial (inclui a do Brasil e responde mais rápido).
 	if (rapido) etapas.push(buscarOff("https://br.openfoodfacts.org", "&cc=br"));
-	etapas.push(buscarOff("https://world.openfoodfacts.org", ""));
+	const mundial = buscarOff("https://world.openfoodfacts.org", "");
+	etapas.push(async () => { if (!mundialPeloIntermediario) await mundial(); }); // já veio pelo intermediário: não repete
 	for (const etapa of etapas) {
 		if (bastou()) break;
 		tentativas++;
@@ -315,6 +405,11 @@ export async function buscarFotoAutomatica(item, { sinal } = {}) {
 /** Reduz e comprime a foto escolhida/tirada (JPEG), já na orientação certa. */
 export async function prepararFotoDaPessoa(arquivo) {
 	if (!arquivo || !/^image\//.test(arquivo.type || "image/")) throw new Error("Escolha uma imagem.");
+	return reduzirParaJpeg(arquivo, LADO_FOTO, QUALIDADE_FOTO);
+}
+
+/** Imagem (arquivo/blob) → JPEG em base64 com o lado maior limitado. */
+async function reduzirParaJpeg(arquivo, ladoMax, qualidade) {
 	let fonte = null;
 	try {
 		fonte = await createImageBitmap(arquivo, { imageOrientation: "from-image" });
@@ -329,7 +424,7 @@ export async function prepararFotoDaPessoa(arquivo) {
 	}
 	const W = fonte.width || fonte.naturalWidth, H = fonte.height || fonte.naturalHeight;
 	if (!W || !H) throw new Error("Imagem vazia.");
-	const escala = Math.min(1, LADO_FOTO / Math.max(W, H));
+	const escala = Math.min(1, ladoMax / Math.max(W, H));
 	const c = document.createElement("canvas");
 	c.width = Math.max(1, Math.round(W * escala));
 	c.height = Math.max(1, Math.round(H * escala));
@@ -338,5 +433,7 @@ export async function prepararFotoDaPessoa(arquivo) {
 	ctx.fillRect(0, 0, c.width, c.height);
 	ctx.drawImage(fonte, 0, 0, c.width, c.height);
 	try { fonte.close?.(); } catch { /* ignora */ }
-	return c.toDataURL("image/jpeg", QUALIDADE_FOTO);
+	const dados = c.toDataURL("image/jpeg", qualidade);
+	if (!/^data:image\/jpeg;base64,/.test(dados) || dados.length < 200) throw new Error("Não foi possível converter a imagem.");
+	return dados;
 }
