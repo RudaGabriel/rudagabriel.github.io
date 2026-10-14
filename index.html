@@ -427,16 +427,24 @@
 				</span>
 			</label>
 
-			<div class="compartilhar" id="blocoCompartilhar">
-				<h3><i data-lucide="link"></i>Conectar outro aparelho</h3>
-				<div class="segmentado" role="radiogroup" aria-label="Tipo de link">
-					<label><input type="radio" name="tipoLink" value="edicao" checked><span>Pode editar</span></label>
-					<label><input type="radio" name="tipoLink" value="leitura"><span>Só visualizar</span></label>
+			<div class="campo" id="blocoNomeConvidado" hidden>
+				<label for="nomeConvidado">Seu nome nesta lista</label>
+				<div class="grupo-entrada">
+					<input type="text" id="nomeConvidado" maxlength="40" placeholder="Nome do aparelho" autocomplete="nickname" autocapitalize="words" spellcheck="false" enterkeyhint="done">
+					<button type="button" class="btn-anexo btn-anexo-texto" id="btnSalvarNomeConvidado">Salvar</button>
 				</div>
-				<div class="compartilhar-grade">
+				<small class="ajuda">O dono da lista vê este nome e o seu código de convidado (<b id="meuCodigoConvidado" class="codigo-convidado"></b>). Em branco, aparece a marca/modelo do aparelho.</small>
+			</div>
+
+			<div class="compartilhar" id="blocoCompartilhar">
+				<h3><i data-lucide="users"></i>Convidados</h3>
+				<p class="ajuda">Cada convidado recebe um <b>link próprio</b>. Você muda a permissão de cada um quando quiser — o aparelho dele é avisado na hora.</p>
+				<ul id="listaConvidados" class="lista-convidados" aria-label="Convidados da lista"></ul>
+				<button type="button" class="btn btn-secundario btn-bloco" id="btnNovoConvidado"><i data-lucide="user-plus"></i>Novo convidado</button>
+				<div class="compartilhar-grade" id="gradeLinkConvidado" hidden>
 					<div id="qrCompartilhar" class="qr" aria-label="QR Code do link de compartilhamento"></div>
 					<div class="compartilhar-link">
-						<p>Abra este link (ou leia o QR Code) no outro aparelho. Ele será conectado automaticamente.</p>
+						<p id="textoLinkConvidado">Abra este link (ou leia o QR Code) no aparelho do convidado. Ele será conectado automaticamente.</p>
 						<div class="grupo-entrada">
 							<input type="text" id="linkCompartilhar" readonly aria-label="Link de compartilhamento">
 							<button type="button" class="btn-anexo" id="btnCopiarLink" title="Copiar link" aria-label="Copiar link"><i data-lucide="copy"></i></button>

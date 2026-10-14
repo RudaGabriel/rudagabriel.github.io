@@ -20,6 +20,7 @@ const URL_QRCODE = "https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrc
 
 const CHAVE = {
 	itens: "cv2:itens",
+	nomeAparelho: "cv2:nomeAparelho",
 	silenciados: "cv2:silenciados",
 	alerta: "cv2:alerta",
 	ordenacao: "cv2:ordenacao",
@@ -340,6 +341,7 @@ const estado = {
 	sugestaoAuto: false, // preencher o nome sozinho ao ler um código novo (desligado por padrão)
 	fotosAuto: true,     // buscar a foto dos produtos sozinho (ligado por padrão; desliga no menu)
 	fotos: new Map(),    // chave do produto → { src, origem, fonte }
+	convidados: [],      // convidados da lista na nuvem: { codigo, nome, podeEditar, id }
 	alerta: { valor: 60, unidade: "dias" },
 	filtro: "todos",
 	busca: "",
@@ -509,6 +511,14 @@ const el = {
 	btnCopiarCodigo: $("#btnCopiarCodigo"),
 	avisoLink: $("#avisoLink"),
 	syncPermissaoTitulo: $("#syncPermissaoTitulo"),
+	listaConvidados: $("#listaConvidados"),
+	blocoNomeConvidado: $("#blocoNomeConvidado"),
+	nomeConvidado: $("#nomeConvidado"),
+	btnSalvarNomeConvidado: $("#btnSalvarNomeConvidado"),
+	meuCodigoConvidado: $("#meuCodigoConvidado"),
+	btnNovoConvidado: $("#btnNovoConvidado"),
+	gradeLinkConvidado: $("#gradeLinkConvidado"),
+	textoLinkConvidado: $("#textoLinkConvidado"),
 	syncPermissaoAjuda: $("#syncPermissaoAjuda"),
 	btnDesconectar: $("#btnDesconectar"),
 	syncPermitirEdicao: $("#syncPermitirEdicao"),
@@ -2005,6 +2015,296 @@ const ID_CONFIG_LOJA = "c5e0c0de-0000-4000-8000-00000000a001";
 const MARCA_CONFIG_LOJA = "CVCONFIGLOJA";
 const ehConfigLoja = item => !!item && typeof item === "object" && String(item.id).toLowerCase() === ID_CONFIG_LOJA;
 
+/* ---------- Convidados (código único por convidado) ----------
+   Cada convidado é um item reservado e invisível na própria lista:
+     codigoBarras "CVCONVIDADO:<código>", nome = apelido, quantidade 1 = pode editar / 0 = só visualizar.
+   Funciona em todos os provedores sem mudar regras ou tabelas. O aparelho do
+   convidado lê o próprio item e aplica a permissão na hora (e avisa a pessoa). */
+const MARCA_CONVIDADO = "CVCONVIDADO:";
+const RE_CONVIDADO = /^[A-HJ-NP-Z2-9]{10}$/;
+const LIMITE_NOME_CONVIDADO = 40;
+const MARCA_APARELHO = "CVAPARELHO:";
+const ehItemConvidado = item => !!item && typeof item === "object" && String(item.codigoBarras || "").startsWith(MARCA_CONVIDADO);
+const ehItemAparelho = item => !!item && typeof item === "object" && String(item.codigoBarras || "").startsWith(MARCA_APARELHO);
+/** Itens reservados (convidados e aparelhos): nunca aparecem como produto. */
+const ehItemReservado = item => ehItemConvidado(item) || ehItemAparelho(item);
+const limparNomeConvidado = t => String(t ?? "").replace(/[\u0000-\u001F\u007F]/g, "").replace(/\s+/g, " ").trim().slice(0, LIMITE_NOME_CONVIDADO);
+const formatarCodigoConvidado = c => `${c.slice(0, 5)}-${c.slice(5)}`;
+
+/** Nome do aparelho: o que a pessoa escolheu, senão marca/modelo detectados, senão "" (o dono vê o nome padrão). */
+async function nomeDoAparelho() {
+	const escolhido = limparNomeConvidado(armazenamento.lerTexto(CHAVE.nomeAparelho));
+	if (escolhido) return escolhido;
+	return limparNomeConvidado(await detectarAparelho());
+}
+
+/** "Samsung SM-A515F · Chrome", "iPhone · Safari", "Windows · Edge"… (sem dados pessoais). */
+async function detectarAparelho() {
+	const ua = String(navigator.userAgent || "");
+	let modelo = "";
+	try {
+		const d = await navigator.userAgentData?.getHighEntropyValues?.(["model", "platform"]);
+		if (d?.model) modelo = d.model;
+	} catch { /* sem dados extras */ }
+	let sistema = "";
+	if (/iPhone/.test(ua)) sistema = "iPhone";
+	else if (/iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) sistema = "iPad";
+	else if (/Android/.test(ua)) {
+		const m = ua.match(/Android [\d.]+;\s*([^;)]+?)(?:\s+Build\/|[;)])/);
+		const bruto = modelo || (m && !/^(K|wv|Linux|U)$/i.test(m[1].trim()) ? m[1].trim() : "");
+		const marca = /^SM-|^GT-|Galaxy/i.test(bruto) ? "Samsung " : /^moto|^XT\d/i.test(bruto) ? "Motorola " : /^(Redmi|POCO|Mi )|^M\d{4}/i.test(bruto) ? "Xiaomi " : "";
+		sistema = bruto ? `${marca}${bruto}` : "Android";
+		modelo = "";
+	}
+	else if (/Windows/.test(ua)) sistema = "Windows";
+	else if (/Macintosh|Mac OS X/.test(ua)) sistema = "Mac";
+	else if (/CrOS/.test(ua)) sistema = "Chromebook";
+	else if (/Linux/.test(ua)) sistema = "Linux";
+	const navegador = /Edg\//.test(ua) ? "Edge" : /OPR\/|Opera/.test(ua) ? "Opera" : /SamsungBrowser/.test(ua) ? "Samsung Internet"
+		: /Firefox\//.test(ua) ? "Firefox" : /Chrome\//.test(ua) ? "Chrome" : /Safari\//.test(ua) ? "Safari" : "";
+	return [modelo && !sistema.includes(modelo) ? `${sistema} ${modelo}` : sistema, navegador].filter(Boolean).join(" · ");
+}
+
+/** Convidado: informa ao dono o nome deste aparelho (item próprio, separado da permissão). */
+let ultimoEnvioAparelho = 0;
+async function enviarAparelho({ forcar = false } = {}) {
+	const s = estado.sync;
+	if (!s || s.papel !== "convidado" || !s.convidado || !s.confirmado) return;
+	if (!forcar && Date.now() - ultimoEnvioAparelho < 60 * 60 * 1000) return; // "visto por último" no máximo 1x por hora
+	ultimoEnvioAparelho = Date.now();
+	const nome = await nomeDoAparelho();
+	if (estado.sync !== s && idSync(estado.sync || {}) !== idSync(s)) return;
+	const agora = Date.now();
+	provAtual()?.salvarVarios([{
+		id: uuidDeTexto(`aparelho|${s.codigo}|${s.convidado}`),
+		nome: nome || "Aparelho",
+		quantidade: 0,
+		vencimento: "2000-01-01",
+		codigoBarras: MARCA_APARELHO + s.convidado,
+		criadoEm: agora,
+		atualizadoEm: agora
+	}]).catch(e => console.warn("[convidados] aparelho:", e));
+}
+const idConvidado = codigo => uuidDeTexto(`convidado|${estado.sync?.codigo}|${codigo}`);
+let convidadoSelecionado = null;
+
+function lerConvidados(itens) {
+	const lista = [];
+	const vistos = new Set();
+	// Nome e "visto por último" que o próprio aparelho do convidado informou
+	const aparelhos = new Map();
+	for (const i of itens) {
+		if (!ehItemAparelho(i)) continue;
+		const codigo = String(i.codigoBarras).slice(MARCA_APARELHO.length);
+		if (RE_CONVIDADO.test(codigo)) aparelhos.set(codigo, { nome: limparNomeConvidado(i.nome), visto: Number(i.atualizadoEm) || 0, id: String(i.id) });
+	}
+	for (const i of itens) {
+		if (!ehItemConvidado(i)) continue;
+		const codigo = String(i.codigoBarras).slice(MARCA_CONVIDADO.length);
+		if (!RE_CONVIDADO.test(codigo) || vistos.has(codigo)) continue;
+		vistos.add(codigo);
+		lista.push({
+			id: String(i.id),
+			codigo,
+			nome: limparNomeConvidado(i.nome) || "Convidado",
+			podeEditar: Number(i.quantidade) > 0,
+			criadoEm: Number(i.criadoEm) || 0,
+			aparelho: aparelhos.get(codigo)?.nome || "",
+			visto: aparelhos.get(codigo)?.visto || 0,
+			idAparelho: aparelhos.get(codigo)?.id || uuidDeTexto(`aparelho|${estado.sync?.codigo}|${codigo}`)
+		});
+	}
+	return lista.sort((a, b) => a.criadoEm - b.criadoEm);
+}
+
+function gravarConvidado(c) {
+	if (!emNuvem() || !ehDono()) return Promise.resolve();
+	const agora = Date.now();
+	return provAtual()?.salvarVarios([{
+		id: c.id || idConvidado(c.codigo),
+		nome: c.nome,
+		quantidade: c.podeEditar ? 1 : 0,
+		vencimento: "2000-01-01",
+		codigoBarras: MARCA_CONVIDADO + c.codigo,
+		criadoEm: c.criadoEm || agora,
+		atualizadoEm: agora
+	}]).catch(e => { console.warn("[convidados]", e); toast("erro", "Não foi possível salvar o convidado. Tente de novo."); });
+}
+
+/** Lista de convidados no diálogo do dono. */
+function desenharConvidados() {
+	if (!el.listaConvidados) return;
+	const lista = estado.convidados;
+	if (!lista.length) {
+		el.listaConvidados.innerHTML = `<li class="convidado-vazio">Nenhum convidado ainda. Toque em <b>Novo convidado</b> para gerar um link.</li>`;
+		return;
+	}
+	el.listaConvidados.innerHTML = lista.map(c => `
+		<li class="convidado${c.codigo === convidadoSelecionado ? " selecionado" : ""}" data-convidado="${esc(c.codigo)}">
+			<div class="convidado-info">
+				<strong>${esc(c.aparelho && c.aparelho !== c.nome ? `${c.nome} · ${c.aparelho}` : c.nome)}</strong>
+				<small>Código <b class="codigo-convidado">${esc(formatarCodigoConvidado(c.codigo))}</b> · ${c.podeEditar ? "pode editar" : "só visualizar"} · ${c.visto ? `visto ${esc(fmtRelativoCurto(c.visto))}` : "ainda não entrou"}</small>
+			</div>
+			<label class="mini-interruptor" title="Pode editar">
+				<input type="checkbox" data-c="permissao" ${c.podeEditar ? "checked" : ""} aria-label="${esc(c.nome)} pode editar">
+				<span class="interruptor-trilho"><span></span></span>
+			</label>
+			<button type="button" class="btn-icone" data-c="link" title="Link e QR Code" aria-label="Link de ${esc(c.nome)}">${icone("QrCode")}</button>
+			<button type="button" class="btn-icone" data-c="remover" title="Remover convidado" aria-label="Remover ${esc(c.nome)}">${icone("UserX")}</button>
+		</li>`).join("");
+}
+
+function fmtRelativoCurto(quando) {
+	const min = Math.round((Date.now() - quando) / 60000);
+	if (min < 2) return "agora";
+	if (min < 60) return `há ${min} min`;
+	const h = Math.round(min / 60);
+	if (h < 48) return `há ${h} h`;
+	return `há ${Math.round(h / 24)} dias`;
+}
+
+function gerarCodigoConvidado() {
+	const usados = new Set(estado.convidados.map(c => c.codigo));
+	for (let i = 0; i < 20; i++) {
+		const codigo = gerarCodigoLista().slice(0, 10);
+		if (RE_CONVIDADO.test(codigo) && !usados.has(codigo)) return codigo;
+	}
+	throw new Error("Não foi possível gerar o código do convidado.");
+}
+
+async function novoConvidado() {
+	if (!emNuvem() || !ehDono()) return toast("aviso", "Só o <b>dono da lista</b> pode convidar.");
+	if (estado.convidados.length >= 50) return toast("aviso", "Limite de 50 convidados. Remova algum para convidar outro.");
+	const padrao = `Convidado ${estado.convidados.length + 1}`;
+	let nome = padrao, podeEditarConv = true;
+	if (window.Swal) {
+		const r = await window.Swal.fire({
+			title: "Novo convidado",
+			html: "Dê um nome para reconhecer o convidado (ex.: <b>Caixa 1</b>, <b>Maria</b>) e escolha a permissão. Você pode mudar depois. O convidado também pode informar o próprio nome.",
+			input: "text",
+			inputValue: padrao,
+			inputAttributes: { maxlength: String(LIMITE_NOME_CONVIDADO), autocapitalize: "words", spellcheck: "false" },
+			showDenyButton: true,
+			showCancelButton: true,
+			confirmButtonText: "Pode editar",
+			denyButtonText: "Só visualizar",
+			cancelButtonText: "Cancelar",
+			reverseButtons: true,
+			buttonsStyling: false,
+			heightAuto: false,
+			target: document.querySelector("dialog[open]") || "body",
+			customClass: { popup: "sw-popup", confirmButton: "btn btn-primario", denyButton: "btn btn-secundario", cancelButton: "btn btn-fantasma", input: "sw-input" },
+			returnInputValueOnDeny: true
+		});
+		if (r.isDismissed) return;
+		podeEditarConv = r.isConfirmed;
+		nome = typeof r.value === "string" ? r.value : padrao;
+	} else {
+		const v = window.prompt("Nome do convidado:", padrao);
+		if (v === null) return;
+		nome = v;
+		podeEditarConv = window.confirm("Este convidado pode editar a lista? (Cancelar = só visualizar)");
+	}
+	nome = nome.replace(/\s+/g, " ").trim().slice(0, LIMITE_NOME_CONVIDADO) || padrao;
+	let codigo;
+	try { codigo = gerarCodigoConvidado(); } catch (e) { return toast("erro", esc(e.message)); }
+	const c = { codigo, nome, podeEditar: podeEditarConv, id: idConvidado(codigo), criadoEm: Date.now() };
+	estado.convidados = [...estado.convidados, c]; // aparece na hora (a nuvem confirma depois)
+	convidadoSelecionado = codigo;
+	gravarConvidado(c);
+	atualizarCompartilhamento();
+	toast("sucesso", `Convidado <b>${esc(nome)}</b> criado. Envie o link (ou mostre o QR Code) só para ele.`, 5000);
+}
+
+async function acaoConvidado(evento) {
+	const alvo = evento.target.closest("[data-c]");
+	const linha = evento.target.closest("[data-convidado]");
+	if (!alvo || !linha || !ehDono()) return;
+	const tipo = alvo.dataset.c;
+	if ((evento.type === "change") !== (tipo === "permissao")) return;
+	const c = estado.convidados.find(x => x.codigo === linha.dataset.convidado);
+	if (!c) return;
+	if (tipo === "permissao") {
+		c.podeEditar = alvo.checked;
+		gravarConvidado(c);
+		desenharConvidados();
+		toast("info", `<b>${esc(c.nome)}</b> agora ${c.podeEditar ? "<b>pode editar</b>" : "<b>só pode visualizar</b>"}. O aparelho dele é avisado assim que estiver online.`, 4500);
+	} else if (tipo === "link") {
+		convidadoSelecionado = convidadoSelecionado === c.codigo ? null : c.codigo;
+		atualizarCompartilhamento();
+	} else if (tipo === "remover") {
+		const ok = await confirmar({
+			titulo: "Remover convidado?",
+			html: `<b>${esc(c.nome)}</b> deixa de acessar a lista assim que o aparelho dele estiver online. O link dele para de funcionar.`,
+			confirmar: "Remover",
+			icone: "warning",
+			perigo: true
+		});
+		if (!ok || !emNuvem()) return;
+		estado.convidados = estado.convidados.filter(x => x.codigo !== c.codigo);
+		if (convidadoSelecionado === c.codigo) convidadoSelecionado = null;
+		provAtual()?.removerVarios([c.id, c.idAparelho]).catch(e => { console.warn("[convidados]", e); toast("erro", "Não foi possível remover agora. Tente de novo."); });
+		atualizarCompartilhamento();
+		toast("info", `Convidado <b>${esc(c.nome)}</b> removido.`);
+	}
+}
+
+/** No aparelho do convidado: aplica a permissão definida pelo dono e avisa quando ela muda. */
+function aplicarPermissaoConvidado(meta = {}) {
+	const s = estado.sync;
+	if (!s || s.papel !== "convidado" || !s.convidado) return;
+	const meu = estado.convidados.find(c => c.codigo === s.convidado);
+	if (!meu) {
+		// Só conclui "removido" com dados do servidor e depois de já ter sido confirmado (evita falso alarme)
+		if (meta.doServidor && s.confirmado && estado.dadosProntos) acessoRemovido();
+		return;
+	}
+	const modo = meu.podeEditar ? "edicao" : "leitura";
+	const primeiraVez = !s.confirmado;
+	if (modo === s.modo && !primeiraVez) return;
+	const mudou = modo !== s.modo;
+	estado.sync = { ...s, modo, confirmado: true };
+	armazenamento.gravar(CHAVE.sync, estado.sync);
+	if (modo === "leitura" && estado.editandoId) sairDaEdicao(true);
+	render();
+	atualizarIndicadorSync();
+	atualizarDialogoSync();
+	if (primeiraVez) {
+		toast("info", modo === "edicao"
+			? "Convite confirmado: você <b>pode editar</b> esta lista."
+			: "Convite confirmado: você pode <b>somente visualizar</b> esta lista.", 6000);
+	} else if (mudou) {
+		toast(modo === "edicao" ? "sucesso" : "aviso", modo === "edicao"
+			? "✏️ O dono da lista liberou: agora você <b>pode editar</b>."
+			: "👁️ O dono da lista mudou sua permissão: agora você <b>só pode visualizar</b>.", 8000);
+	}
+	if (primeiraVez) enviarAparelho();
+}
+
+let removendoAcesso = false;
+async function acessoRemovido() {
+	if (removendoAcesso || !emNuvem()) return;
+	removendoAcesso = true;
+	try {
+		provAtual()?.desligar();
+		estado.sync = null;
+		estado.itensNuvem = [];
+		estado.convidados = [];
+		estado.statusSync = "local";
+		estado.detalheSync = "";
+		estado.ultimaSync = null;
+		armazenamento.remover(CHAVE.sync);
+		armazenamento.remover(CHAVE.cacheNuvem);
+		if (estado.editandoId) sairDaEdicao(true);
+		render();
+		atualizarIndicadorSync();
+		atualizarDialogoSync();
+		dialogo({ titulo: "Acesso removido", html: "O dono da lista removeu o acesso deste aparelho. Os produtos deste aparelho continuam salvos nele.", icone: "info" });
+	} finally {
+		removendoAcesso = false;
+	}
+}
+
 function enviarNomeLojaNuvem() {
 	if (!emNuvem() || !podeEditar()) return;
 	const agora = Date.now();
@@ -2321,8 +2621,13 @@ function eventosDe(id) {
 		aoReceber(itens, meta) {
 			if (!ativo()) return;
 			const recebidos = Array.isArray(itens) ? itens : [];
-			estado.itensNuvem = sanitizarLista(recebidos.filter(i => !ehConfigLoja(i)));
+			estado.itensNuvem = sanitizarLista(recebidos.filter(i => !ehConfigLoja(i) && !ehItemReservado(i)));
+			estado.convidados = lerConvidados(recebidos);
 			receberNomeLojaNuvem(recebidos.find(ehConfigLoja), meta);
+			aplicarPermissaoConvidado(meta);
+			if (!ativo()) return; // acesso removido pelo dono: este aparelho saiu da lista
+			if (el.dlgSync.open && ehDono()) atualizarCompartilhamento(); // lista de convidados ao vivo
+			if (meta.doServidor) enviarAparelho();
 			if (meta.doServidor) estado.ultimaSync = new Date();
 			if (meta.doServidor || estado.itensNuvem.length) estado.dadosProntos = true;
 			armazenamento.gravar(CHAVE.cacheNuvem, { id: idSync(estado.sync), itens: estado.itensNuvem });
@@ -2377,7 +2682,11 @@ function normalizarSync(bruto) {
 	const papel = provedor === "dropbox" ? "dono"
 		: bruto.papel === "convidado" || bruto.papel === "dono" ? bruto.papel
 			: modo === "leitura" ? "convidado" : "dono";
-	return { provedor, codigo, modo, papel, reconciliar: !!bruto.reconciliar };
+	// Convidado com código próprio: a permissão vem da lista (o dono muda quando quiser)
+	const convidado = papel === "convidado" && RE_CONVIDADO.test(String(bruto.convidado || "")) ? bruto.convidado : null;
+	const saida = { provedor, codigo, modo, papel, reconciliar: !!bruto.reconciliar };
+	if (convidado) { saida.convidado = convidado; saida.confirmado = !!bruto.confirmado; }
+	return saida;
 }
 
 const idSync = s => `${s.provedor}:${s.codigo}`;
@@ -2489,6 +2798,8 @@ async function conectarNuvem(destino) {
 	armazenamento.gravar(CHAVE.sync, estado.sync);
 	armazenamento.remover(CHAVE.cacheNuvem);
 	estado.itensNuvem = [];
+	estado.convidados = [];
+	convidadoSelecionado = null;
 	estado.dadosProntos = false;
 	estado.ultimaSync = null;
 	estado.statusSync = "conectando";
@@ -2560,6 +2871,7 @@ async function desconectarNuvem() {
 	if (comConta) await prov?.sair();
 	estado.sync = null;
 	estado.itensNuvem = [];
+	estado.convidados = [];
 	estado.statusSync = "local";
 	estado.detalheSync = "";
 	estado.ultimaSync = null;
@@ -2580,8 +2892,10 @@ const b64url = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").
 const deB64url = texto => Uint8Array.from(atob(texto.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
 const somaLink = bytes => bytes.reduce((s, b, i) => (s * 31 + b + i) % 65521, 7);
 
+/** modo: "leitura" | "edicao" (links antigos) ou o código do convidado (10 caracteres). */
 function codificarLink(sigla, codigo, modo) {
-	const texto = `${sigla}.${codigo}.${modo === "leitura" ? "v" : "e"}`;
+	const fim = RE_CONVIDADO.test(modo) ? `g${modo}` : modo === "leitura" ? "v" : "e";
+	const texto = `${sigla}.${codigo}.${fim}`;
 	const dados = Array.from(texto, c => c.charCodeAt(0) & 255);
 	const soma = somaLink(dados);
 	const bytes = [...dados, soma >> 8, soma & 255].map((b, i) => b ^ CHAVE_LINK[i % CHAVE_LINK.length] ^ (i * 7 & 255));
@@ -2594,15 +2908,17 @@ function decodificarLink(token) {
 		if (bytes.length < 6) return null;
 		const dados = bytes.slice(0, -2);
 		if (((bytes.at(-2) << 8) | bytes.at(-1)) !== somaLink(dados)) return null;
-		const m = String.fromCharCode(...dados).match(/^([a-z]{2})\.([A-Z0-9]{16})\.([ve])$/);
-		return m ? { sigla: m[1], codigo: m[2], modo: m[3] === "v" ? "leitura" : "edicao" } : null;
+		const m = String.fromCharCode(...dados).match(/^([a-z]{2})\.([A-Z0-9]{16})\.(v|e|g([A-HJ-NP-Z2-9]{10}))$/);
+		if (!m) return null;
+		if (m[4]) return { sigla: m[1], codigo: m[2], modo: "leitura", convidado: m[4] };
+		return { sigla: m[1], codigo: m[2], modo: m[3] === "v" ? "leitura" : "edicao" };
 	} catch {
 		return null;
 	}
 }
 
-const gerarLink = modo =>
-	`${location.origin}${location.pathname}#l=${codificarLink(SIGLA[estado.sync.provedor] || "fb", estado.sync.codigo, modo)}`;
+const gerarLink = modoOuConvidado =>
+	`${location.origin}${location.pathname}#l=${codificarLink(SIGLA[estado.sync.provedor] || "fb", estado.sync.codigo, modoOuConvidado)}`;
 
 function lerLink(hash) {
 	const texto = String(hash || "");
@@ -2615,7 +2931,9 @@ function lerLink(hash) {
 		const codigoOk = normalizarCodigoLista(d.codigo);
 		if (!prov || !codigoOk) return { invalido: true };
 		if (!provedores[prov]?.disponivel) return { invalido: true, motivo: "Esta opção de nuvem não está ativada nesta versão do site." };
-		return { provedor: prov, codigo: codigoOk, modo: d.modo, papel: "convidado" };
+		const dados = { provedor: prov, codigo: codigoOk, modo: d.modo, papel: "convidado" };
+		if (d.convidado) dados.convidado = d.convidado;
+		return dados;
 	}
 	const achado = texto.match(/[#&]lista=([A-Za-z0-9-]+)/);
 	if (!achado) return null;
@@ -2645,9 +2963,13 @@ async function entrarEmLista(dados) {
 		return false;
 	}
 	if (emNuvem() && idSync(estado.sync) === idSync(novo)) {
-		// O dono continua dono (um link não rebaixa o aparelho dele); o convidado recebe a permissão do link novo
-		if (estado.sync.papel === "convidado" && novo.papel === "convidado" && estado.sync.modo !== novo.modo) {
-			estado.sync = { ...estado.sync, modo: novo.modo };
+		// O dono continua dono (um link não rebaixa o aparelho dele). Convidado: um link com código próprio
+		// troca o convite deste aparelho; um link antigo só muda a permissão de quem também é antigo.
+		const trocarConvite = estado.sync.papel === "convidado" && novo.convidado && novo.convidado !== estado.sync.convidado;
+		const trocarModoAntigo = estado.sync.papel === "convidado" && !estado.sync.convidado && !novo.convidado && estado.sync.modo !== novo.modo;
+		if (trocarConvite || trocarModoAntigo) {
+			estado.sync = trocarConvite ? { ...estado.sync, convidado: novo.convidado, confirmado: false, modo: "leitura" } : { ...estado.sync, modo: novo.modo };
+			if (trocarConvite) aplicarPermissaoConvidado({ doServidor: false });
 			armazenamento.gravar(CHAVE.sync, estado.sync);
 			render();
 			atualizarIndicadorSync();
@@ -2660,7 +2982,9 @@ async function entrarEmLista(dados) {
 	const ok = await confirmar({
 		titulo: "Conectar à lista na nuvem?",
 		html: novo.papel === "convidado"
-			? `Você vai entrar como <b>convidado</b>.<br>Permissão: <b>${novo.modo === "leitura" ? "somente visualizar" : "pode editar"}</b><br><small>Só o dono da lista pode mudar essa permissão.</small>${trocar}`
+			? novo.convidado
+				? `Você vai entrar como <b>convidado</b>.<br>O <b>dono da lista</b> define se você pode editar ou só visualizar — e você é avisado quando isso mudar.${trocar}`
+				: `Você vai entrar como <b>convidado</b>.<br>Permissão: <b>${novo.modo === "leitura" ? "somente visualizar" : "pode editar"}</b><br><small>Só o dono da lista pode mudar essa permissão.</small>${trocar}`
 			: `Código: <b style="font-family:var(--fonte-mono)">${formatarCodigoLista(novo.codigo)}</b>${trocar}`,
 		confirmar: "Conectar",
 		icone: "question"
@@ -2680,10 +3004,14 @@ async function atualizarCompartilhamento() {
 	el.caixaCodigo.hidden = !temCodigo || !ehDono();
 	el.blocoCompartilhar.hidden = !temCodigo || !ehDono();
 	if (!temCodigo || !ehDono()) return;
-	const tipo = document.querySelector('input[name="tipoLink"]:checked')?.value || "edicao";
-	const link = gerarLink(tipo);
-	el.linkCompartilhar.value = link;
 	el.codigoLista.textContent = formatarCodigoLista(estado.sync.codigo);
+	desenharConvidados();
+	const escolhido = estado.convidados.find(c => c.codigo === convidadoSelecionado);
+	el.gradeLinkConvidado.hidden = !escolhido;
+	if (!escolhido) { qrUltimoLink = ""; return; }
+	el.textoLinkConvidado.innerHTML = `Link de <b>${esc(escolhido.nome)}</b>: abra no aparelho dele (ou leia o QR Code). Ele será conectado automaticamente.`;
+	const link = gerarLink(escolhido.codigo);
+	el.linkCompartilhar.value = link;
 	if (link === qrUltimoLink) return;
 	qrUltimoLink = link;
 	el.qr.textContent = "Gerando QR Code…";
@@ -2725,8 +3053,22 @@ function atualizarDialogoSync() {
 		el.syncPermissaoTitulo.textContent = dono ? "Permitir edição neste aparelho" : estado.sync.modo === "leitura" ? "Somente visualizar" : "Pode editar";
 		el.syncPermissaoAjuda.textContent = dono
 			? "Desative para que este aparelho apenas visualize a lista."
-			: "Você entrou como convidado. Só o dono da lista pode mudar esta permissão (enviando um novo link).";
+			: estado.sync.convidado
+				? estado.sync.confirmado
+					? "Você é convidado. Só o dono da lista muda esta permissão — você é avisado quando ela mudar."
+					: "Aguardando a lista confirmar o seu convite…"
+				: "Você entrou como convidado. Só o dono da lista pode mudar esta permissão (enviando um novo link).";
 		el.syncPermitirEdicao.closest(".interruptor")?.classList.toggle("bloqueado", !dono);
+		// Convidado com código: mostra o código dele e deixa escolher o nome que o dono vê
+		const comCodigo = !dono && !!estado.sync.convidado;
+		el.blocoNomeConvidado.hidden = !comCodigo;
+		if (comCodigo) {
+			el.meuCodigoConvidado.textContent = formatarCodigoConvidado(estado.sync.convidado);
+			if (document.activeElement !== el.nomeConvidado) el.nomeConvidado.value = armazenamento.lerTexto(CHAVE.nomeAparelho) || "";
+			if (!el.nomeConvidado.placeholder || el.nomeConvidado.placeholder === "Nome do aparelho") {
+				detectarAparelho().then(n => { if (n) el.nomeConvidado.placeholder = n; }).catch(() => { });
+			}
+		}
 		atualizarIndicadorSync();
 		if (el.dlgSync.open) atualizarCompartilhamento();
 	}
@@ -3324,7 +3666,20 @@ function registrarEventos() {
 		render();
 		atualizarIndicadorSync();
 	});
-	$$('input[name="tipoLink"]').forEach(r => r.addEventListener("change", atualizarCompartilhamento));
+	el.btnNovoConvidado.addEventListener("click", novoConvidado);
+	const salvarNomeConvidado = () => {
+		const nome = limparNomeConvidado(el.nomeConvidado.value);
+		el.nomeConvidado.value = nome;
+		if (nome) armazenamento.gravarTexto(CHAVE.nomeAparelho, nome);
+		else armazenamento.remover(CHAVE.nomeAparelho);
+		if (!estado.sync?.confirmado) return toast("info", "Nome guardado. Ele vai para o dono assim que o convite for confirmado.");
+		enviarAparelho({ forcar: true });
+		toast("sucesso", nome ? `Pronto! O dono da lista vê este aparelho como <b>${esc(nome)}</b>.` : "Pronto! O dono vê o nome do aparelho.");
+	};
+	el.btnSalvarNomeConvidado.addEventListener("click", salvarNomeConvidado);
+	el.nomeConvidado.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); salvarNomeConvidado(); } });
+	el.listaConvidados.addEventListener("click", acaoConvidado);
+	el.listaConvidados.addEventListener("change", acaoConvidado);
 	el.btnCopiarLink.addEventListener("click", async () => feedbackBotao(el.btnCopiarLink, await copiarTexto(el.linkCompartilhar.value)));
 	el.linkCompartilhar.addEventListener("focus", () => el.linkCompartilhar.select());
 	if (navigator.share) {
