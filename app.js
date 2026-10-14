@@ -217,10 +217,11 @@ const textoPuro = html => String(html ?? "").replace(/<br\s*\/?>/gi, "\n").repla
 /**
  * Abre um diálogo; retorna "confirmar" | "negar" | "cancelar" e o valor do input.
  */
-function dialogo({ titulo, html, icone: tipoIcone, confirmar = "OK", negar, cancelar, perigo = false, checkbox, foco = "confirmar" }) {
+function dialogo({ titulo, html, icone: tipoIcone, confirmar = "OK", negar, cancelar, perigo = false, checkbox, input, foco = "confirmar" }) {
 	const executar = async () => {
 		if (!window.Swal) {
 			const mensagem = `${titulo ? titulo + "\n\n" : ""}${textoPuro(html)}`;
+			if (input) { const v = window.prompt(mensagem); return { acao: v === null ? "cancelar" : "confirmar", valor: v || "" }; }
 			if (!cancelar && !negar) { window.alert(mensagem); return { acao: "confirmar", valor: false }; }
 			return { acao: window.confirm(mensagem) ? "confirmar" : (negar ? "negar" : "cancelar"), valor: false };
 		}
@@ -242,7 +243,7 @@ function dialogo({ titulo, html, icone: tipoIcone, confirmar = "OK", negar, canc
 			focusConfirm: foco === "confirmar",
 			focusCancel: foco === "cancelar",
 			target: dialogoAberto || "body",
-			input: checkbox ? "checkbox" : undefined,
+			input: checkbox ? "checkbox" : input || undefined,
 			inputValue: checkbox ? 0 : undefined,
 			inputPlaceholder: checkbox || undefined,
 			willClose: checkbox ? popup => { caixaMarcada = !!popup.querySelector(".swal2-checkbox input")?.checked; } : undefined,
@@ -250,7 +251,8 @@ function dialogo({ titulo, html, icone: tipoIcone, confirmar = "OK", negar, canc
 				popup: "sw-popup",
 				confirmButton: perigo ? "btn btn-perigo" : "btn btn-primario",
 				denyButton: "btn btn-secundario",
-				cancelButton: "btn btn-fantasma"
+				cancelButton: "btn btn-fantasma",
+				input: input ? "sw-input" : undefined
 			}
 		});
 		const acao = r.isConfirmed ? "confirmar" : r.isDenied ? "negar" : "cancelar";
@@ -512,6 +514,8 @@ const el = {
 	avisoLink: $("#avisoLink"),
 	syncPermissaoTitulo: $("#syncPermissaoTitulo"),
 	listaConvidados: $("#listaConvidados"),
+	ajudaCodigo: $("#ajudaCodigo"),
+	avisoConvidados: $("#avisoConvidados"),
 	blocoNomeConvidado: $("#blocoNomeConvidado"),
 	nomeConvidado: $("#nomeConvidado"),
 	btnSalvarNomeConvidado: $("#btnSalvarNomeConvidado"),
@@ -2095,70 +2099,136 @@ async function detectarAparelho() {
 	return [modelo && !sistema.includes(modelo) ? `${sistema} ${modelo}` : sistema, navegador].filter(Boolean).join(" · ");
 }
 
-/** Convidado: informa ao dono o nome deste aparelho (item próprio, separado da permissão). */
-let ultimoEnvioAparelho = 0;
-async function enviarAparelho({ forcar = false } = {}) {
-	const s = estado.sync;
-	if (!s || s.papel !== "convidado" || !s.convidado || !s.confirmado) return;
-	if (!forcar && Date.now() - ultimoEnvioAparelho < 60 * 60 * 1000) return; // "visto por último" no máximo 1x por hora
-	ultimoEnvioAparelho = Date.now();
-	const nome = await nomeDoAparelho();
-	if (estado.sync !== s && idSync(estado.sync || {}) !== idSync(s)) return;
-	const agora = Date.now();
-	provAtual()?.salvarVarios([{
-		id: uuidDeTexto(`aparelho|${s.codigo}|${s.convidado}`),
-		nome: nome || "Aparelho",
-		quantidade: 0,
-		vencimento: "2000-01-01",
-		codigoBarras: MARCA_APARELHO + s.convidado,
-		criadoEm: agora,
-		atualizadoEm: agora
-	}]).catch(e => console.warn("[convidados] aparelho:", e));
-}
-const idConvidado = codigo => uuidDeTexto(`convidado|${estado.sync?.codigo}|${codigo}`);
 let convidadoSelecionado = null;
 
-function lerConvidados(itens) {
-	const lista = [];
-	const vistos = new Set();
-	// Nome e "visto por último" que o próprio aparelho do convidado informou
-	const aparelhos = new Map();
-	for (const i of itens) {
-		if (!ehItemAparelho(i)) continue;
-		const codigo = String(i.codigoBarras).slice(MARCA_APARELHO.length);
-		if (RE_CONVIDADO.test(codigo)) aparelhos.set(codigo, { nome: limparNomeConvidado(i.nome), visto: Number(i.atualizadoEm) || 0, id: String(i.id) });
+/* ---------- Permissões no servidor (Firebase) ----------
+   Dono: aparelho/conta com a "chave do dono" (12 caracteres, guardada no aparelho e na conta).
+   Convidado: aparelho registrado com um convite; a permissão (editar ou não) fica no convite,
+   que só o dono altera. As regras do Firestore conferem tudo isso — não só o app. */
+const RE_CHAVE_DONO = /^[A-HJ-NP-Z2-9]{12}$/;
+const gerarChaveDono = () => gerarCodigoLista().slice(0, 12);
+/** Código do dono = código da lista + chave do dono (28 caracteres, em grupos de 4). */
+const codigoDono = s => (s?.segredo ? formatarCodigoLista(s.codigo + s.segredo) : formatarCodigoLista(s?.codigo));
+function lerCodigoDono(texto) {
+	const limpo = String(texto || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+	if (limpo.length !== 28) return null;
+	const codigo = normalizarCodigoLista(limpo.slice(0, 16)), segredo = limpo.slice(16);
+	return codigo && RE_CHAVE_DONO.test(segredo) ? { codigo, segredo } : null;
+}
+const temConvidadosNoServidor = () => !!provAtual()?.recursos?.convidados;
+
+/** O que este aparelho apresenta ao servidor para acessar a lista. */
+async function acessoDe(s) {
+	if (s.papel === "dono" && s.segredo) return { segredo: s.segredo };
+	if (s.papel === "convidado" && s.convidado) {
+		return { convite: s.convidado, nome: limparNomeConvidado(armazenamento.lerTexto(CHAVE.nomeAparelho)), aparelho: limparNomeConvidado(await detectarAparelho().catch(() => "")) };
 	}
-	for (const i of itens) {
-		if (!ehItemConvidado(i)) continue;
-		const codigo = String(i.codigoBarras).slice(MARCA_CONVIDADO.length);
-		if (!RE_CONVIDADO.test(codigo) || vistos.has(codigo)) continue;
-		vistos.add(codigo);
-		lista.push({
-			id: String(i.id),
-			codigo,
-			nome: limparNomeConvidado(i.nome) || "Convidado",
-			podeEditar: Number(i.quantidade) > 0,
-			criadoEm: Number(i.criadoEm) || 0,
-			aparelho: aparelhos.get(codigo)?.nome || "",
-			visto: aparelhos.get(codigo)?.visto || 0,
-			idAparelho: aparelhos.get(codigo)?.id || uuidDeTexto(`aparelho|${estado.sync?.codigo}|${codigo}`)
-		});
-	}
-	return lista.sort((a, b) => a.criadoEm - b.criadoEm);
+	return {};
 }
 
-function gravarConvidado(c) {
-	if (!emNuvem() || !ehDono()) return Promise.resolve();
-	const agora = Date.now();
-	return provAtual()?.salvarVarios([{
-		id: c.id || idConvidado(c.codigo),
-		nome: c.nome,
-		quantidade: c.podeEditar ? 1 : 0,
-		vencimento: "2000-01-01",
-		codigoBarras: MARCA_CONVIDADO + c.codigo,
-		criadoEm: c.criadoEm || agora,
-		atualizadoEm: agora
-	}]).catch(e => { console.warn("[convidados]", e); toast("erro", "Não foi possível salvar o convidado. Tente de novo."); });
+let pararConvidados = null;
+let pararMeuConvite = null;
+function pararOuvintesConvidados() {
+	try { pararConvidados?.(); } catch { /* ignora */ }
+	try { pararMeuConvite?.(); } catch { /* ignora */ }
+	pararConvidados = pararMeuConvite = null;
+}
+
+/** Depois de conectar: o dono acompanha os convidados; o convidado, o próprio convite. */
+function iniciarOuvintesConvidados() {
+	pararOuvintesConvidados();
+	const s = estado.sync, prov = provAtual();
+	if (!s || !prov?.recursos?.convidados || s.protecao !== "protegida") return;
+	if (s.papel === "dono") {
+		pararConvidados = prov.ouvirConvidados(s.codigo, ({ convites, membros }) => {
+			if (estado.sync !== s && idSync(estado.sync || {}) !== idSync(s)) return;
+			estado.convidados = convites
+				.filter(c => RE_CONVIDADO.test(c.codigo))
+				.map(c => {
+					const aparelhos = membros.filter(m => m.convite === c.codigo);
+					return {
+						codigo: c.codigo,
+						nome: limparNomeConvidado(c.nome) || "Convidado",
+						podeEditar: c.editar === true,
+						criadoEm: Number(c.criadoEm) || 0,
+						aparelhos,
+						visto: Math.max(0, ...aparelhos.map(m => Number(m.visto) || 0))
+					};
+				})
+				.sort((a, b) => a.criadoEm - b.criadoEm);
+			if (el.dlgSync.open) atualizarCompartilhamento();
+		});
+	} else if (s.papel === "convidado" && s.convidado) {
+		pararMeuConvite = prov.ouvirMeuConvite(s.codigo, s.convidado, info => aplicarPermissaoConvidado(info));
+	}
+}
+
+/**
+ * Liga o provedor à lista com a credencial deste aparelho. Lista antiga do dono
+ * (sem chave) ganha uma chave e passa a ser protegida.
+ * @returns {Promise<boolean>}
+ */
+async function ligarLista(s) {
+	const prov = provedores[s.provedor];
+	// Conta logada (Google/e-mail): espera o login ser restaurado antes de decidir a chave
+	const contaLogada = async () => {
+		if (prov.recursos?.convidados) { try { await prov.preparar(); } catch { /* sem nuvem: o conectar avisa */ } }
+		return prov.usuario || estado.usuarios[s.provedor] || null;
+	};
+	const chaveDaConta = async () => {
+		const u = await contaLogada();
+		if (!u?.id || !prov.listaDaConta) return "";
+		try { const conta = await prov.listaDaConta(u.id); return conta?.codigo === s.codigo ? conta.segredo || "" : ""; }
+		catch (e) { console.warn(e); return ""; }
+	};
+	// Dono sem chave (lista criada antes da proteção): usa a da conta ou cria uma nova
+	if (prov.recursos?.convidados && s.papel === "dono" && !s.segredo) {
+		s = { ...s, segredo: (await chaveDaConta()) || gerarChaveDono() };
+		if (estado.sync && idSync(estado.sync) === idSync(s)) { estado.sync = s; armazenamento.gravar(CHAVE.sync, s); }
+	}
+	let resultado;
+	try {
+		resultado = await prov.conectar(s.codigo, await acessoDe(s));
+	} catch (erro) {
+		if (erro?.code === "chave-dono") {
+			// Outro aparelho da mesma conta protegeu a lista primeiro: a chave certa está na conta
+			const daConta = await chaveDaConta();
+			if (daConta && daConta !== s.segredo) {
+				s = { ...s, segredo: daConta };
+				if (estado.sync && idSync(estado.sync) === idSync(s)) { estado.sync = s; armazenamento.gravar(CHAVE.sync, s); }
+				return ligarLista(s);
+			}
+			return pedirCodigoDono(s);
+		}
+		if (erro?.code === "convite-invalido") { acessoRemovido("convite"); return false; }
+		throw erro;
+	}
+	if (!estado.sync || idSync(estado.sync) !== idSync(s)) return false;
+	estado.sync = { ...estado.sync, ...(s.segredo ? { segredo: s.segredo } : {}), protecao: resultado?.protecao || "sem-protecao" };
+	armazenamento.gravar(CHAVE.sync, estado.sync);
+	// Conta do dono guarda o código e a chave (outros aparelhos da mesma conta entram como dono)
+	const u = prov.usuario || estado.usuarios[s.provedor];
+	if (estado.sync.papel === "dono" && u?.id && prov.salvarListaNaConta) prov.salvarListaNaConta(u.id, s.codigo, estado.sync.segredo || "").catch(e => console.warn(e));
+	iniciarOuvintesConvidados();
+	atualizarDialogoSync();
+	return true;
+}
+
+/** A lista já é protegida e este aparelho não tem a chave: pede o código do dono. */
+async function pedirCodigoDono(s) {
+	const { acao, valor } = await dialogo({
+		titulo: "Lista protegida",
+		html: "Esta lista só aceita o <b>dono</b> e os <b>convidados</b>.<br><br>Se você é o dono, digite o <b>código do dono</b> (28 letras/números). Ele aparece no aparelho onde a lista foi criada, em <b>Salvar e compartilhar</b>.<br><br>Se você é convidado, peça um link ao dono.",
+		icone: "warning",
+		confirmar: "Entrar como dono",
+		cancelar: "Sair da lista",
+		input: "text"
+	});
+	const dados = acao === "confirmar" ? lerCodigoDono(valor) : null;
+	if (dados && dados.codigo === s.codigo) return conectarNuvem({ provedor: s.provedor, codigo: dados.codigo, segredo: dados.segredo, modo: "edicao", papel: "dono" });
+	if (acao === "confirmar") toast("erro", "Código do dono inválido para esta lista.");
+	acessoRemovido("silencioso");
+	return false;
 }
 
 /** Lista de convidados no diálogo do dono. */
@@ -2169,10 +2239,13 @@ function desenharConvidados() {
 		el.listaConvidados.innerHTML = `<li class="convidado-vazio">Nenhum convidado ainda. Toque em <b>Novo convidado</b> para gerar um link.</li>`;
 		return;
 	}
-	el.listaConvidados.innerHTML = lista.map(c => `
+	el.listaConvidados.innerHTML = lista.map(c => {
+		const aparelhos = (c.aparelhos || []).map(m => limparNomeConvidado(m.nome) || limparNomeConvidado(m.aparelho)).filter(Boolean);
+		const titulo = aparelhos.length ? `${c.nome} · ${aparelhos.join(", ")}` : c.nome;
+		return `
 		<li class="convidado${c.codigo === convidadoSelecionado ? " selecionado" : ""}" data-convidado="${esc(c.codigo)}">
 			<div class="convidado-info">
-				<strong>${esc(c.aparelho && c.aparelho !== c.nome ? `${c.nome} · ${c.aparelho}` : c.nome)}</strong>
+				<strong title="${esc(titulo)}">${esc(titulo)}</strong>
 				<small>Código <b class="codigo-convidado">${esc(formatarCodigoConvidado(c.codigo))}</b> · ${c.podeEditar ? "pode editar" : "só visualizar"} · ${c.visto ? `visto ${esc(fmtRelativoCurto(c.visto))}` : "ainda não entrou"}</small>
 			</div>
 			<label class="mini-interruptor" title="Pode editar">
@@ -2181,7 +2254,8 @@ function desenharConvidados() {
 			</label>
 			<button type="button" class="btn-icone" data-c="link" title="Link e QR Code" aria-label="Link de ${esc(c.nome)}">${icone("QrCode")}</button>
 			<button type="button" class="btn-icone" data-c="remover" title="Remover convidado" aria-label="Remover ${esc(c.nome)}">${icone("UserX")}</button>
-		</li>`).join("");
+		</li>`;
+	}).join("");
 }
 
 function fmtRelativoCurto(quando) {
@@ -2202,8 +2276,16 @@ function gerarCodigoConvidado() {
 	throw new Error("Não foi possível gerar o código do convidado.");
 }
 
+const erroConvite = e => {
+	console.warn("[convidados]", e);
+	const info = explicarErro(e);
+	toast("erro", info.tipo === "rede" ? "Sem conexão: tente de novo quando a internet voltar." : "Não foi possível salvar no servidor. Tente de novo.");
+};
+
 async function novoConvidado() {
 	if (!emNuvem() || !ehDono()) return toast("aviso", "Só o <b>dono da lista</b> pode convidar.");
+	if (!temConvidadosNoServidor()) return toast("aviso", "Convidados ficam disponíveis nas listas do Google ou com código.");
+	if (estado.sync.protecao !== "protegida") return toast("aviso", "A proteção da lista ainda não está ativa no servidor. Tente de novo em instantes.");
 	if (estado.convidados.length >= 50) return toast("aviso", "Limite de 50 convidados. Remova algum para convidar outro.");
 	const padrao = `Convidado ${estado.convidados.length + 1}`;
 	let nome = padrao, podeEditarConv = true;
@@ -2235,61 +2317,79 @@ async function novoConvidado() {
 		nome = v;
 		podeEditarConv = window.confirm("Este convidado pode editar a lista? (Cancelar = só visualizar)");
 	}
-	nome = nome.replace(/\s+/g, " ").trim().slice(0, LIMITE_NOME_CONVIDADO) || padrao;
+	nome = limparNomeConvidado(nome) || padrao;
 	let codigo;
 	try { codigo = gerarCodigoConvidado(); } catch (e) { return toast("erro", esc(e.message)); }
-	const c = { codigo, nome, podeEditar: podeEditarConv, id: idConvidado(codigo), criadoEm: Date.now() };
-	estado.convidados = [...estado.convidados, c]; // aparece na hora (a nuvem confirma depois)
+	const c = { codigo, nome, podeEditar: podeEditarConv, criadoEm: Date.now(), aparelhos: [], visto: 0 };
+	estado.convidados = [...estado.convidados, c]; // aparece na hora (o servidor confirma depois)
 	convidadoSelecionado = codigo;
-	gravarConvidado(c);
 	atualizarCompartilhamento();
-	toast("sucesso", `Convidado <b>${esc(nome)}</b> criado. Envie o link (ou mostre o QR Code) só para ele.`, 5000);
+	try {
+		await provAtual().salvarConvite(estado.sync.codigo, codigo, { nome, editar: podeEditarConv, criadoEm: c.criadoEm });
+		toast("sucesso", `Convidado <b>${esc(nome)}</b> criado. Envie o link (ou mostre o QR Code) só para ele.`, 5000);
+	} catch (e) {
+		estado.convidados = estado.convidados.filter(x => x.codigo !== codigo);
+		if (convidadoSelecionado === codigo) convidadoSelecionado = null;
+		atualizarCompartilhamento();
+		erroConvite(e);
+	}
 }
 
 async function acaoConvidado(evento) {
 	const alvo = evento.target.closest("[data-c]");
 	const linha = evento.target.closest("[data-convidado]");
-	if (!alvo || !linha || !ehDono()) return;
+	if (!alvo || !linha || !ehDono() || !emNuvem()) return;
 	const tipo = alvo.dataset.c;
 	if ((evento.type === "change") !== (tipo === "permissao")) return;
 	const c = estado.convidados.find(x => x.codigo === linha.dataset.convidado);
 	if (!c) return;
+	const codigoLista = estado.sync.codigo;
 	if (tipo === "permissao") {
+		const antes = c.podeEditar;
 		c.podeEditar = alvo.checked;
-		gravarConvidado(c);
 		desenharConvidados();
-		toast("info", `<b>${esc(c.nome)}</b> agora ${c.podeEditar ? "<b>pode editar</b>" : "<b>só pode visualizar</b>"}. O aparelho dele é avisado assim que estiver online.`, 4500);
+		try {
+			await provAtual().salvarConvite(codigoLista, c.codigo, { nome: c.nome, editar: c.podeEditar, criadoEm: c.criadoEm });
+			toast("info", `<b>${esc(c.nome)}</b> agora ${c.podeEditar ? "<b>pode editar</b>" : "<b>só pode visualizar</b>"}. O servidor já aplica; o aparelho dele é avisado assim que estiver online.`, 5000);
+		} catch (e) {
+			c.podeEditar = antes;
+			desenharConvidados();
+			erroConvite(e);
+		}
 	} else if (tipo === "link") {
 		convidadoSelecionado = convidadoSelecionado === c.codigo ? null : c.codigo;
 		atualizarCompartilhamento();
 	} else if (tipo === "remover") {
 		const ok = await confirmar({
 			titulo: "Remover convidado?",
-			html: `<b>${esc(c.nome)}</b> deixa de acessar a lista assim que o aparelho dele estiver online. O link dele para de funcionar.`,
+			html: `<b>${esc(c.nome)}</b> perde o acesso à lista na hora (o servidor bloqueia). O link dele para de funcionar.`,
 			confirmar: "Remover",
 			icone: "warning",
 			perigo: true
 		});
-		if (!ok || !emNuvem()) return;
-		estado.convidados = estado.convidados.filter(x => x.codigo !== c.codigo);
-		if (convidadoSelecionado === c.codigo) convidadoSelecionado = null;
-		provAtual()?.removerVarios([c.id, c.idAparelho]).catch(e => { console.warn("[convidados]", e); toast("erro", "Não foi possível remover agora. Tente de novo."); });
-		atualizarCompartilhamento();
-		toast("info", `Convidado <b>${esc(c.nome)}</b> removido.`);
+		if (!ok || !emNuvem() || estado.sync.codigo !== codigoLista) return;
+		try {
+			await provAtual().removerConvite(codigoLista, c.codigo, (c.aparelhos || []).map(m => m.uid).filter(Boolean));
+			estado.convidados = estado.convidados.filter(x => x.codigo !== c.codigo);
+			if (convidadoSelecionado === c.codigo) convidadoSelecionado = null;
+			atualizarCompartilhamento();
+			toast("info", `Convidado <b>${esc(c.nome)}</b> removido.`);
+		} catch (e) {
+			erroConvite(e);
+		}
 	}
 }
 
-/** No aparelho do convidado: aplica a permissão definida pelo dono e avisa quando ela muda. */
-function aplicarPermissaoConvidado(meta = {}) {
+/** No aparelho do convidado: aplica a permissão definida pelo dono (lida do servidor) e avisa quando muda. */
+function aplicarPermissaoConvidado(info = {}) {
 	const s = estado.sync;
 	if (!s || s.papel !== "convidado" || !s.convidado) return;
-	const meu = estado.convidados.find(c => c.codigo === s.convidado);
-	if (!meu) {
-		// Só conclui "removido" com dados do servidor e depois de já ter sido confirmado (evita falso alarme)
-		if (meta.doServidor && s.confirmado && estado.dadosProntos) acessoRemovido();
+	if (info.negado || (info.existe === false && info.doServidor)) {
+		if (estado.dadosProntos || s.confirmado) acessoRemovido("dono");
 		return;
 	}
-	const modo = meu.podeEditar ? "edicao" : "leitura";
+	if (!info.existe) return;
+	const modo = info.editar ? "edicao" : "leitura";
 	const primeiraVez = !s.confirmado;
 	if (modo === s.modo && !primeiraVez) return;
 	const mudou = modo !== s.modo;
@@ -2308,14 +2408,23 @@ function aplicarPermissaoConvidado(meta = {}) {
 			? "✏️ O dono da lista liberou: agora você <b>pode editar</b>."
 			: "👁️ O dono da lista mudou sua permissão: agora você <b>só pode visualizar</b>.", 8000);
 	}
-	if (primeiraVez) enviarAparelho();
+}
+
+/** Convidado: envia o nome escolhido (ou do aparelho) ao dono. */
+async function enviarAparelho() {
+	const s = estado.sync;
+	if (!s || s.papel !== "convidado" || !s.convidado || s.protecao !== "protegida") return false;
+	await provAtual()?.atualizarMembro?.(s.codigo, await acessoDe(s));
+	return true;
 }
 
 let removendoAcesso = false;
-async function acessoRemovido() {
+/** Este aparelho perdeu o acesso à lista (convite removido, lista protegida, chave errada). */
+async function acessoRemovido(motivo = "dono") {
 	if (removendoAcesso || !emNuvem()) return;
 	removendoAcesso = true;
 	try {
+		pararOuvintesConvidados();
 		provAtual()?.desligar();
 		estado.sync = null;
 		estado.itensNuvem = [];
@@ -2329,9 +2438,40 @@ async function acessoRemovido() {
 		render();
 		atualizarIndicadorSync();
 		atualizarDialogoSync();
-		dialogo({ titulo: "Acesso removido", html: "O dono da lista removeu o acesso deste aparelho. Os produtos deste aparelho continuam salvos nele.", icone: "info" });
+		if (motivo === "silencioso") return;
+		dialogo({
+			titulo: "Acesso removido",
+			html: motivo === "convite"
+				? "Este convite não vale mais (o dono removeu ou trocou). Peça um novo link ao dono da lista."
+				: motivo === "protegida"
+					? "O dono protegeu esta lista: agora só entram convidados. Peça um link de convite ao dono."
+					: "O dono da lista removeu o acesso deste aparelho. Os produtos deste aparelho continuam salvos nele.",
+			icone: "info"
+		});
 	} finally {
 		removendoAcesso = false;
+	}
+}
+
+/* Itens reservados da versão anterior (convites dentro da lista): o dono migra para o servidor e apaga */
+let migrandoConvites = false;
+async function migrarConvitesAntigos(recebidos) {
+	const s = estado.sync, prov = provAtual();
+	if (migrandoConvites || !s || s.papel !== "dono" || s.protecao !== "protegida" || !prov?.recursos?.convidados) return;
+	const antigos = recebidos.filter(ehItemReservado);
+	if (!antigos.length) return;
+	migrandoConvites = true;
+	try {
+		for (const i of antigos.filter(ehItemConvidado)) {
+			const codigo = String(i.codigoBarras).slice(MARCA_CONVIDADO.length);
+			if (!RE_CONVIDADO.test(codigo) || estado.convidados.some(c => c.codigo === codigo)) continue;
+			await prov.salvarConvite(s.codigo, codigo, { nome: limparNomeConvidado(i.nome) || "Convidado", editar: Number(i.quantidade) > 0, criadoEm: Number(i.criadoEm) || Date.now() });
+		}
+		await prov.removerVarios(antigos.map(i => String(i.id)));
+	} catch (e) {
+		console.warn("[convidados] migração:", e);
+	} finally {
+		migrandoConvites = false;
 	}
 }
 
@@ -2653,12 +2793,8 @@ function eventosDe(id) {
 			if (!ativo()) return;
 			const recebidos = Array.isArray(itens) ? itens : [];
 			estado.itensNuvem = sanitizarLista(recebidos.filter(i => !ehConfigLoja(i) && !ehItemReservado(i)));
-			estado.convidados = lerConvidados(recebidos);
 			receberNomeLojaNuvem(recebidos.find(ehConfigLoja), meta);
-			aplicarPermissaoConvidado(meta);
-			if (!ativo()) return; // acesso removido pelo dono: este aparelho saiu da lista
-			if (el.dlgSync.open && ehDono()) atualizarCompartilhamento(); // lista de convidados ao vivo
-			if (meta.doServidor) enviarAparelho();
+			if (meta.doServidor) migrarConvitesAntigos(recebidos);
 			if (meta.doServidor) estado.ultimaSync = new Date();
 			if (meta.doServidor || estado.itensNuvem.length) estado.dadosProntos = true;
 			armazenamento.gravar(CHAVE.cacheNuvem, { id: idSync(estado.sync), itens: estado.itensNuvem });
@@ -2684,6 +2820,13 @@ function eventosDe(id) {
 			estado.usuarios[id] = usuario;
 			atualizarDialogoSync();
 			atualizarIndicadorSync();
+		},
+		// O servidor recusou a leitura da lista: convite removido ou lista protegida sem a chave
+		aoAcessoNegado() {
+			if (!ativo()) return;
+			const s = estado.sync;
+			if (s.papel === "dono") { if (!s.segredo || s.protecao !== "protegida") pedirCodigoDono(s); return; }
+			acessoRemovido(s.convidado ? "dono" : "protegida");
 		}
 	};
 }
@@ -2717,6 +2860,8 @@ function normalizarSync(bruto) {
 	const convidado = papel === "convidado" && RE_CONVIDADO.test(String(bruto.convidado || "")) ? bruto.convidado : null;
 	const saida = { provedor, codigo, modo, papel, reconciliar: !!bruto.reconciliar };
 	if (convidado) { saida.convidado = convidado; saida.confirmado = !!bruto.confirmado; }
+	if (papel === "dono" && RE_CHAVE_DONO.test(String(bruto.segredo || ""))) saida.segredo = bruto.segredo;
+	if (bruto.protecao === "protegida") saida.protecao = "protegida";
 	return saida;
 }
 
@@ -2824,6 +2969,7 @@ async function conectarNuvem(destino) {
 		return false;
 	}
 	const anterior = provAtual();
+	pararOuvintesConvidados();
 	if (anterior) anterior.desligar();
 	estado.sync = novo;
 	armazenamento.gravar(CHAVE.sync, estado.sync);
@@ -2841,13 +2987,8 @@ async function conectarNuvem(destino) {
 	atualizarIndicadorSync();
 	atualizarDialogoSync();
 	try {
-		const prov = provedores[novo.provedor];
-		await prov.conectar(novo.codigo);
-		// Com login, a conta do dono passa a lembrar esta lista (para os outros aparelhos).
-		// Convidado nunca grava: não vira dono e não perde a lista da própria conta.
-		const u = estado.usuarios[novo.provedor];
-		if (novo.papel === "dono" && u?.id && prov.salvarListaNaConta) prov.salvarListaNaConta(u.id, novo.codigo).catch(e => console.warn(e));
-		return true;
+		// Dono: a conta lembra a lista e a chave (outros aparelhos da conta). Convidado nunca grava na conta.
+		return await ligarLista(novo);
 	} catch (erro) {
 		const info = explicarErro(erro);
 		estado.statusSync = "erro";
@@ -2898,6 +3039,7 @@ async function desconectarNuvem() {
 	});
 	if (acao === "cancelar") return;
 	if (acao === "confirmar" && qtd) copiarNuvemParaLocal(estado.itensNuvem);
+	pararOuvintesConvidados();
 	prov?.desligar();
 	if (comConta) await prov?.sair();
 	estado.sync = null;
@@ -2994,17 +3136,28 @@ async function entrarEmLista(dados) {
 		return false;
 	}
 	if (emNuvem() && idSync(estado.sync) === idSync(novo)) {
+		// Código do dono digitado num aparelho que ainda não tinha a chave: vira dono de verdade
+		if (novo.papel === "dono" && novo.segredo && estado.sync.segredo !== novo.segredo) {
+			estado.sync = { ...estado.sync, papel: "dono", segredo: novo.segredo, modo: "edicao" };
+			delete estado.sync.convidado;
+			armazenamento.gravar(CHAVE.sync, estado.sync);
+			const ok = await ligarLista(estado.sync).catch(e => { toast("erro", esc(explicarErro(e).mensagem)); return false; });
+			if (ok) toast("sucesso", "Pronto: este aparelho agora é <b>dono</b> da lista.");
+			render(); atualizarIndicadorSync(); atualizarDialogoSync();
+			return ok;
+		}
 		// O dono continua dono (um link não rebaixa o aparelho dele). Convidado: um link com código próprio
 		// troca o convite deste aparelho; um link antigo só muda a permissão de quem também é antigo.
 		const trocarConvite = estado.sync.papel === "convidado" && novo.convidado && novo.convidado !== estado.sync.convidado;
 		const trocarModoAntigo = estado.sync.papel === "convidado" && !estado.sync.convidado && !novo.convidado && estado.sync.modo !== novo.modo;
 		if (trocarConvite || trocarModoAntigo) {
 			estado.sync = trocarConvite ? { ...estado.sync, convidado: novo.convidado, confirmado: false, modo: "leitura" } : { ...estado.sync, modo: novo.modo };
-			if (trocarConvite) aplicarPermissaoConvidado({ doServidor: false });
 			armazenamento.gravar(CHAVE.sync, estado.sync);
 			render();
 			atualizarIndicadorSync();
 			atualizarDialogoSync();
+			// Convite novo: registra este aparelho com ele no servidor
+			if (trocarConvite) ligarLista(estado.sync).catch(e => toast("erro", esc(explicarErro(e).mensagem)));
 		}
 		toast("info", "Este aparelho já está conectado a esta lista.");
 		return true;
@@ -3035,7 +3188,19 @@ async function atualizarCompartilhamento() {
 	el.caixaCodigo.hidden = !temCodigo || !ehDono();
 	el.blocoCompartilhar.hidden = !temCodigo || !ehDono();
 	if (!temCodigo || !ehDono()) return;
-	el.codigoLista.textContent = formatarCodigoLista(estado.sync.codigo);
+	el.codigoLista.textContent = codigoDono(estado.sync);
+	el.ajudaCodigo.innerHTML = estado.sync.segredo
+		? "<b>Código do dono</b>: guarde e não compartilhe. Com ele você recupera a lista como dono em qualquer aparelho. Convidados entram só pelo link deles."
+		: "Guarde este código: com ele você recupera a lista em qualquer aparelho.";
+	// Convidados com permissão garantida pelo servidor (listas do Google/código)
+	const comConvidados = temConvidadosNoServidor();
+	el.btnNovoConvidado.hidden = !comConvidados;
+	el.avisoConvidados.hidden = comConvidados && estado.sync.protecao === "protegida";
+	el.avisoConvidados.innerHTML = !comConvidados
+		? "Convidados ficam disponíveis nas listas do <b>Google</b> ou <b>com código</b>."
+		: estado.sync.protecao === "sem-protecao"
+			? "⚠️ A proteção do servidor ainda não está ativa. O dono do site precisa <b>publicar as regras novas</b> do Firestore e <b>ativar o login Anônimo</b> no Firebase (veja <i>docs/CONFIGURACAO.md</i>). Até lá, não é possível criar convidados."
+			: "Ativando a proteção da lista no servidor… (se demorar, confira a internet)";
 	desenharConvidados();
 	const escolhido = estado.convidados.find(c => c.codigo === convidadoSelecionado);
 	el.gradeLinkConvidado.hidden = !escolhido;
@@ -3126,10 +3291,15 @@ async function aposLogin(provedorId, usuario) {
 		}
 		return;
 	}
-	let codigo = null;
-	try { codigo = await prov.listaDaConta(usuario.id); } catch (e) { console.warn(e); }
+	let codigo = null, segredo = "";
+	try {
+		const conta = await prov.listaDaConta(usuario.id);
+		// Firebase devolve { codigo, segredo } (chave do dono); Supabase, só o código
+		codigo = typeof conta === "string" ? conta : conta?.codigo || null;
+		segredo = typeof conta === "object" && conta ? conta.segredo || "" : "";
+	} catch (e) { console.warn(e); }
 	if (codigo) {
-		if (await conectarNuvem({ provedor: provedorId, codigo, modo: "edicao", papel: "dono", reconciliar: estado.itensLocais.length > 0 })) {
+		if (await conectarNuvem({ provedor: provedorId, codigo, segredo, modo: "edicao", papel: "dono", reconciliar: estado.itensLocais.length > 0 })) {
 			toast("sucesso", `Bem-vindo de volta! Lista da conta <b>${esc(usuario.email || "")}</b> carregada.`, 6000);
 		}
 	} else {
@@ -3317,7 +3487,8 @@ async function criarListaNova({ provedorId = provedorDeCodigo()?.id, silencioso 
 	if (!provedorId) return;
 	el.btnCriarLista.disabled = true;
 	try {
-		const ok = await conectarNuvem({ provedor: provedorId, codigo: gerarCodigoLista(), modo: "edicao", papel: "dono", reconciliar: false });
+		// Lista nova já nasce protegida no servidor (chave do dono criada aqui)
+		const ok = await conectarNuvem({ provedor: provedorId, codigo: gerarCodigoLista(), segredo: provedores[provedorId]?.recursos?.convidados ? gerarChaveDono() : "", modo: "edicao", papel: "dono", reconciliar: false });
 		if (!ok) return;
 		// Lista nova (vazia): envia já os produtos deste aparelho. Sem internet, vão para a fila.
 		const n = enviarLocaisParaLista(estado.itensLocais);
@@ -3345,6 +3516,18 @@ async function entrarPorCodigo() {
 	if (doLink?.invalido) {
 		el.syncCodigo.setAttribute("aria-invalid", "true");
 		return toast("erro", esc(doLink.motivo || "Este link está incompleto ou foi alterado. Peça um novo link."));
+	}
+	// Código do dono (28): entra como dono com a chave
+	const doDono = lerCodigoDono(valor);
+	if (doDono) {
+		el.syncCodigo.removeAttribute("aria-invalid");
+		el.btnEntrarCodigo.disabled = true;
+		try {
+			if (await entrarEmLista({ provedor: provedorDeCodigo()?.id, codigo: doDono.codigo, segredo: doDono.segredo, modo: "edicao", papel: "dono" })) el.syncCodigo.value = "";
+		} finally {
+			el.btnEntrarCodigo.disabled = false;
+		}
+		return;
 	}
 	const codigo = normalizarCodigoLista(valor);
 	if (!codigo) {
@@ -3678,7 +3861,7 @@ function registrarEventos() {
 		// Formata enquanto digita: ABCD-EFGH-JKLM-NPQR (links colados ficam intactos)
 		const v = el.syncCodigo.value;
 		if (/[#&](lista|l)=|:\/\//.test(v)) return;
-		const limpo = v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16);
+		const limpo = v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 28); // lista (16) ou dono (28)
 		const formatado = formatarCodigoLista(limpo);
 		if (formatado !== v) el.syncCodigo.value = formatado;
 	});
@@ -3705,7 +3888,7 @@ function registrarEventos() {
 		if (nome) armazenamento.gravarTexto(CHAVE.nomeAparelho, nome);
 		else armazenamento.remover(CHAVE.nomeAparelho);
 		if (!estado.sync?.confirmado) return toast("info", "Nome guardado. Ele vai para o dono assim que o convite for confirmado.");
-		enviarAparelho({ forcar: true });
+		enviarAparelho().catch(e => console.warn("[convidados] nome:", e));
 		toast("sucesso", nome ? `Pronto! O dono da lista vê este aparelho como <b>${esc(nome)}</b>.` : "Pronto! O dono vê o nome do aparelho.");
 	};
 	el.btnSalvarNomeConvidado.addEventListener("click", salvarNomeConvidado);
@@ -3825,7 +4008,7 @@ function iniciar() {
 		.catch(() => { /* sem animação */ });
 
 	if (emNuvem()) {
-		provAtual().conectar(estado.sync.codigo).catch(erro => {
+		ligarLista(estado.sync).catch(erro => {
 			const info = explicarErro(erro);
 			estado.statusSync = "erro";
 			estado.detalheSync = info.mensagem;

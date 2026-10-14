@@ -15,20 +15,88 @@ As opções ficam em [`config-nuvem.js`](../config-nuvem.js). Cada opção preen
 Habilita **Entrar com Google**, **Entrar com e-mail (link)** e **listas por código**.
 
 1. Em https://console.firebase.google.com abra (ou crie) o projeto.
-2. **Firestore Database** → *Criar banco de dados* (local: `southamerica-east1`, modo produção) → aba **Regras** → cole e clique em **Publicar**:
+2. **Firestore Database** → *Criar banco de dados* (local: `southamerica-east1`, modo produção) → aba **Regras** → apague tudo, cole as regras abaixo e clique em **Publicar**.
+
+   Estas regras fazem o **servidor** garantir as permissões das listas compartilhadas: só o **dono** (quem tem a chave do dono) e os **convidados** com convite válido leem a lista; convidado "só visualizar" não consegue gravar nada, mesmo mexendo no navegador; convidado removido perde o acesso na hora. Listas antigas continuam funcionando e passam a ser protegidas assim que o dono abre o app.
 
 ```
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /listas/{codigo} {
-      allow get: if codigo.matches('^[A-HJ-NP-Z2-9]{16}$');
-      allow list, delete: if false;
-      allow create, update: if codigo.matches('^[A-HJ-NP-Z2-9]{16}$')
-        && request.resource.data.keys().hasOnly(['itens', 'versao', 'atualizadoEm'])
+    function codigoOk(c) { return c.matches('^[A-HJ-NP-Z2-9]{16}$'); }
+    function logado() { return request.auth != null; }
+    function caminhoLista(c) { return /databases/$(database)/documents/listas/$(c); }
+    function caminhoDono(c) { return /databases/$(database)/documents/listas/$(c)/donos/$(request.auth.uid); }
+    function caminhoMembro(c) { return /databases/$(database)/documents/listas/$(c)/membros/$(request.auth.uid); }
+    function caminhoConvite(c, g) { return /databases/$(database)/documents/listas/$(c)/convites/$(g); }
+    // Dono: este aparelho/conta provou que tem a chave do dono
+    function ehDono(c) { return logado() && exists(caminhoDono(c)); }
+    // Convidado: tem um convite que o dono ainda não removeu
+    function conviteDe(c) { return get(caminhoMembro(c)).data.convite; }
+    function ehMembro(c) { return logado() && exists(caminhoMembro(c)) && exists(caminhoConvite(c, conviteDe(c))); }
+    function membroEdita(c) { return ehMembro(c) && get(caminhoConvite(c, conviteDe(c))).data.editar == true; }
+    function protegida(dados) { return dados.get('donoHash', null) != null; }
+    function camposLista() {
+      return request.resource.data.keys().hasOnly(['itens', 'versao', 'atualizadoEm', 'donoHash'])
         && request.resource.data.itens is map
         && request.resource.data.itens.size() <= 5000;
     }
+
+    match /listas/{codigo} {
+      // Lista protegida: só o dono e os convidados com convite válido leem
+      allow get: if codigoOk(codigo) && (resource == null || !protegida(resource.data) || ehDono(codigo) || ehMembro(codigo));
+      allow list, delete: if false;
+      allow create: if codigoOk(codigo) && camposLista();
+      allow update: if codigoOk(codigo) && camposLista() && (
+        // Protegida: só o dono ou convidado com "pode editar"; ninguém troca a chave do dono
+        (protegida(resource.data) && request.resource.data.donoHash == resource.data.donoHash
+          && (ehDono(codigo) || membroEdita(codigo)))
+        // Lista antiga (sem proteção): continua aberta até o dono protegê-la
+        || !protegida(resource.data)
+      );
+
+      // Aparelhos/contas do dono: entram provando a chave do dono (só o resumo dela fica na lista)
+      match /donos/{uid} {
+        allow get: if logado() && request.auth.uid == uid;
+        allow list, update, delete: if false;
+        allow create: if logado() && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['segredo', 'criadoEm'])
+          && request.resource.data.segredo is string
+          && request.resource.data.segredo.size() >= 12
+          && hashing.sha256(request.resource.data.segredo).toHexString().lower() == getAfter(caminhoLista(codigo)).data.donoHash;
+      }
+
+      // Convites: um por convidado; só o dono cria, muda a permissão e remove
+      match /convites/{convite} {
+        allow get: if logado();
+        allow list, delete: if ehDono(codigo);
+        allow create, update: if ehDono(codigo)
+          && convite.matches('^[A-HJ-NP-Z2-9]{10}$')
+          && request.resource.data.keys().hasOnly(['nome', 'editar', 'criadoEm'])
+          && request.resource.data.nome is string && request.resource.data.nome.size() <= 40
+          && request.resource.data.editar is bool;
+      }
+
+      // Aparelhos dos convidados: o próprio aparelho se registra com um convite válido
+      // (não escolhe a permissão: ela fica no convite, que só o dono altera)
+      match /membros/{uid} {
+        allow get: if logado() && (request.auth.uid == uid || ehDono(codigo));
+        allow list: if ehDono(codigo);
+        allow create: if logado() && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['convite', 'nome', 'aparelho', 'visto'])
+          && request.resource.data.convite is string
+          && exists(caminhoConvite(codigo, request.resource.data.convite))
+          && request.resource.data.nome is string && request.resource.data.nome.size() <= 40
+          && request.resource.data.aparelho is string && request.resource.data.aparelho.size() <= 80;
+        allow update: if logado() && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['convite', 'nome', 'aparelho', 'visto'])
+          && request.resource.data.convite == resource.data.convite
+          && request.resource.data.nome is string && request.resource.data.nome.size() <= 40
+          && request.resource.data.aparelho is string && request.resource.data.aparelho.size() <= 80;
+        allow delete: if logado() && (request.auth.uid == uid || ehDono(codigo));
+      }
+    }
+
     match /contas/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
     }
@@ -38,9 +106,12 @@ service cloud.firestore {
 
 3. **Authentication** → *Vamos começar* → **Sign-in method**:
    - ative **Google** (escolha o e-mail de suporte);
-   - ative **E-mail/senha** e ligue **Link do e-mail (login sem senha)**.
+   - ative **E-mail/senha** e ligue **Link do e-mail (login sem senha)**;
+   - ative **Anônimo** — **obrigatório para a proteção das listas**: cada aparelho sem login ganha uma identidade própria (sem pedir nada à pessoa), e é ela que as regras usam para saber quem é dono e quem é convidado.
 4. **Authentication → Configurações → Domínios autorizados** → adicione `rudagabriel.github.io`.
 5. **⚙ Configurações do projeto → Seus apps → app Web (`</>`)** → copie o `firebaseConfig` para `firebase: { ... }`.
+
+> **Atualizando de uma versão anterior:** publique as regras acima **e** ative o login **Anônimo**. Enquanto isso não for feito, o app continua funcionando como antes (sem a proteção do servidor) e avisa o dono no diálogo **Salvar e compartilhar**.
 
 ### 2) E-mail — Supabase (servidor alternativo)
 
@@ -201,6 +272,8 @@ O site já está preparado para o AdSense (editor `pub-2042570332495044`):
 | Domínio não autorizado | Adicione `rudagabriel.github.io` em *Firebase → Authentication → Settings → Authorized domains*. |
 | Provedor de login desativado | Ative **Google** e **E-mail/link** em *Authentication → Sign-in method*. |
 | Acesso recusado | Publique as **regras do Firestore** (acima) ou rode o **script SQL** do Supabase. |
+| Ative o login Anônimo | *Firebase → Authentication → Sign-in method → Anônimo*. Sem ele as listas funcionam, mas sem a proteção do servidor. |
+| Publique as regras novas do Firestore | Cole as regras da seção do Firebase (acima) e clique em **Publicar**. |
 | Chave inválida | Confira os valores em `config-nuvem.js`. |
 | Tabelas/funções ausentes | Rode o script SQL do Supabase. |
 | Login do Dropbox volta com erro | Confira a *Redirect URI* `https://rudagabriel.github.io/` e as permissões no painel do Dropbox. |

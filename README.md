@@ -243,14 +243,15 @@ Todos veem as alterações **em tempo real**.
 
 > ⚠️ Quem tiver o link, o QR Code ou o código pode acessar a lista. Compartilhe apenas com pessoas de confiança.
 
-**Dono e convidados:** quem criou a lista (ou entra com a conta dona dela, ou digita o código da lista) é o **dono**. No diálogo da nuvem, o dono cria um **convidado para cada pessoa/aparelho** em **Novo convidado**:
+**Dono e convidados — permissões garantidas pelo servidor:**
 
-- cada convidado tem um **código único** e um **link/QR Code próprio**;
-- o dono vê a lista de convidados: nome, código, permissão e quando cada um foi visto pela última vez;
-- o dono muda a qualquer momento se cada convidado **pode editar** ou **só visualizar** — e pode **remover** um convidado (o aparelho dele sai da lista);
-- o aparelho do convidado recebe a mudança **na hora** (ou ao abrir o app, se estava offline) e mostra o aviso *"agora você pode editar"* ou *"agora você só pode visualizar"*;
-- o convidado pode escolher o **nome** que o dono vê; em branco, aparece a marca/modelo do aparelho;
-- o convidado não vê o código da lista, não cria convites e não consegue mudar a própria permissão.
+- **Dono** é quem criou a lista (ou entra com a conta dona dela, ou com o **código do dono**). O código do dono aparece em **Salvar e compartilhar** (28 letras/números): guarde e não compartilhe — com ele você recupera a lista como dono em qualquer aparelho.
+- Em **Novo convidado**, o dono cria um convite para cada pessoa/aparelho: cada um tem um **código único** e um **link/QR Code próprio**.
+- O dono vê a **lista de convidados**: nome, nome do aparelho, código, permissão e quando cada um foi visto pela última vez; muda a qualquer momento se cada um **pode editar** ou **só visualizar**, e pode **remover** um convidado.
+- Quem garante isso é o **servidor da nuvem** (regras do Firebase), não só o app: convidado "só visualizar" não consegue gravar nada, mesmo mexendo no navegador; quem só tem o código da lista, sem convite, não lê nem grava; convidado removido perde o acesso na hora.
+- O aparelho do convidado recebe a mudança **na hora** (ou ao abrir o app, se estava offline) e mostra *"agora você pode editar"* ou *"agora você só pode visualizar"*.
+- O convidado pode escolher o **nome** que o dono vê; em branco, aparece a marca/modelo do aparelho.
+- Listas criadas antes desta versão passam a ser protegidas assim que o dono abre o app; links antigos (sem convite) deixam de funcionar — envie um convite novo para cada pessoa.
 
 ## Backup e planilha
 
