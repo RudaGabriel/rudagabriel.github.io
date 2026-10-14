@@ -3976,11 +3976,11 @@ input.sugerido.sugerido-saindo {
 @media (max-width: 760px) {
 	/* Não aumenta a altura da linha (cabem pelo menos 3 produtos na tela) */
 	/* Miniatura ao lado do nome; nomes longos quebram abaixo do próprio nome (não por baixo da foto) */
-	/* Foto rente ao nome, centrada na 1ª linha; as linhas seguintes do nome ficam alinhadas a ele */
+	/* Foto rente ao nome e sempre centrada no bloco do nome (1 ou 2 linhas): todas as linhas iguais */
 	.nome-com-foto {
 		display: flex;
-		align-items: flex-start;
-		gap: 6px;
+		align-items: center;
+		gap: 8px;
 	}
 
 	.nome-texto {
@@ -3993,7 +3993,7 @@ input.sugerido.sugerido-saindo {
 	.miniatura {
 		width: 26px;
 		height: 26px;
-		margin: -4px 0 -6px;
+		margin: -4px 0; /* simétrico: centra sem aumentar a altura da linha */
 		border-radius: 7px;
 	}
 
