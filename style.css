@@ -3959,23 +3959,30 @@ input.sugerido.sugerido-saindo {
 @media (max-width: 760px) {
 	/* Não aumenta a altura da linha (cabem pelo menos 3 produtos na tela) */
 	/* Miniatura ao lado do nome; nomes longos quebram abaixo do próprio nome (não por baixo da foto) */
+	/* Foto rente ao nome, centrada na 1ª linha; as linhas seguintes do nome ficam alinhadas a ele */
 	.nome-com-foto {
 		display: flex;
 		align-items: flex-start;
-		gap: 8px;
+		gap: 6px;
 	}
 
 	.nome-texto {
 		flex: 1;
 		min-width: 0;
 		overflow-wrap: anywhere;
+		line-height: 1.22;
 	}
 
 	.miniatura {
-		width: 32px;
-		height: 32px;
-		margin: -6px 0 -8px;
-		border-radius: 8px;
+		width: 26px;
+		height: 26px;
+		margin: -4px 0 -6px;
+		border-radius: 7px;
+	}
+
+	.miniatura svg {
+		width: 15px;
+		height: 15px;
 	}
 }
 
