@@ -3890,15 +3890,28 @@ input.sugerido.sugerido-saindo {
 	border-radius: 0;
 }
 
+/* Foto no botão do formulário: ocupa exatamente o botão (não aumenta a altura do campo) */
 .btn-foto-form.com-foto {
+	position: relative;
 	padding: 0;
 	overflow: hidden;
+	background: #fff;
 }
 
 .btn-foto-form img {
+	position: absolute;
+	inset: 0;
 	width: 100%;
 	height: 100%;
-	object-fit: cover;
+	object-fit: contain;
+	border-radius: inherit;
+	padding: 2px;
+	box-sizing: border-box;
+}
+
+.btn-foto-form.com-foto:hover {
+	background: #fff;
+	box-shadow: inset 0 0 0 2px var(--primaria);
 }
 
 .nome-com-foto {

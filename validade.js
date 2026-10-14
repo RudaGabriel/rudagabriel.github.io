@@ -914,7 +914,11 @@ export function ordenarCandidatas(lista, hoje = new Date()) {
 		? fortes.reduce((a, b) => (b.forcaVal > a.forcaVal || (b.forcaVal === a.forcaVal && b.chave > a.chave) ? b : a))
 		: fortes.reduce((a, b) => (b.chave > a.chave || (b.chave === a.chave && b.forca > a.forca) ? b : a));
 	// Dia: o mais lido dentro do grupo (anos absurdos já passaram seus votos acima)
-	const principal = grupo.membros.reduce((a, b) => (b.peso > a.peso || (b.peso === a.peso && b.data > a.data) ? b : a));
+	// Dia: o mais lido dentro do grupo — mas a data lida junto do rótulo ("V:", "VAL", "VENC") vence
+	// se tiver pelo menos metade dos votos do dia mais lido (ex.: "V:16.09.27" contra um "01.09.27" mal lido)
+	const maisLido = grupo.membros.reduce((a, b) => (b.peso > a.peso || (b.peso === a.peso && b.data > a.data) ? b : a));
+	const rotuladas = grupo.membros.filter(c => c.validade && c.peso >= maisLido.peso * 0.5);
+	const principal = rotuladas.length ? rotuladas.reduce((a, b) => (b.peso > a.peso ? b : a)) : maisLido;
 	for (const c of candidatas) {
 		if (c !== principal && !c.validade && c.data < principal.data && diasEntre(c.data, principal.data) > 45) c.fabricacao = true;
 	}
