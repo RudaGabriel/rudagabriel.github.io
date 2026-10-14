@@ -132,12 +132,18 @@ Cada produto da lista mostra uma **miniatura** ao lado do nome.
 2. Deixe **só as linhas da data** dentro da moldura, bem de perto e com luz, e toque em **Ler data**. Se a câmera não abrir, toque em **Usar uma foto**, escolha a foto e **arraste o dedo sobre a data** para marcar a área (pode ser só a linha da validade; o app amplia um pouco a área para não cortar as letras).
 3. O app mostra a área lida e as datas encontradas, com a **validade mais provável já selecionada**. Confira com a embalagem, toque em outra data se for preciso e confirme. Se nenhuma estiver certa, toque em **Ler de novo**.
 
-- Entende os formatos comuns: *15/03/2027*, *15.03.27*, *15 03 27*, *03/2027* e *VENC: MAR/27* (usam o último dia do mês), *15 MAR 2027*, *VAL: …*, *FABR: SET/25*.
+- Entende os formatos usados no Brasil:
+  - **dia/mês/ano:** *15/03/2027*, *15.03.27*, *15-03-27*, *15 03 27*, *2027-03-15*;
+  - **mês/ano** (usa o último dia do mês): *03/2027*, *03/27*, *VENC: MAR/27*, *FEV/28*, *MARÇO/2027*, *FEVEREIRO DE 2028*;
+  - **mês por extenso:** *15 MAR 2027*, *15/MAR/27*, *15MAR27*, *15 DE MARÇO DE 2027* (também em inglês: *FEB*, *APR*, *MAY*, *AUG*, *SEP*, *OCT*, *DEC*);
+  - **números colados** logo após o rótulo: *VAL 150327*, *VENC:15032027*;
+  - **prazo:** *FAB: 12/05/2026 – VALIDADE: 12 MESES* (calcula a data);
+  - **rótulos:** *VAL*, *VALIDADE*, *VÁLIDO ATÉ*, *VENC*, *VENCIMENTO*, *VCTO*, *DV*, *CONSUMIR (PREFERENCIALMENTE) ATÉ*, *EXP*, *BB/BEST BEFORE*, *USE BY* — e separa a fabricação (*FAB*, *FABR*, *DF*, *MFG*, *LOTE*, *PART*).
 - **Foco:** toque na imagem para focar naquele ponto, ou use o botão de **foco** (veja em *Ler código de barras*).
 - Funciona com a **impressão de pontinhos** (matricial/jato de tinta) das caixas de leite, latas e embalagens longa vida: o app lê a área várias vezes, de jeitos diferentes, e escolhe a data em que as leituras mais concordam. Dígitos parecidos (como **6 e 8**) são conferidos pelo desenho.
 - Quando a embalagem tem **fabricação e validade** (mesmo juntas, como em *FABRICAÇÃO/VALIDADE*), o app escolhe a validade e indica a provável fabricação.
 - Lê também **letra clara em fundo escuro** (ex.: data branca em tarja preta).
-- Datas **em relevo** (carimbadas, sem tinta) são difíceis de ler por foto: ilumine de lado para criar sombra nas letras ou digite a data.
+- Datas **em relevo** (gravadas no papelão, sem tinta) têm uma leitura própria, que realça a sombra das letras. Funciona melhor com o quadro pegando as linhas de fabricação e validade, e com luz de lado. Ainda é a leitura mais difícil: confira a data sugerida.
 - Se a leitura ficar incerta, o app avisa para você conferir com mais atenção.
 - A leitura acontece **no próprio aparelho**: a imagem não é enviada a nenhum servidor. Na primeira vez, o navegador baixa o leitor de texto (cerca de 3 MB); depois funciona até sem internet.
 
