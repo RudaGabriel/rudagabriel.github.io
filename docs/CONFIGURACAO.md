@@ -95,6 +95,24 @@ service cloud.firestore {
           && request.resource.data.aparelho is string && request.resource.data.aparelho.size() <= 80;
         allow delete: if logado() && (request.auth.uid == uid || ehDono(codigo));
       }
+      // Pedidos de acesso: quem só visualiza pede para editar; o dono aprova (cria um convite) ou recusa
+      match /pedidos/{uid} {
+        allow get: if logado() && (request.auth.uid == uid || ehDono(codigo));
+        allow list: if ehDono(codigo);
+        allow create: if logado() && request.auth.uid == uid
+          && exists(caminhoLista(codigo))
+          && request.resource.data.keys().hasOnly(['nome', 'telefone', 'aparelho', 'navegador', 'confirmacao', 'criadoEm', 'status'])
+          && request.resource.data.status == 'pendente'
+          && request.resource.data.nome is string && request.resource.data.nome.size() >= 2 && request.resource.data.nome.size() <= 40
+          && request.resource.data.telefone is string && request.resource.data.telefone.size() <= 20
+          && request.resource.data.aparelho is string && request.resource.data.aparelho.size() <= 80
+          && request.resource.data.navegador is string && request.resource.data.navegador.size() <= 160
+          && request.resource.data.confirmacao is string && request.resource.data.confirmacao.matches('^[0-9]{4}$');
+        allow update: if ehDono(codigo)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'convite'])
+          && request.resource.data.status in ['aprovado', 'recusado'];
+        allow delete: if logado() && (request.auth.uid == uid || ehDono(codigo));
+      }
     }
 
     match /contas/{uid} {
@@ -229,10 +247,12 @@ O intermediário tenta **primeiro as bases com chave e limite diário** (na orde
 
 | Base | O que traz |
 |---|---|
-| Catálogos públicos de lojas (plataforma VTEX): Carrefour Mercado, Cobasi, Petz, Drogaria São Paulo, Drogarias Pacheco, Pague Menos, Época Cosméticos, Zona Sul, Sonda, Super Nosso | Nome e foto pelo código de barras (só aceita o item com o **mesmo** código) e busca de fotos pelo nome (`/busca`). |
+| Catálogos públicos de lojas (plataforma VTEX): Carrefour Mercado, Cobasi, Petz, Drogaria São Paulo, Drogarias Pacheco, Pague Menos, Época Cosméticos, Zona Sul, Sonda, Super Nosso, Atacadão, Drogaria Araujo, Ultrafarma, Drogaria Venancio, Mambo, Hirota | Nome e foto pelo código de barras (só aceita o item com o **mesmo** código) e busca de fotos pelo nome (`/busca`). |
 | UPCitemdb | Base internacional (o navegador não consegue consultar direto; por isso passa pelo intermediário). |
+| Cosmos (página pública) | A página do produto no site do Cosmos — não gasta a cota da API do Cosmos. |
+| Pesquisa na web (Bing; reserva: DuckDuckGo) | Pesquisa o código de barras entre aspas, abre as 3 primeiras páginas de loja e lê os dados do produto (JSON-LD/`og:image`). Nome e foto só são aceitos quando a página traz o **mesmo** código; sem isso, usa o nome que se repete em 2+ resultados (sem foto). Também completa a busca de fotos **por nome** quando as lojas trazem pouco. |
 
-Lojas que bloquearem a consulta são simplesmente ignoradas. Para ver o que cada loja respondeu: `https://SEU-WORKER.workers.dev/lojas?gtin=7898019864316`.
+As bases abertas só são consultadas quando as anteriores não trouxeram nome **e** foto, e ficam dentro do limite gratuito da Cloudflare (50 consultas externas por pedido). Lojas que bloquearem a consulta são simplesmente ignoradas. Para ver o que cada loja respondeu: `https://SEU-WORKER.workers.dev/lojas?gtin=7898019864316`.
 
 As fotos encontradas são baixadas **uma única vez** e guardadas no aparelho (IndexedDB, como imagem própria). Quando o site da foto não permite isso, o app pega a imagem pelo intermediário (`/imagem`).
 

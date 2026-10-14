@@ -91,6 +91,24 @@ service cloud.firestore {
           && request.resource.data.aparelho is string && request.resource.data.aparelho.size() <= 80;
         allow delete: if logado() && (request.auth.uid == uid || ehDono(codigo));
       }
+      // Pedidos de acesso: quem só visualiza pede para editar; o dono aprova (cria um convite) ou recusa
+      match /pedidos/{uid} {
+        allow get: if logado() && (request.auth.uid == uid || ehDono(codigo));
+        allow list: if ehDono(codigo);
+        allow create: if logado() && request.auth.uid == uid
+          && exists(caminhoLista(codigo))
+          && request.resource.data.keys().hasOnly(['nome', 'telefone', 'aparelho', 'navegador', 'confirmacao', 'criadoEm', 'status'])
+          && request.resource.data.status == 'pendente'
+          && request.resource.data.nome is string && request.resource.data.nome.size() >= 2 && request.resource.data.nome.size() <= 40
+          && request.resource.data.telefone is string && request.resource.data.telefone.size() <= 20
+          && request.resource.data.aparelho is string && request.resource.data.aparelho.size() <= 80
+          && request.resource.data.navegador is string && request.resource.data.navegador.size() <= 160
+          && request.resource.data.confirmacao is string && request.resource.data.confirmacao.matches('^[0-9]{4}$');
+        allow update: if ehDono(codigo)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'convite'])
+          && request.resource.data.status in ['aprovado', 'recusado'];
+        allow delete: if logado() && (request.auth.uid == uid || ehDono(codigo));
+      }
     }
 
     match /contas/{uid} {
@@ -185,13 +203,16 @@ export function criarFirebase(configBruta, { aoReceber, aoStatus, aoErro, aoUsua
 
 	/* ---------- Identidade e acesso ---------- */
 	/** Garante uma identidade (conta ou anônima). null se o login anônimo estiver desligado no projeto. */
+	let semIdentidade = false; // login anônimo desligado no projeto: o servidor recusa listas protegidas
 	async function garantirIdentidade() {
 		await preparar();
-		if (auth.currentUser) return auth.currentUser.uid;
+		if (auth.currentUser) { semIdentidade = false; return auth.currentUser.uid; }
 		try {
 			const r = await fb.signInAnonymously(auth);
+			semIdentidade = false;
 			return r.user.uid;
 		} catch (e) {
+			semIdentidade = true;
 			console.warn("[firebase] login anônimo indisponível:", e?.code || e);
 			if (/operation-not-allowed|admin-restricted/i.test(String(e?.code || e?.message))) {
 				console.warn("[nuvem · dono do site] Ative o login Anônimo: Firebase → Authentication → Sign-in method → Anônimo — veja docs/CONFIGURACAO.md");
@@ -356,6 +377,55 @@ export function criarFirebase(configBruta, { aoReceber, aoStatus, aoErro, aoUsua
 		}, e => seguro(aoMudar, { erro: e, negado: negado(e) }));
 	}
 
+	/* ---------- Pedidos de acesso (quem só visualiza pede para editar) ---------- */
+	async function enviarPedido(codigo, dados) {
+		const uid = await garantirIdentidade();
+		if (!uid) throw Object.assign(new Error("Sem identidade no servidor."), { code: "sem-identidade" });
+		await fb.setDoc(fb.doc(db, "listas", codigo, "pedidos", uid), {
+			nome: String(dados.nome || "").slice(0, 40),
+			telefone: String(dados.telefone || "").slice(0, 20),
+			aparelho: String(dados.aparelho || "").slice(0, 80),
+			navegador: String(dados.navegador || "").slice(0, 160),
+			confirmacao: String(dados.confirmacao || ""),
+			criadoEm: Date.now(),
+			status: "pendente"
+		});
+	}
+
+	/** Quem pediu: acompanha o próprio pedido (aprovado → recebe o convite). */
+	function ouvirMeuPedido(codigo, aoMudar) {
+		const uid = auth?.currentUser?.uid;
+		if (!db || !uid) return () => { };
+		return fb.onSnapshot(fb.doc(db, "listas", codigo, "pedidos", uid), snap => {
+			seguro(aoMudar, snap.exists() ? { existe: true, ...snap.data() } : { existe: false });
+		}, e => console.warn("[firebase] pedido:", e?.code || e));
+	}
+
+	async function cancelarPedido(codigo) {
+		const uid = auth?.currentUser?.uid;
+		if (uid) await fb.deleteDoc(fb.doc(db, "listas", codigo, "pedidos", uid));
+	}
+
+	/** Dono: acompanha os pedidos pendentes. */
+	function ouvirPedidos(codigo, aoMudar) {
+		if (!db) return () => { };
+		return fb.onSnapshot(fb.collection(db, "listas", codigo, "pedidos"), snap => {
+			seguro(aoMudar, snap.docs.map(d => ({ uid: d.id, ...d.data() })).filter(p => p.status === "pendente"));
+		}, e => console.warn("[firebase] pedidos:", e?.code || e));
+	}
+
+	/** Dono: aprova (cria o convite com "pode editar" e responde o pedido no mesmo lote) ou recusa. */
+	async function responderPedido(codigo, uid, { aprovar, convite, nome }) {
+		const lote = fb.writeBatch(db);
+		if (aprovar) {
+			lote.set(fb.doc(db, "listas", codigo, "convites", convite), { nome: String(nome || "Convidado").slice(0, 40), editar: true, criadoEm: Date.now() });
+			lote.update(fb.doc(db, "listas", codigo, "pedidos", uid), { status: "aprovado", convite });
+		} else {
+			lote.update(fb.doc(db, "listas", codigo, "pedidos", uid), { status: "recusado" });
+		}
+		await lote.commit();
+	}
+
 	/** Convidado: atualiza nome/aparelho e "visto por último". */
 	async function atualizarMembro(codigo, { nome = "", aparelho = "" } = {}) {
 		const uid = auth?.currentUser?.uid;
@@ -490,6 +560,12 @@ export function criarFirebase(configBruta, { aoReceber, aoStatus, aoErro, aoUsua
 		removerConvite,
 		ouvirMeuConvite,
 		atualizarMembro,
-		get usuario() { return usuario; }
+		enviarPedido,
+		ouvirMeuPedido,
+		cancelarPedido,
+		ouvirPedidos,
+		responderPedido,
+		get usuario() { return usuario; },
+		get semIdentidade() { return semIdentidade; }
 	};
 }

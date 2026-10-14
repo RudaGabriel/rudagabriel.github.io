@@ -170,8 +170,181 @@ const BASES = [
 			const foto = (Array.isArray(item?.images) ? item.images : []).map(urlHttps).find(Boolean) || "";
 			return { status: r.status, nome: limpar(item?.title), marca: limpar(item?.brand), foto, texto: r.texto };
 		}
+	},
+	{
+		id: "cosmos-site", nome: "Cosmos (página pública)",
+		ativa: () => true,
+		async consultar(gtin) {
+			// A página do produto no site do Cosmos (não usa a cota da API)
+			const r = await buscarPagina(`https://cosmos.bluesoft.com.br/produtos/${gtin}`);
+			if (!r.html) return { status: r.status || 0 };
+			const p = dadosDaPagina(r.html, gtin);
+			if (!p.nome || /n[ãa]o encontrad|p[áa]gina n[ãa]o/i.test(p.nome)) return { status: 404 };
+			return { status: 200, nome: limparTituloProduto(p.nome, gtin), marca: p.marca, foto: p.foto };
+		}
+	},
+	{
+		id: "web", nome: "Pesquisa na web",
+		ativa: () => true,
+		async consultar(gtin) {
+			const achado = await pesquisarNaWeb(gtin);
+			// Buscador fora do ar/bloqueado: não é "não encontrado" (não grava no cache)
+			if (!achado) return { status: 0 };
+			if (achado.vazio) return { status: 404 };
+			return { status: 200, nome: achado.nome, marca: achado.marca || "", foto: achado.foto || "", nomeFonte: achado.fonte, nomeFonteFoto: achado.fonteFoto || achado.fonte };
+		}
 	}
 ];
+
+/* ---------- Pesquisa na web (automática, sem a pessoa abrir o Google) ----------
+   1) Bing (formato RSS) e, de reserva, DuckDuckGo: títulos e endereços dos resultados
+      para o código de barras entre aspas.
+   2) Abre as primeiras páginas de loja e lê os dados do produto (JSON-LD/og:image).
+      Nome e foto confirmados só quando a página traz o MESMO código de barras.
+   3) Sem confirmação, usa o nome que mais se repete nos títulos (consenso de 2+ sites). */
+const SITES_IGNORADOS = /(google\.|bing\.|duckduckgo\.|youtube\.|facebook\.|instagram\.|twitter\.|x\.com|tiktok\.|pinterest\.|wikipedia\.|reclameaqui\.|\.pdf($|\?))/i;
+const PALAVRAS_LOJA = /\b(compre|comprar|oferta|ofertas|promo[cç][aã]o|pre[cç]o|menor pre[cç]o|frete gr[aá]tis|em at[eé]|parcelado|loja|site oficial|entrega|delivery|cupom)\b/i;
+
+function decodificarHtml(t) {
+	return String(t || "")
+		.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+		.replace(/<[^>]+>/g, " ")
+		.replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+		.replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+		.replace(/&nbsp;/g, " ").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")
+		.replace(/\s+/g, " ").trim();
+}
+
+/** "Leite Condensado Moça 395g | Nestlé - Carrefour" → "Leite Condensado Moça 395g" */
+function limparTituloProduto(titulo, gtin) {
+	let t = decodificarHtml(titulo);
+	const semZeros = String(gtin || "").replace(/\D/g, "").replace(/^0+/, "");
+	if (semZeros) t = t.replace(new RegExp(`\\b0*${semZeros}\\b`, "g"), " ");
+	const partes = t.split(/\s+[|–—]\s+|\s+-\s+|\s+::\s+/).map(p => p.trim()).filter(Boolean);
+	// Fica com o primeiro trecho que parece nome de produto (2+ palavras, sem jargão de loja)
+	const bom = partes.find(p => p.split(/\s+/).length >= 2 && !PALAVRAS_LOJA.test(p) && !/^(ean|gtin|c[oó]digo)/i.test(p)) || partes[0] || "";
+	return limpar(bom.replace(/^(ean|gtin|c[oó]digo( de barras)?)\s*[:\-]?\s*/i, "").replace(/[\s,;:–—-]+$/, "")).slice(0, 120);
+}
+
+/** Lê nome, marca, foto e códigos de uma página de produto (JSON-LD "Product", senão Open Graph). */
+function dadosDaPagina(html, gtin) {
+	const saida = { nome: "", marca: "", foto: "", gtins: [], confirmado: false };
+	const blocos = [...html.matchAll(/<script[^>]+application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]);
+	const produtos = [];
+	const visitar = n => {
+		if (!n || typeof n !== "object") return;
+		if (Array.isArray(n)) return n.forEach(visitar);
+		const tipo = [].concat(n["@type"] || []).join(",");
+		if (/Product/i.test(tipo)) produtos.push(n);
+		if (n["@graph"]) visitar(n["@graph"]);
+		if (n.mainEntity) visitar(n.mainEntity);
+		if (n.itemListElement) visitar(n.itemListElement);
+		if (n.item) visitar(n.item);
+	};
+	for (const b of blocos) { try { visitar(JSON.parse(b.trim())); } catch { /* JSON inválido: ignora */ } }
+	const codigosDe = p => [p.gtin13, p.gtin14, p.gtin12, p.gtin8, p.gtin, p.sku, p.mpn, ...[].concat(p.offers || []).map(o => o?.gtin13 || o?.gtin)].map(x => String(x || "").replace(/\D/g, "")).filter(Boolean);
+	const certo = produtos.find(p => codigosDe(p).some(c => mesmoGtin(c, gtin))) || (produtos.length === 1 ? produtos[0] : null);
+	if (certo) {
+		saida.nome = limpar(decodificarHtml(certo.name));
+		const marca = certo.brand;
+		saida.marca = limpar(decodificarHtml(typeof marca === "string" ? marca : marca?.name));
+		const img = [].concat(certo.image || []).map(i => (typeof i === "string" ? i : i?.url || i?.contentUrl)).find(Boolean);
+		saida.foto = urlHttps(String(img || "").replace(/^\/\//, "https://").replace(/^http:\/\//i, "https://"));
+		saida.gtins = codigosDe(certo);
+		saida.confirmado = saida.gtins.some(c => mesmoGtin(c, gtin));
+	}
+	const meta = nome => {
+		const m = html.match(new RegExp(`<meta[^>]+(?:property|name)=["']${nome}["'][^>]*content=["']([^"']+)["']`, "i"))
+			|| html.match(new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name)=["']${nome}["']`, "i"));
+		return m ? decodificarHtml(m[1]) : "";
+	};
+	if (!saida.nome) saida.nome = meta("og:title") || decodificarHtml((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1]);
+	if (!saida.foto) saida.foto = urlHttps(meta("og:image").replace(/^\/\//, "https://").replace(/^http:\/\//i, "https://"));
+	// Sem JSON-LD com o código: confirma se a própria página mostra o código de barras
+	if (!saida.confirmado && gtin) saida.confirmado = new RegExp(`\\b0*${String(gtin).replace(/^0+/, "")}\\b`).test(html.replace(/<script[\s\S]*?<\/script>/gi, " "));
+	return saida;
+}
+
+const CABECALHO_NAVEGADOR = {
+	"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+	"Accept-Language": "pt-BR,pt;q=0.9,en;q=0.5",
+	Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+};
+
+/** Baixa uma página (HTML/XML) com tempo limite e tamanho máximo. */
+async function buscarPagina(url, limiteMs = 7000) {
+	const controle = new AbortController();
+	const tempo = setTimeout(() => controle.abort(), limiteMs);
+	try {
+		const r = await fetch(url, { headers: CABECALHO_NAVEGADOR, signal: controle.signal, redirect: "follow" });
+		if (!r.ok) return { status: r.status, html: "" };
+		const tipo = r.headers.get("Content-Type") || "";
+		if (!/html|xml|text/i.test(tipo)) return { status: 415, html: "" };
+		const html = (await r.text()).slice(0, 1500000);
+		return { status: r.status, html };
+	} catch {
+		return { status: 0, html: "" };
+	} finally {
+		clearTimeout(tempo);
+	}
+}
+
+/** Resultados de busca: [{ titulo, link }] (Bing RSS; reserva: DuckDuckGo HTML). */
+async function resultadosDaWeb(consulta) {
+	const q = encodeURIComponent(consulta);
+	const lista = [];
+	let respondeu = false;
+	const r = await buscarPagina(`https://www.bing.com/search?format=rss&setlang=pt-BR&cc=BR&q=${q}`);
+	if (r.html) respondeu = true;
+	for (const m of r.html.matchAll(/<item>([\s\S]*?)<\/item>/gi)) {
+		const titulo = decodificarHtml((m[1].match(/<title>([\s\S]*?)<\/title>/i) || [])[1]);
+		const link = decodificarHtml((m[1].match(/<link>([\s\S]*?)<\/link>/i) || [])[1]);
+		if (titulo && /^https?:/i.test(link)) lista.push({ titulo, link });
+	}
+	if (lista.length < 3) {
+		const d = await buscarPagina(`https://html.duckduckgo.com/html/?q=${q}&kl=br-pt`);
+		if (d.html) respondeu = true;
+		for (const m of d.html.matchAll(/<a[^>]+class="[^"]*result__a[^"]*"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)) {
+			let link = decodificarHtml(m[1]);
+			const destino = link.match(/[?&]uddg=([^&]+)/);
+			if (destino) link = decodeURIComponent(destino[1]);
+			if (link.startsWith("//")) link = "https:" + link;
+			const titulo = decodificarHtml(m[2]);
+			if (titulo && /^https?:/i.test(link) && !lista.some(x => x.link === link)) lista.push({ titulo, link });
+		}
+	}
+	return { respondeu, lista: lista.filter(x => !SITES_IGNORADOS.test(x.link)).slice(0, 10) };
+}
+
+const palavrasDe = t => limpar(t).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/).filter(p => p.length > 2 && !/^\d+$/.test(p));
+
+async function pesquisarNaWeb(gtin) {
+	const { respondeu, lista: resultados } = await resultadosDaWeb(`"${gtin}"`);
+	if (!respondeu) return null;
+	if (!resultados.length) return { vazio: true };
+	// Abre as 3 primeiras páginas e procura uma que confirme o código de barras
+	const paginas = await Promise.all(resultados.slice(0, 3).map(async r => {
+		const p = await buscarPagina(r.link, 6000);
+		return p.html ? { ...dadosDaPagina(p.html, gtin), site: new URL(r.link).hostname.replace(/^www\./, "") } : null;
+	}));
+	const confirmada = paginas.find(p => p?.confirmado && p.nome);
+	if (confirmada) {
+		const fotoConfirmada = paginas.find(p => p?.confirmado && p.foto);
+		return { nome: limparTituloProduto(confirmada.nome, gtin), marca: confirmada.marca, foto: fotoConfirmada?.foto || "", fonte: `Pesquisa na web (${confirmada.site})`, fonteFoto: fotoConfirmada ? `Pesquisa na web (${fotoConfirmada.site})` : "" };
+	}
+	// Consenso dos títulos: o nome cujas palavras mais aparecem nos outros resultados
+	const titulos = resultados.map(r => limparTituloProduto(r.titulo, gtin)).filter(t => palavrasDe(t).length >= 2);
+	let melhor = null;
+	titulos.forEach((t, i) => {
+		const pt = new Set(palavrasDe(t));
+		// Títulos iguais de sites diferentes também contam como apoio
+		const apoio = titulos.filter((o, j) => j !== i && palavrasDe(o).filter(p => pt.has(p)).length >= 2).length;
+		if (apoio >= 1 && (!melhor || apoio > melhor.apoio || (apoio === melhor.apoio && t.length < melhor.nome.length))) melhor = { nome: t, apoio };
+
+	});
+	if (!melhor) return { vazio: true };
+	return { nome: melhor.nome, marca: "", foto: "", fonte: "Pesquisa na web" };
+}
 
 /* ---------- Lojas com catálogo público (VTEX) ----------
    Lojas na plataforma VTEX publicam o catálogo em
@@ -188,7 +361,13 @@ const LOJAS_VTEX = [
 	{ nome: "Época Cosméticos", host: "www.epocacosmeticos.com.br" },
 	{ nome: "Zona Sul", host: "www.zonasul.com.br" },
 	{ nome: "Sonda", host: "www.sondadelivery.com.br" },
-	{ nome: "Super Nosso", host: "www.supernosso.com" }
+	{ nome: "Super Nosso", host: "www.supernosso.com" },
+	{ nome: "Atacadão", host: "www.atacadao.com.br" },
+	{ nome: "Drogaria Araujo", host: "www.araujo.com.br" },
+	{ nome: "Ultrafarma", host: "www.ultrafarma.com.br" },
+	{ nome: "Drogaria Venancio", host: "www.drogariavenancio.com.br" },
+	{ nome: "Mambo", host: "www.mambo.com.br" },
+	{ nome: "Hirota", host: "www.hirotaemcasa.com.br" }
 ];
 const CABECALHO_LOJA = { "User-Agent": "Mozilla/5.0 (compatible; ControleDeVencimento/1.0; +https://rudagabriel.github.io)" };
 const mesmoGtin = (a, b) => {
@@ -310,7 +489,20 @@ async function rotaBusca(q, ctx, json) {
 		const foto = urlHttps(p?.image_front_url) || urlHttps(p?.image_url);
 		if (nome && foto) produtos.push({ nome, marca: limpar(String(p?.brands || "").split(",")[0]), foto, fonte: "Open Food Facts" });
 	}
-	const algumaRespondeu = lojas.some(r => r.respondeu) || off.status === 200;
+	let webRespondeu = false;
+	if (produtos.length < 6) {
+		// Poucas fotos nas lojas: completa com páginas de produto achadas na pesquisa da web
+		const { respondeu, lista } = await resultadosDaWeb(`${q} produto`);
+		webRespondeu = respondeu;
+		const paginas = await Promise.all(lista.slice(0, 4).map(async r => {
+			const pg = await buscarPagina(r.link, 6000);
+			return pg.html ? { ...dadosDaPagina(pg.html, ""), site: new URL(r.link).hostname.replace(/^www\./, "") } : null;
+		}));
+		for (const pg of paginas) {
+			if (pg?.foto && pg.nome && !produtos.some(x => x.foto === pg.foto)) produtos.push({ nome: limparTituloProduto(pg.nome, ""), marca: pg.marca || "", foto: pg.foto, fonte: `Pesquisa na web (${pg.site})` });
+		}
+	}
+	const algumaRespondeu = lojas.some(r => r.respondeu) || off.status === 200 || webRespondeu;
 	if (!algumaRespondeu) return json(502, { erro: "busca indisponível" });
 	const corpo = { produtos: produtos.slice(0, 40) };
 	await gravarCache(ctx, chave, new Response(JSON.stringify(corpo), { headers: { "Content-Type": "application/json" } }), produtos.length ? CACHE_ACHADO : CACHE_NAO_ACHADO);

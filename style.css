@@ -706,9 +706,16 @@ input[type="number"]::-webkit-inner-spin-button {
 	transition: background var(--transicao), color var(--transicao);
 }
 
-.btn-anexo:hover {
-	background: var(--primaria);
-	color: #fff;
+/* Realce de "passar o mouse" só em quem tem mouse (no celular ele ficava preso depois do toque) */
+@media (hover: hover) {
+	.btn-anexo:hover {
+		background: var(--primaria);
+		color: #fff;
+	}
+}
+
+.btn-anexo:active {
+	background: color-mix(in srgb, var(--primaria) 25%, var(--superficie-3));
 }
 
 .form-acoes {
@@ -2256,7 +2263,7 @@ input[type="number"]::-webkit-inner-spin-button {
 
 /* ---------- SweetAlert2 (tema) ---------- */
 .swal2-container {
-	z-index: 1000 !important;
+	z-index: 2147483646 !important; /* alertas acima de tudo (só as mensagens rápidas ficam por cima) */
 }
 
 .swal2-container.swal2-backdrop-show {
@@ -2434,9 +2441,30 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 
 /* ---------- Notyf (tema) ---------- */
+/* Mensagens de alerta sempre por cima de tudo (z-index máximo; com Popover API, também acima dos diálogos) */
 .notyf {
 	padding: 16px !important;
 	padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important;
+	z-index: 2147483647 !important;
+}
+
+.notyf[popover] {
+	position: fixed;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	max-width: none;
+	max-height: none;
+	margin: 0;
+	border: 0;
+	background: transparent;
+	color: inherit;
+	overflow: visible;
+	pointer-events: none;
+}
+
+.notyf__announcer {
+	z-index: 2147483647 !important;
 }
 
 .notyf__toast {
@@ -2494,6 +2522,28 @@ input[type="checkbox"],
 input[type="radio"] {
 	-webkit-tap-highlight-color: transparent;
 	touch-action: manipulation;
+}
+
+/* Botões nunca viram "texto selecionado" (no iPhone, um toque demorado ou duplo selecionava o
+   botão e a seleção cobria o ícone com um bloco colorido) */
+button,
+summary,
+[role="button"],
+.btn,
+.btn-anexo,
+.btn-icone,
+.acao,
+.miniatura,
+.pilula-sync {
+	-webkit-user-select: none;
+	user-select: none;
+	-webkit-touch-callout: none;
+}
+
+button svg,
+button img {
+	pointer-events: none; /* o toque vai sempre para o botão, não para o desenho dentro dele */
+	-webkit-user-drag: none;
 }
 
 .acao,
@@ -3627,8 +3677,11 @@ body.carregado .topo {
 	min-width: 0;
 }
 
-.btn-anexo.carregando {
+/* Buscando: fundo neutro e ícone girando bem visível (nunca roxo sobre roxo) */
+.btn-anexo.carregando,
+.btn-anexo.carregando:hover {
 	pointer-events: none;
+	background: var(--superficie-3);
 	color: var(--primaria);
 }
 
@@ -4146,3 +4199,80 @@ input.sugerido.sugerido-saindo {
 	color: var(--texto-suave);
 	user-select: none;
 }
+
+/* Pedidos de acesso */
+.compartilhar.pedidos {
+	border-color: color-mix(in srgb, var(--alerta) 55%, var(--borda));
+}
+
+.contador-pedidos {
+	display: inline-grid;
+	place-items: center;
+	min-width: 20px;
+	height: 20px;
+	padding: 0 6px;
+	border-radius: 999px;
+	background: var(--alerta);
+	color: #111;
+	font-size: .72rem;
+	font-weight: 800;
+}
+
+.contador-pedidos:empty {
+	display: none;
+}
+
+.pedido {
+	flex-wrap: wrap;
+}
+
+.pedido .convidado-info small a {
+	color: var(--primaria);
+}
+
+.pedido-acoes {
+	display: flex;
+	gap: 8px;
+	margin-left: auto;
+}
+
+.pedido-acoes .btn {
+	padding: 6px 12px;
+	font-size: .82rem;
+}
+
+.codigo-confirmacao {
+	font-family: var(--fonte-mono);
+	font-size: 1.4rem;
+	letter-spacing: .2em;
+}
+
+.bloco-pedido {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+/* Botão da nuvem: bolinha com o número de pedidos pendentes */
+#btnSync {
+	position: relative;
+}
+
+#btnSync[data-pedidos]:not([data-pedidos=""])::after {
+	content: attr(data-pedidos);
+	position: absolute;
+	top: -4px;
+	right: -4px;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 4px;
+	border-radius: 999px;
+	background: var(--alerta);
+	color: #111;
+	font-size: .68rem;
+	font-weight: 800;
+	line-height: 18px;
+	text-align: center;
+	box-shadow: 0 0 0 2px var(--fundo, #0b0d12);
+}
+

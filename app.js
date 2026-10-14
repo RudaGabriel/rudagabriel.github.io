@@ -192,11 +192,27 @@ function iniciarNotyf() {
 
 const TIPOS_TOAST = { sucesso: "success", erro: "error", info: "info", aviso: "aviso" };
 /** Exibe um aviso. "html" deve vir já escapado quando contiver dados do usuário. */
+/** Mensagens de alerta sempre por cima de tudo, inclusive dos diálogos abertos (camada superior do navegador). */
+function alertasPorCima() {
+	const caixa = document.querySelector(".notyf");
+	if (!caixa || typeof caixa.showPopover !== "function") return; // sem Popover API: vale o z-index máximo do CSS
+	try {
+		if (!caixa.hasAttribute("popover")) caixa.setAttribute("popover", "manual");
+		// Reabrir coloca a camada das mensagens acima do diálogo aberto mais recente
+		if (caixa.matches(":popover-open")) caixa.hidePopover();
+		caixa.showPopover();
+	} catch { /* ignora: o z-index máximo continua valendo */ }
+}
+
 function toast(tipo, html, duracao) {
 	if (notyf) {
 		const opcoes = { type: TIPOS_TOAST[tipo] || "info", message: html };
 		if (duracao) opcoes.duration = duracao;
-		try { return notyf.open(opcoes); } catch { /* cai no console */ }
+		try {
+			const t = notyf.open(opcoes);
+			alertasPorCima();
+			return t;
+		} catch { /* cai no console */ }
 	}
 	console.log(`[${tipo}]`, String(html).replace(/<[^>]+>/g, ""));
 	return null;
@@ -344,6 +360,8 @@ const estado = {
 	fotosAuto: true,     // buscar a foto dos produtos sozinho (ligado por padrão; desliga no menu)
 	fotos: new Map(),    // chave do produto → { src, origem, fonte }
 	convidados: [],      // convidados da lista na nuvem: { codigo, nome, podeEditar, id }
+	pedidos: [],         // dono: pedidos de acesso pendentes
+	meuPedido: null,     // quem só visualiza: o próprio pedido de acesso
 	alerta: { valor: 60, unidade: "dias" },
 	filtro: "todos",
 	busca: "",
@@ -515,6 +533,12 @@ const el = {
 	syncPermissaoTitulo: $("#syncPermissaoTitulo"),
 	listaConvidados: $("#listaConvidados"),
 	btnSouDono: $("#btnSouDono"),
+	blocoPedido: $("#blocoPedido"),
+	btnPedirAcesso: $("#btnPedirAcesso"),
+	statusPedido: $("#statusPedido"),
+	blocoPedidos: $("#blocoPedidos"),
+	listaPedidos: $("#listaPedidos"),
+	contadorPedidos: $("#contadorPedidos"),
 	btnRevelarCodigo: $("#btnRevelarCodigo"),
 	ajudaCodigo: $("#ajudaCodigo"),
 	avisoConvidados: $("#avisoConvidados"),
@@ -1406,6 +1430,11 @@ function definirFotoPendente(registro) {
 
 async function aplicarFotoPendente(item) {
 	const chave = chaveFoto(item);
+	// Produto só com nome: a foto não é buscada sozinha — avisa uma vez como buscar
+	if (!fotoPendente && estado.fotosAuto && !gtinValido(item?.codigoBarras) && !estado.fotos.get(chave)?.src && !armazenamento.lerTexto("cv2:avisoFotoNome")) {
+		armazenamento.gravarTexto("cv2:avisoFotoNome", "1");
+		toast("info", "📷 A foto automática só é buscada com <b>código de barras válido</b> (digitado ou lido pelo leitor). Produto só com nome: toque na <b>miniatura</b> dele para buscar a foto.", 9000);
+	}
 	if (!fotoPendente) {
 		// Produto adicionado/salvo agora: um "não achei" antigo não impede uma busca nova
 		const atual = chave && estado.fotos.get(chave);
@@ -1428,12 +1457,50 @@ async function aplicarFotoPendente(item) {
 }
 
 /** Fila da busca automática: um produto por vez, com folga entre as consultas. */
+/** Código de barras válido (EAN-8, UPC-A, EAN-13, GTIN-14, com dígito verificador certo). */
+function gtinValido(codigo) {
+	const c = String(codigo || "").replace(/\s+/g, "");
+	if (!/^(\d{8}|\d{12,14})$/.test(c)) return false;
+	let soma = 0;
+	for (let i = c.length - 2, peso = 3; i >= 0; i--, peso = peso === 3 ? 1 : 3) soma += Number(c[i]) * peso;
+	return (10 - (soma % 10)) % 10 === Number(c[c.length - 1]);
+}
+
+/* Foto automática no FORMULÁRIO: com código de barras válido (digitado ou lido pelo leitor),
+   busca a foto e já mostra no botão de foto. Só com o nome, a busca é manual (botão de foto). */
+let buscaFotoForm = 0;
+async function fotoAutomaticaDoFormulario() {
+	if (!estado.fotosAuto || fotoPendente || estado.editandoId || navigator.onLine === false) return;
+	const codigo = el.codigo.value.replace(/\s+/g, "");
+	if (!gtinValido(codigo)) return;
+	const minha = ++buscaFotoForm;
+	const chave = chaveFoto({ codigoBarras: codigo });
+	const guardada = estado.fotos.get(chave);
+	const aplicar = registro => {
+		if (minha !== buscaFotoForm || fotoPendente || el.codigo.value.replace(/\s+/g, "") !== codigo) return;
+		definirFotoPendente(registro);
+	};
+	// Já tem foto deste produto no aparelho: mostra na hora
+	if (guardada?.src) return aplicar({ src: guardada.src, origem: guardada.origem, fonte: guardada.fonte, original: guardada.original });
+	if (guardada?.removidaPeloUsuario) return;
+	el.btnFotoForm?.classList.add("carregando");
+	try {
+		const achada = await buscarFotoAutomatica({ nome: el.nome.value.trim(), codigoBarras: codigo });
+		if (achada) aplicar({ src: achada.src, origem: achada.origem, fonte: achada.fonte });
+	} catch (e) {
+		console.warn("[fotos] formulário:", e?.message || e);
+	} finally {
+		if (minha === buscaFotoForm) el.btnFotoForm?.classList.remove("carregando");
+	}
+}
+
 const agendarBuscaFotos = debounce(() => {
 	if (!estado.fotosAuto || navigator.onLine === false) return;
 	const vistos = new Set(filaFotos.map(f => f.chave));
 	for (const item of itensAtuais()) {
 		const chave = chaveFoto(item);
 		if (!chave || vistos.has(chave) || tentadasNestaSessao.has(chave) || !precisaBuscar(estado.fotos.get(chave))) continue;
+		if (!gtinValido(item.codigoBarras)) continue; // só com o nome: busca manual (toque na miniatura)
 		vistos.add(chave);
 		filaFotos.push({ chave, item: { nome: item.nome, codigoBarras: item.codigoBarras } });
 	}
@@ -1480,7 +1547,7 @@ function alternarFotosAuto() {
 	armazenamento.gravarTexto(CHAVE.fotosAuto, estado.fotosAuto ? "1" : "0");
 	$("#itemFotosAuto")?.setAttribute("aria-checked", String(estado.fotosAuto));
 	toast("info", estado.fotosAuto
-		? "Busca automática de fotos <b>ligada</b>: o app procura a foto pelo nome e, se não achar, pelo código de barras."
+		? "Busca automática de fotos <b>ligada</b>: acontece quando o <b>código de barras é válido</b> (digitado ou lido pelo leitor). Produto só com nome: toque no botão de foto para buscar."
 		: "Busca automática de fotos <b>desligada</b>. Você ainda pode colocar a foto tocando na miniatura do produto.", 5000);
 	if (estado.fotosAuto) agendarBuscaFotos();
 }
@@ -2118,6 +2185,15 @@ let convidadoSelecionado = null;
    que só o dono altera. As regras do Firestore conferem tudo isso — não só o app. */
 const RE_CHAVE_DONO = /^[A-HJ-NP-Z2-9]{12}$/;
 const gerarChaveDono = () => gerarCodigoLista().slice(0, 12);
+/** Código de convite: lista (16) + convidado (10) = 26 caracteres. */
+const codigoDeConvite = (lista, convite) => `${formatarCodigoLista(lista)}-${formatarCodigoConvidado(convite)}`;
+function lerCodigoConvite(texto) {
+	const limpo = String(texto || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+	if (limpo.length !== 26) return null;
+	const codigo = normalizarCodigoLista(limpo.slice(0, 16)), convidado = limpo.slice(16);
+	return codigo && RE_CONVIDADO.test(convidado) ? { codigo, convidado } : null;
+}
+
 /** Código digitado: aceita o da lista (16) ou um antigo de 28 (usa só os 16 primeiros). Sempre só visualizar. */
 function lerCodigoDigitado(texto) {
 	const limpo = String(texto || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -2136,10 +2212,14 @@ async function acessoDe(s) {
 
 let pararConvidados = null;
 let pararMeuConvite = null;
+let pararPedidos = null;
+let pararMeuPedido = null;
 function pararOuvintesConvidados() {
-	try { pararConvidados?.(); } catch { /* ignora */ }
-	try { pararMeuConvite?.(); } catch { /* ignora */ }
-	pararConvidados = pararMeuConvite = null;
+	for (const parar of [pararConvidados, pararMeuConvite, pararPedidos, pararMeuPedido]) { try { parar?.(); } catch { /* ignora */ } }
+	pararConvidados = pararMeuConvite = pararPedidos = pararMeuPedido = null;
+	estado.pedidos = [];
+	estado.meuPedido = null;
+	atualizarSeloPedidos();
 }
 
 /** Depois de conectar: o dono acompanha os convidados; o convidado, o próprio convite. */
@@ -2166,8 +2246,163 @@ function iniciarOuvintesConvidados() {
 				.sort((a, b) => a.criadoEm - b.criadoEm);
 			if (el.dlgSync.open) atualizarCompartilhamento();
 		});
+		// Pedidos de acesso: avisa quando chega um novo
+		let vistos = null;
+		pararPedidos = prov.ouvirPedidos(s.codigo, pedidos => {
+			if (estado.sync !== s && idSync(estado.sync || {}) !== idSync(s)) return;
+			estado.pedidos = pedidos.sort((a, b) => (a.criadoEm || 0) - (b.criadoEm || 0));
+			const novos = vistos ? estado.pedidos.filter(p => !vistos.has(p.uid)) : [];
+			if (!vistos && estado.pedidos.length) toast("info", `🔔 Você tem <b>${estado.pedidos.length}</b> pedido(s) de acesso pendente(s). Veja em <b>Salvar e compartilhar</b>.`, 8000);
+			vistos = new Set(estado.pedidos.map(p => p.uid));
+			for (const p of novos) toast("info", `🔔 <b>${esc(limparNomeConvidado(p.nome))}</b> pediu acesso para editar a lista. Veja em <b>Salvar e compartilhar</b>.`, 8000);
+			atualizarSeloPedidos();
+			if (el.dlgSync.open) atualizarCompartilhamento();
+		});
 	} else if (s.papel === "convidado" && s.convidado) {
 		pararMeuConvite = prov.ouvirMeuConvite(s.codigo, s.convidado, info => aplicarPermissaoConvidado(info));
+	} else if (s.papel === "convidado" && s.donoPendente) {
+		// Só visualizando: acompanha o próprio pedido de acesso (se houver)
+		pararMeuPedido = prov.ouvirMeuPedido(s.codigo, pedido => receberMeuPedido(s, pedido));
+	}
+}
+
+/* ---------- Pedidos de acesso ----------
+   Quem entrou só com o código pede para editar: nome, telefone (opcional) e dados
+   básicos do aparelho/navegador. Os dois veem o mesmo código de confirmação.
+   O dono aprova (vira convidado com "pode editar") ou recusa. */
+function atualizarSeloPedidos() {
+	const n = estado.pedidos?.length || 0;
+	if (el.btnSync) el.btnSync.dataset.pedidos = n ? String(Math.min(n, 9)) : "";
+}
+
+function infoNavegador() {
+	let fuso = "";
+	try { fuso = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch { /* ignora */ }
+	const tela = typeof screen !== "undefined" ? `tela ${screen.width}×${screen.height}` : "";
+	return [navigator.language || "", tela, fuso].filter(Boolean).join(" · ").slice(0, 160);
+}
+
+async function pedirAcesso() {
+	const s = estado.sync, prov = provAtual();
+	if (!s?.donoPendente || !prov?.enviarPedido) return;
+	if (s.protecao !== "protegida") return toast("aviso", "Esta lista ainda não é protegida no servidor: peça ao dono para abrir o app e criar um convite para você.");
+	const nomeSalvo = limparNomeConvidado(armazenamento.lerTexto(CHAVE.nomeAparelho));
+	let nome = "", telefone = "";
+	if (window.Swal) {
+		const r = await window.Swal.fire({
+			title: "Pedir acesso para editar",
+			html: `<p class="sw-texto">O dono da lista recebe seu pedido com o seu nome, telefone e o tipo de aparelho/navegador.</p>
+				<input id="pedidoNome" class="swal2-input sw-input" maxlength="40" placeholder="Seu nome" autocomplete="name" value="${esc(nomeSalvo)}">
+				<input id="pedidoTelefone" class="swal2-input sw-input" maxlength="20" placeholder="Telefone (opcional)" inputmode="tel" autocomplete="tel">`,
+			showCancelButton: true,
+			confirmButtonText: "Enviar pedido",
+			cancelButtonText: "Cancelar",
+			reverseButtons: true,
+			buttonsStyling: false,
+			heightAuto: false,
+			focusConfirm: false,
+			target: document.querySelector("dialog[open]") || "body",
+			customClass: { popup: "sw-popup", confirmButton: "btn btn-primario", cancelButton: "btn btn-fantasma" },
+			preConfirm: () => {
+				const n = limparNomeConvidado(document.getElementById("pedidoNome")?.value);
+				const t = String(document.getElementById("pedidoTelefone")?.value || "").replace(/[^\d+()\- ]/g, "").trim().slice(0, 20);
+				if (n.length < 2) { window.Swal.showValidationMessage("Digite seu nome."); return false; }
+				return { nome: n, telefone: t };
+			}
+		});
+		if (!r.isConfirmed || !r.value) return;
+		({ nome, telefone } = r.value);
+	} else {
+		nome = limparNomeConvidado(window.prompt("Seu nome:", nomeSalvo) || "");
+		if (nome.length < 2) return;
+		telefone = String(window.prompt("Telefone (opcional):") || "").replace(/[^\d+()\- ]/g, "").slice(0, 20);
+	}
+	armazenamento.gravarTexto(CHAVE.nomeAparelho, nome);
+	const confirmacao = String(Math.floor(1000 + Math.random() * 9000));
+	try {
+		await prov.enviarPedido(s.codigo, { nome, telefone, confirmacao, aparelho: limparNomeConvidado(await detectarAparelho().catch(() => "")) || "Aparelho", navegador: infoNavegador() });
+		if (!pararMeuPedido) pararMeuPedido = prov.ouvirMeuPedido(s.codigo, pedido => receberMeuPedido(s, pedido));
+		dialogo({
+			titulo: "Pedido enviado",
+			html: `O dono da lista vai ver seu pedido.<br><br>Código de confirmação:<br><b class="codigo-confirmacao">${confirmacao}</b><br><br><small>O dono vê o mesmo código — confirmem entre vocês (ligação ou mensagem) antes da aprovação.</small>`,
+			icone: "success"
+		});
+	} catch (e) {
+		console.warn("[pedido]", e);
+		toast("erro", explicarErro(e).tipo === "rede" ? "Sem conexão: tente de novo quando a internet voltar." : "Não foi possível enviar o pedido agora. Tente de novo.");
+	}
+}
+
+/** Quem pediu: acompanha a resposta do dono. */
+async function receberMeuPedido(s, pedido) {
+	if (!estado.sync || idSync(estado.sync) !== idSync(s)) return;
+	estado.meuPedido = pedido?.existe ? pedido : null;
+	atualizarDialogoSync();
+	if (!pedido?.existe) return;
+	const prov = provAtual();
+	if (pedido.status === "aprovado" && RE_CONVIDADO.test(String(pedido.convite || ""))) {
+		// Vira convidado com o convite criado pelo dono (a permissão segue o convite)
+		const novo = { provedor: s.provedor, codigo: s.codigo, papel: "convidado", convidado: pedido.convite, modo: "leitura", confirmado: false };
+		if (await conectarNuvem(novo)) {
+			prov.cancelarPedido?.(s.codigo).catch(() => { });
+			toast("sucesso", "✅ O dono <b>aprovou</b> seu pedido: agora você pode editar a lista.", 8000);
+		}
+	} else if (pedido.status === "recusado") {
+		await prov.cancelarPedido?.(s.codigo).catch(() => { });
+		estado.meuPedido = null;
+		atualizarDialogoSync();
+		toast("aviso", "O dono <b>recusou</b> o pedido de acesso. Você continua só visualizando.", 8000);
+	}
+}
+
+/** Dono: lista de solicitações pendentes. */
+function desenharPedidos() {
+	const lista = estado.pedidos || [];
+	el.blocoPedidos.hidden = !lista.length || !ehDono();
+	el.contadorPedidos.textContent = lista.length ? String(lista.length) : "";
+	el.listaPedidos.innerHTML = lista.map(p => {
+		const tel = String(p.telefone || "").replace(/[^\d+]/g, "");
+		return `
+		<li class="convidado pedido" data-pedido="${esc(p.uid)}">
+			<div class="convidado-info">
+				<strong>${esc(limparNomeConvidado(p.nome) || "Sem nome")}</strong>
+				<small>${tel ? `📞 <a href="tel:${esc(tel)}">${esc(p.telefone)}</a> · ` : ""}${esc(p.aparelho || "Aparelho")} · pediu ${esc(fmtRelativoCurto(Number(p.criadoEm) || Date.now()))}</small>
+				<small>${esc(p.navegador || "")}</small>
+				<small>Código de confirmação <b class="codigo-convidado">${esc(p.confirmacao || "—")}</b></small>
+			</div>
+			<div class="pedido-acoes">
+				<button type="button" class="btn btn-primario" data-p="aprovar">Aprovar</button>
+				<button type="button" class="btn btn-fantasma" data-p="recusar">Recusar</button>
+			</div>
+		</li>`;
+	}).join("");
+}
+
+async function acaoPedido(evento) {
+	const botao = evento.target.closest("[data-p]");
+	const linha = evento.target.closest("[data-pedido]");
+	if (!botao || !linha || !emNuvem() || !ehDono()) return;
+	const p = (estado.pedidos || []).find(x => x.uid === linha.dataset.pedido);
+	if (!p) return;
+	const aprovar = botao.dataset.p === "aprovar";
+	const nome = limparNomeConvidado(p.nome) || "Convidado";
+	const ok = await confirmar({
+		titulo: aprovar ? "Aprovar acesso?" : "Recusar pedido?",
+		html: aprovar
+			? `<b>${esc(nome)}</b> vai poder <b>editar</b> a lista (você pode mudar ou remover depois em Convidados).<br><br>Confira com a pessoa o código de confirmação: <b class="codigo-confirmacao">${esc(p.confirmacao || "—")}</b>`
+			: `<b>${esc(nome)}</b> continua só visualizando.`,
+		confirmar: aprovar ? "Aprovar" : "Recusar",
+		icone: "question",
+		perigo: !aprovar
+	});
+	if (!ok || !emNuvem()) return;
+	botao.disabled = true;
+	try {
+		await provAtual().responderPedido(estado.sync.codigo, p.uid, aprovar ? { aprovar: true, convite: gerarCodigoConvidado(), nome } : { aprovar: false });
+		toast(aprovar ? "sucesso" : "info", aprovar ? `Acesso aprovado para <b>${esc(nome)}</b>. O aparelho dele é liberado na hora.` : "Pedido recusado.");
+	} catch (e) {
+		botao.disabled = false;
+		erroConvite(e);
 	}
 }
 
@@ -2301,6 +2536,7 @@ function desenharConvidados() {
 				<input type="checkbox" data-c="permissao" ${c.podeEditar ? "checked" : ""} aria-label="${esc(c.nome)} pode editar">
 				<span class="interruptor-trilho"><span></span></span>
 			</label>
+			<button type="button" class="btn-icone" data-c="copiar" title="Copiar código de convite (o convidado digita em “Já tem um código?”)" aria-label="Copiar código de convite de ${esc(c.nome)}">${icone("Copy")}</button>
 			<button type="button" class="btn-icone" data-c="link" title="Link e QR Code" aria-label="Link de ${esc(c.nome)}">${icone("QrCode")}</button>
 			<button type="button" class="btn-icone" data-c="remover" title="Remover convidado" aria-label="Remover ${esc(c.nome)}">${icone("UserX")}</button>
 		</li>`;
@@ -2405,6 +2641,14 @@ async function acaoConvidado(evento) {
 			desenharConvidados();
 			erroConvite(e);
 		}
+	} else if (tipo === "copiar") {
+		// Código de convite = código da lista + código do convidado (dá para digitar em vez de abrir o link)
+		const codigoConvite = codigoDeConvite(estado.sync.codigo, c.codigo);
+		const ok = await copiarTexto(codigoConvite);
+		feedbackBotao(alvo, ok);
+		toast(ok ? "sucesso" : "erro", ok
+			? `Código de convite de <b>${esc(c.nome)}</b> copiado:<br><b class="codigo-convidado">${esc(codigoConvite)}</b><br><small>No aparelho dele: Salvar e compartilhar → “Já tem um código?”.</small>`
+			: "Não foi possível copiar. Use o link ou o QR Code.", 6000);
 	} else if (tipo === "link") {
 		convidadoSelecionado = convidadoSelecionado === c.codigo ? null : c.codigo;
 		atualizarCompartilhamento();
@@ -2433,7 +2677,8 @@ async function acaoConvidado(evento) {
 function aplicarPermissaoConvidado(info = {}) {
 	const s = estado.sync;
 	if (!s || s.papel !== "convidado" || !s.convidado) return;
-	if (info.negado || (info.existe === false && info.doServidor)) {
+	if (info.negado) { avisarAcessoRecusado(provAtual()); return; } // não dá para ler o convite: não afirma "removido"
+	if (info.existe === false && info.doServidor) {
 		if (estado.dadosProntos || s.confirmado) acessoRemovido("dono");
 		return;
 	}
@@ -2468,6 +2713,27 @@ async function enviarAparelho() {
 }
 
 let removendoAcesso = false;
+/** Servidor recusou a leitura: explica a causa provável (uma vez por sessão) sem tirar o aparelho da lista. */
+let acessoRecusadoAvisado = false;
+function avisarAcessoRecusado(prov) {
+	estado.statusSync = "erro";
+	estado.detalheSync = "O servidor recusou o acesso a esta lista.";
+	atualizarIndicadorSync();
+	if (acessoRecusadoAvisado) return;
+	acessoRecusadoAvisado = true;
+	const semId = !!prov?.semIdentidade;
+	console.warn("[nuvem · dono do site]", semId
+		? "Ative o login Anônimo: Firebase → Authentication → Sign-in method → Anônimo"
+		: "Publique as regras atualizadas do Firestore (docs/CONFIGURACAO.md)");
+	dialogo({
+		titulo: "Não foi possível abrir a lista",
+		html: semId
+			? "O servidor da nuvem não conseguiu identificar este aparelho, então recusou o acesso.<br><br><small><b>Dono do site:</b> ative o login <b>Anônimo</b> em Firebase → Authentication → Sign-in method → Anônimo, e recarregue a página.</small>"
+			: "O servidor da nuvem recusou o acesso a esta lista.<br><br><small><b>Dono do site:</b> publique as regras atualizadas do Firestore (docs/CONFIGURACAO.md) e confira se o login <b>Anônimo</b> está ativo. Depois, recarregue a página.</small>",
+		icone: "warning"
+	});
+}
+
 /** Este aparelho perdeu o acesso à lista (convite removido, lista protegida, chave errada). */
 async function acessoRemovido(motivo = "dono") {
 	if (removendoAcesso || !emNuvem()) return;
@@ -2790,6 +3056,7 @@ function leituraOk(codigo) {
 		if (el.dlgLeitor.open) el.dlgLeitor.close();
 		const reconhecido = autoPreencherPorCodigo();
 		marcarSugerido(el.codigo);
+		fotoAutomaticaDoFormulario();
 		(reconhecido ? el.quantidade : el.nome).focus();
 		toast("sucesso", `Código lido: <b>${esc(limpo)}</b>`, 2500);
 	}, 350);
@@ -2873,11 +3140,14 @@ function eventosDe(id) {
 			if (usuario && ativo() && estado.sync.donoPendente) ligarLista(estado.sync).catch(e => console.warn(e));
 		},
 		// O servidor recusou a leitura da lista: convite removido ou lista protegida sem a chave
+		// O servidor recusou a leitura da lista. Não conclui "removido" daqui: mostra a causa provável
+		// e mantém o aparelho na lista (volta a funcionar quando o Firebase estiver ajustado).
+		// "Removido" só quando o próprio convite deixa de existir (ver aplicarPermissaoConvidado).
 		aoAcessoNegado() {
 			if (!ativo()) return;
 			const s = estado.sync;
-			if (s.papel === "dono") { if (!s.segredo || s.protecao !== "protegida") virarVisualizacao(s); return; }
-			acessoRemovido(s.convidado ? "dono" : "protegida");
+			if (s.papel === "dono" && !provedores[id]?.semIdentidade) { if (!s.segredo || s.protecao !== "protegida") virarVisualizacao(s); return; }
+			avisarAcessoRecusado(provedores[id]);
 		}
 	};
 }
@@ -3242,6 +3512,7 @@ async function atualizarCompartilhamento() {
 	const temCodigo = estado.sync.provedor !== "dropbox";
 	// Convidado não vê o código nem gera links (só o dono compartilha e define permissões)
 	el.caixaCodigo.hidden = !temCodigo || !ehDono();
+	el.blocoPedidos.hidden = true; // só o dono vê (desenharPedidos mostra quando houver)
 	el.blocoCompartilhar.hidden = !temCodigo || !ehDono();
 	if (!temCodigo || !ehDono()) return;
 	mostrarCodigoLista(codigoVisivel);
@@ -3258,6 +3529,7 @@ async function atualizarCompartilhamento() {
 			? "⚠️ A proteção do servidor ainda não está ativa. O dono do site precisa <b>publicar as regras novas</b> do Firestore e <b>ativar o login Anônimo</b> no Firebase (veja <i>docs/CONFIGURACAO.md</i>). Até lá, não é possível criar convidados."
 			: "Ativando a proteção da lista no servidor… (se demorar, confira a internet)";
 	desenharConvidados();
+	desenharPedidos();
 	const escolhido = estado.convidados.find(c => c.codigo === convidadoSelecionado);
 	el.gradeLinkConvidado.hidden = !escolhido;
 	if (!escolhido) { qrUltimoLink = ""; return; }
@@ -3315,6 +3587,17 @@ function atualizarDialogoSync() {
 		el.syncPermitirEdicao.closest(".interruptor")?.classList.toggle("bloqueado", !dono);
 		// Só visualizando com o código: entrar como dono (lista protegida → código do dono; lista antiga → reivindicar)
 		el.btnSouDono.hidden = !(estado.sync.donoPendente && provAtual()?.recursos?.convidados);
+		// Pedido de acesso (quem só visualiza)
+		const podePedir = !!(estado.sync.donoPendente && provAtual()?.enviarPedido);
+		el.blocoPedido.hidden = !podePedir;
+		if (podePedir) {
+			const p = estado.meuPedido;
+			const pendente = p?.status === "pendente";
+			el.btnPedirAcesso.hidden = pendente;
+			el.statusPedido.innerHTML = pendente
+				? `⏳ Pedido enviado ${esc(fmtRelativoCurto(Number(p.criadoEm) || Date.now()))}. Código de confirmação <b class="codigo-convidado">${esc(p.confirmacao || "")}</b>. Aguardando o dono.`
+				: estado.sync.protecao === "protegida" ? "O dono recebe seu pedido e decide se você pode editar." : "Pedidos ficam disponíveis quando o dono proteger a lista.";
+		}
 		// Convidado com código: mostra o código dele e deixa escolher o nome que o dono vê
 		const comCodigo = !dono && !!estado.sync.convidado;
 		el.blocoNomeConvidado.hidden = !comCodigo;
@@ -3588,6 +3871,18 @@ async function entrarPorCodigo() {
 		el.syncCodigo.setAttribute("aria-invalid", "true");
 		return toast("erro", esc(doLink.motivo || "Este link está incompleto ou foi alterado. Peça um novo link."));
 	}
+	// Código de convite (26): entra como convidado; a permissão vem do convite (definida pelo dono)
+	const convite = lerCodigoConvite(valor);
+	if (convite) {
+		el.syncCodigo.removeAttribute("aria-invalid");
+		el.btnEntrarCodigo.disabled = true;
+		try {
+			if (await entrarEmLista({ provedor: provedorDeCodigo()?.id, codigo: convite.codigo, convidado: convite.convidado, papel: "convidado", modo: "leitura" })) el.syncCodigo.value = "";
+		} finally {
+			el.btnEntrarCodigo.disabled = false;
+		}
+		return;
+	}
 	const codigo = lerCodigoDigitado(valor);
 	if (!codigo) {
 		el.syncCodigo.setAttribute("aria-invalid", "true");
@@ -3695,6 +3990,13 @@ function registrarEventos() {
 		(reconhecido || el.nome.value.trim() ? el.quantidade : el.nome).focus();
 	});
 	el.codigo.addEventListener("change", autoPreencherPorCodigo);
+	el.codigo.addEventListener("change", fotoAutomaticaDoFormulario);
+	const fotoAoDigitar = debounce(() => fotoAutomaticaDoFormulario(), 700);
+	el.codigo.addEventListener("input", () => {
+		// Trocou o código: a foto escolhida automaticamente para o código anterior sai
+		if (fotoPendente && fotoPendente.origem !== "usuario") definirFotoPendente(null);
+		if (gtinValido(el.codigo.value)) fotoAoDigitar();
+	});
 
 	// Sugerir o nome sob demanda
 	el.btnSugerirNome?.addEventListener("click", sugerirNomeManual);
@@ -3944,6 +4246,8 @@ function registrarEventos() {
 		atualizarIndicadorSync();
 	});
 	el.btnNovoConvidado.addEventListener("click", novoConvidado);
+	el.btnPedirAcesso.addEventListener("click", pedirAcesso);
+	el.listaPedidos.addEventListener("click", acaoPedido);
 	el.btnSouDono.addEventListener("click", () => { if (estado.sync?.donoPendente) pedirLoginDono(estado.sync); });
 	const salvarNomeConvidado = () => {
 		const nome = limparNomeConvidado(el.nomeConvidado.value);
