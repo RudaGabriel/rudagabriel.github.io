@@ -387,7 +387,7 @@
 					<div class="campo">
 						<label for="syncCodigo">Já tem um código?</label>
 						<div class="grupo-entrada">
-							<input type="text" id="syncCodigo" class="entrada-codigo" placeholder="ABCD-EFGH-JKLM-NPQR" maxlength="400" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">
+							<input type="text" id="syncCodigo" class="entrada-codigo" placeholder="Código do dono ou da lista" maxlength="400" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">
 							<button type="button" class="btn-anexo btn-anexo-texto" id="btnEntrarCodigo">Entrar</button>
 						</div>
 						<small class="ajuda">Dica: no outro aparelho, é só abrir o link ou ler o QR Code — nem precisa digitar.</small>
@@ -410,12 +410,12 @@
 			<p id="syncContaLinha" class="conta-linha" hidden><i data-lucide="circle-user"></i>Conta: <b id="syncContaEmail"></b></p>
 
 			<div id="caixaCodigo" class="caixa-codigo">
-				<small>Código da lista</small>
+				<small id="rotuloCodigo">Código do dono</small>
 				<div class="caixa-codigo-linha">
 					<strong id="codigoLista" class="codigo-lista"></strong>
 					<button type="button" class="btn-icone" id="btnCopiarCodigo" title="Copiar código" aria-label="Copiar código"><i data-lucide="copy"></i></button>
 				</div>
-				<small class="ajuda">Guarde este código: com ele você recupera a lista em qualquer aparelho.</small>
+				<small class="ajuda" id="ajudaCodigo">Guarde este código: com ele você recupera a lista em qualquer aparelho.</small>
 			</div>
 
 			<label class="interruptor">
@@ -439,6 +439,7 @@
 			<div class="compartilhar" id="blocoCompartilhar">
 				<h3><i data-lucide="users"></i>Convidados</h3>
 				<p class="ajuda">Cada convidado recebe um <b>link próprio</b>. Você muda a permissão de cada um quando quiser — o aparelho dele é avisado na hora.</p>
+				<p class="ajuda" id="avisoConvidados" hidden></p>
 				<ul id="listaConvidados" class="lista-convidados" aria-label="Convidados da lista"></ul>
 				<button type="button" class="btn btn-secundario btn-bloco" id="btnNovoConvidado"><i data-lucide="user-plus"></i>Novo convidado</button>
 				<div class="compartilhar-grade" id="gradeLinkConvidado" hidden>
