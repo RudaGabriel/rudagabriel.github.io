@@ -1427,6 +1427,87 @@ input[type="number"]::-webkit-inner-spin-button {
 	font-size: .78rem;
 }
 
+/* Convidados (diálogo do dono) */
+.lista-convidados {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.convidado {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 10px 12px;
+	border-radius: var(--raio);
+	border: 1px solid var(--borda);
+	background: var(--superficie);
+}
+
+.convidado.selecionado {
+	border-color: var(--primaria);
+	box-shadow: 0 0 0 1px var(--primaria) inset;
+}
+
+.convidado-info {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-width: 0;
+	font-size: .86rem;
+}
+
+.convidado-info strong {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.convidado-info small {
+	color: var(--texto-suave);
+	font-size: .76rem;
+}
+
+.codigo-convidado {
+	font-family: var(--fonte-mono);
+	letter-spacing: .03em;
+}
+
+.convidado-vazio {
+	font-size: .82rem;
+	color: var(--texto-suave);
+	padding: 4px 2px;
+}
+
+.mini-interruptor {
+	display: inline-flex;
+	cursor: pointer;
+	flex: none;
+}
+
+.mini-interruptor input {
+	position: absolute;
+	opacity: 0;
+	pointer-events: none;
+}
+
+.mini-interruptor input:checked + .interruptor-trilho {
+	background: var(--primaria);
+	border-color: var(--primaria);
+}
+
+.mini-interruptor input:checked + .interruptor-trilho span {
+	transform: translateX(16px);
+}
+
+.mini-interruptor input:focus-visible + .interruptor-trilho {
+	outline: 2px solid var(--primaria);
+	outline-offset: 2px;
+}
+
 /* Convidado: a permissão é definida pelo dono da lista */
 .interruptor.bloqueado {
 	cursor: not-allowed;
