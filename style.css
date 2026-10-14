@@ -706,9 +706,16 @@ input[type="number"]::-webkit-inner-spin-button {
 	transition: background var(--transicao), color var(--transicao);
 }
 
-.btn-anexo:hover {
-	background: var(--primaria);
-	color: #fff;
+/* Realce de "passar o mouse" só em quem tem mouse (no celular ele ficava preso depois do toque) */
+@media (hover: hover) {
+	.btn-anexo:hover {
+		background: var(--primaria);
+		color: #fff;
+	}
+}
+
+.btn-anexo:active {
+	background: color-mix(in srgb, var(--primaria) 25%, var(--superficie-3));
 }
 
 .form-acoes {
@@ -3648,8 +3655,11 @@ body.carregado .topo {
 	min-width: 0;
 }
 
-.btn-anexo.carregando {
+/* Buscando: fundo neutro e ícone girando bem visível (nunca roxo sobre roxo) */
+.btn-anexo.carregando,
+.btn-anexo.carregando:hover {
 	pointer-events: none;
+	background: var(--superficie-3);
 	color: var(--primaria);
 }
 
