@@ -22,7 +22,8 @@ import { intermediario, pausar } from "./produtos.js";
 const BANCO = "cv2-fotos";
 const LOJA = "fotos";
 const TEMPO_LIMITE_MS = 7000;
-const REPETIR_BUSCA_MS = 7 * 24 * 60 * 60 * 1000; // "não achei" vale 7 dias
+const REPETIR_BUSCA_MS = 2 * 24 * 60 * 60 * 1000; // "não achei" vale 2 dias (as bases crescem)
+const REPETIR_ERRO_IMAGEM_MS = 60 * 60 * 1000;      // foto achada que não abriu: tenta outra em 1 hora
 const LADO_FOTO = 480;          // foto da pessoa: lado maior em px (pequena e nítida)
 const QUALIDADE_FOTO = 0.82;
 const LADO_COPIA = 360;         // cópia guardada da foto achada na internet (~20–40 KB)
@@ -186,7 +187,7 @@ export async function apagarFoto(chave) {
 export function precisaBuscar(registro) {
 	if (!registro) return true;
 	if (registro.removidaPeloUsuario) return false; // a pessoa tirou a foto: não insiste
-	if (registro.origem === "nenhuma") return Date.now() - (registro.quando || 0) > REPETIR_BUSCA_MS;
+	if (registro.origem === "nenhuma") return Date.now() - (registro.quando || 0) > (registro.erroImagem ? REPETIR_ERRO_IMAGEM_MS : REPETIR_BUSCA_MS);
 	return false;
 }
 
@@ -334,7 +335,8 @@ export async function fotosPorNome(nome, { sinal, limite = 8, rapido = false } =
 		// Lojas brasileiras (catálogo público) + Open Food Facts mundial, pelo intermediário
 		etapas.push(async () => {
 			const d = await buscarIntermediario("busca", `/busca?q=${consulta}`, sinal);
-			mundialPeloIntermediario = true;
+			// Worker antigo (sem /busca) responde 404 → null: aí a busca mundial direta continua valendo
+			if (d && Array.isArray(d.produtos)) mundialPeloIntermediario = true;
 			for (const p of Array.isArray(d?.produtos) ? d.produtos : []) {
 				const nomeProduto = [p?.nome, p?.marca].filter(Boolean).join(" ");
 				juntar(p?.foto, String(p?.fonte || "Lojas"), nomeProduto);

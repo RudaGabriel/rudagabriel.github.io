@@ -12,7 +12,7 @@ import { criarLeitor } from "./leitor.js";
 import { buscarNomeProduto, buscarNomesParecidos, codigoConsultavel, linksPesquisaCodigo } from "./produtos.js";
 import { lerDatas, criarCameraValidade } from "./validade.js";
 import { ligarInterfaceFoco } from "./foco.js";
-import { chaveFoto, carregarFotos, guardarFoto, precisaBuscar, buscarFotoAutomatica, fotosPorCodigo, fotosPorNome, prepararFotoDaPessoa, aoCopiarFoto, copiarFotosPendentes } from "./fotos.js";
+import { chaveFoto, carregarFotos, guardarFoto, apagarFoto, precisaBuscar, buscarFotoAutomatica, fotosPorCodigo, fotosPorNome, prepararFotoDaPessoa, aoCopiarFoto, copiarFotosPendentes } from "./fotos.js";
 import { iniciarAnuncios } from "./anuncios.js";
 
 const URL_AUTO_ANIMATE = "https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.10.0/index.mjs";
@@ -975,6 +975,8 @@ function limparFormulario() {
 	el.form.reset();
 	definirFotoPendente(null);
 	[el.nome, el.quantidade, el.vencimento].forEach(c => c.removeAttribute("aria-invalid"));
+	// Formulário limpo: nenhum campo continua verde
+	[el.codigo, el.nome, el.vencimento].forEach(c => temposRealce.get(c)?.limpar() ?? c.classList.remove("sugerido", "sugerido-saindo"));
 }
 
 function sairDaEdicao(silencioso = false) {
@@ -1159,12 +1161,27 @@ function autoPreencherPorCodigo() {
 	return true;
 }
 
-/** Realça um campo preenchido automaticamente até a pessoa mexer nele. */
+/** Realça um campo preenchido automaticamente: pisca em verde (deu certo) e some sozinho em ~5 s. */
+const temposRealce = new WeakMap();
+const DURACAO_REALCE_MS = 5000;
 function marcarSugerido(campo) {
-	campo.classList.remove("sugerido");
+	if (!campo) return;
+	const anterior = temposRealce.get(campo);
+	if (anterior) { clearTimeout(anterior.saida); clearTimeout(anterior.fim); campo.removeEventListener("input", anterior.limpar); }
+	campo.classList.remove("sugerido", "sugerido-saindo");
 	void campo.offsetWidth; // reinicia a animação do realce
 	campo.classList.add("sugerido");
-	campo.addEventListener("input", () => campo.classList.remove("sugerido"), { once: true });
+	const limpar = () => {
+		const t = temposRealce.get(campo);
+		if (t) { clearTimeout(t.saida); clearTimeout(t.fim); }
+		temposRealce.delete(campo);
+		campo.classList.remove("sugerido", "sugerido-saindo");
+		campo.removeEventListener("input", limpar);
+	};
+	const saida = setTimeout(() => campo.classList.add("sugerido-saindo"), DURACAO_REALCE_MS);
+	const fim = setTimeout(limpar, DURACAO_REALCE_MS + 700);
+	temposRealce.set(campo, { saida, fim, limpar });
+	campo.addEventListener("input", limpar);
 }
 
 /* ---------- Nome sugerido pelo código de barras (Open Food Facts) ---------- */
@@ -1382,8 +1399,21 @@ function definirFotoPendente(registro) {
 }
 
 async function aplicarFotoPendente(item) {
-	if (!fotoPendente) return;
 	const chave = chaveFoto(item);
+	if (!fotoPendente) {
+		// Produto adicionado/salvo agora: um "não achei" antigo não impede uma busca nova
+		const atual = chave && estado.fotos.get(chave);
+		if (atual && atual.origem === "nenhuma" && !atual.removidaPeloUsuario) {
+			estado.fotos.delete(chave);
+			tentadasNestaSessao.delete(chave);
+			falhasFoto.delete(chave);
+			await apagarFoto(chave);
+		} else if (chave && !atual) {
+			tentadasNestaSessao.delete(chave);
+		}
+		agendarBuscaFotos();
+		return;
+	}
 	if (chave) {
 		await guardarFoto(chave, fotoPendente);
 		estado.fotos.set(chave, { ...fotoPendente });
@@ -2570,6 +2600,7 @@ function leituraOk(codigo) {
 		pararLeitor();
 		if (el.dlgLeitor.open) el.dlgLeitor.close();
 		const reconhecido = autoPreencherPorCodigo();
+		marcarSugerido(el.codigo);
 		(reconhecido ? el.quantidade : el.nome).focus();
 		toast("sucesso", `Código lido: <b>${esc(limpo)}</b>`, 2500);
 	}, 350);
@@ -3532,7 +3563,8 @@ function registrarEventos() {
 		const chave = item && chaveFoto(item);
 		const atual = chave && estado.fotos.get(chave);
 		if (atual && atual.origem !== "usuario" && atual.origem !== "nenhuma") {
-			const registro = { src: "", origem: "nenhuma" };
+			// A foto achada não abriu: tenta de novo (outra fonte) em pouco tempo, não em dias
+			const registro = { src: "", origem: "nenhuma", erroImagem: true };
 			estado.fotos.set(chave, registro);
 			guardarFoto(chave, registro);
 		}

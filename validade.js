@@ -28,11 +28,14 @@ const D = "[0-9OQDILTZSBG|]"; // "dígito" tolerante a erros de OCR
 const digitos = t => t.replace(/[OQDILTZSBG|]/g, c => PARA_DIGITO[c]);
 
 // Inclui leituras comuns com erro de OCR: "VENC" → "UENC"/"ENC"/"VENG"; "FABR" → "FRER"/"FABER"
-const PALAVRAS_VALIDADE = /(VAL|VALID|VALIDADE|VENC|VENCIMENTO|VCTO|VTO|EXP|EXPIRA|BB|BEST|CONSUMIR|USE ATE|V\s?[:.]|[UVL]?I?EN[CG])\W{0,4}$/;
-const PALAVRAS_FABRICACAO = /(FAB|FABR|FABRICACAO|FABRICADO|PROD|PRODUCAO|EMB|EMBALADO|F\s?[:.]|L\s?[:.]|LOTE|F[A-Z]{2,4}R)\W{0,4}$/;
+// Rótulos usados no Brasil: VAL, VALIDADE, VÁLIDO ATÉ, VENC, VENCIMENTO, VCTO, VTO, DV (data de validade),
+// CONSUMIR (PREFERENCIALMENTE) ATÉ, USAR ATÉ, EXP, EXPIRA, BB/BBE/BEST BEFORE, USE BY.
+// Em relevo, os dois-pontos costumam sair como letra ("VENC.J", "VENC.I"): aceita uma letra solta no fim.
+const PALAVRAS_VALIDADE = /(VAL|VALID|VALIDO|VALIDADE|VENC|VENCIMENTO|VCTO|VTO|EXP|EXPIRA|EXPIRY|BBE?|BEST|BEFORE|USE BY|CONSUMIR|ATE|D\.?V|V\s?[:.]|[UVL]?I?EN[CG])(?:\.?[JIL1|])?\W{0,4}$/;
+const PALAVRAS_FABRICACAO = /(FAB|FABR|FABRICACAO|FABRICADO|PROD|PRODUCAO|EMB|EMBALADO|MFG|MFD|D\.?F|F\s?[:.]|L\s?[:.]|LOTE|PART|F[A-Z]{2,4}R)(?:\.?[JIL1|])?\W{0,4}$/;
 
 // Letras que o OCR troca entre si em letras de pontinhos (custo menor na comparação)
-const LETRAS_PARECIDAS = ["AR", "MH", "MN", "O0", "UV", "EF", "B8", "S5", "I1", "L1", "Z2", "G6", "T7", "DO", "CG", "PR", "EB"];
+const LETRAS_PARECIDAS = ["AR", "MH", "MN", "O0", "UV", "EF", "B8", "S5", "I1", "L1", "Z2", "G6", "T7", "DO", "CG", "PR", "EB", "VY", "VI", "PF"];
 const parecidas = (a, b) => LETRAS_PARECIDAS.some(p => (p[0] === a && p[1] === b) || (p[0] === b && p[1] === a));
 
 /** Distância de edição tolerante a letras parecidas. */
@@ -121,10 +124,28 @@ export function extrairCandidatas(texto, hoje = new Date(), { soDigitos = false 
 	};
 	const apagar = (inicio, fim) => { resto = resto.slice(0, inicio) + " ".repeat(fim - inicio) + resto.slice(fim); };
 
+	// 0) Ano/mês/dia (ISO): 2027-03-15, 2027/03/15, 2027.03.15
+	for (const m of original.matchAll(/(?<![0-9])(20[0-9]{2})[/.\-](\d{1,2})[/.\-](\d{1,2})(?![0-9])/g)) {
+		const data = dataValida(Number(m[1]), Number(m[2]), Number(m[3]));
+		if (data) { registrar(m.index, m[0], data); apagar(m.index, m.index + m[0].length); }
+	}
+	// 0b) Números colados logo depois de um rótulo de validade: "VAL 150327", "VENC:15032027", "V 20270315"
+	//     (só com rótulo: sem ele, um número de 6–8 dígitos costuma ser lote)
+	const reColado = /(VAL|VALIDADE|VENC|VENCIMENTO|VCTO|VTO|EXP|D\.?V)\W{0,3}([0-9]{6}|[0-9]{8})(?![0-9])/g;
+	for (const m of original.matchAll(reColado)) {
+		const n = m[2], inicio = m.index + m[0].length - n.length;
+		let data = null;
+		if (n.length === 6) data = dataValida(2000 + Number(n.slice(4)), Number(n.slice(2, 4)), Number(n.slice(0, 2)));
+		else data = dataValida(Number(n.slice(4)), Number(n.slice(2, 4)), Number(n.slice(0, 2))) || dataValida(Number(n.slice(0, 4)), Number(n.slice(4, 6)), Number(n.slice(6)));
+		if (data) { registrar(inicio, n, data); apagar(inicio, inicio + n.length); }
+	}
+
 	// 1) Dia/mês/ano: 15/03/2027, 15.03.27, 15-03-2027, 15 03 27
 	//    Dia ou mês impossível (ex.: "88" do zero cortado Ø) → tenta trocar um dígito parecido
 	const reDMA = new RegExp(`(?<![0-9A-Z])(${D}{1,2})[ ]?[/.\\- ][ ]?(${D}{1,2})[ ]?[/.\\- ][ ]?((?:2${D})?${D}{2})(?![0-9])`, "g");
-	for (const m of original.matchAll(reDMA)) {
+	// Laço manual: se um trecho não virar data (ex.: "BB 15/03" de "BB 15/03/27"), tenta de novo
+	// a partir do caractere seguinte — assim a data verdadeira, sobreposta, não se perde
+	for (let m; (m = reDMA.exec(original));) {
 		const dia = Number(digitos(m[1])), mes = Number(digitos(m[2])), ano = anoCompleto(digitos(m[3]));
 		let data = dataValida(ano, mes, dia), reparada = false;
 		if (!data) {
@@ -134,10 +155,11 @@ export function extrairCandidatas(texto, hoje = new Date(), { soDigitos = false 
 		}
 		data ||= dataValida(ano, dia, mes); // aceita mês/dia (formato americano) se dia/mês for impossível
 		if (data) { registrar(m.index, m[0], data, reparada); apagar(m.index, m.index + m[0].length); }
+		else reDMA.lastIndex = m.index + 1;
 	}
 
 	// 2) Dia + mês por extenso + ano: 15 MAR 2027, 15/MAR/27, MAR/2027, MAR 27
-	const reMes = new RegExp(`(?<![A-Z])(?:(${D}{1,2})[ ]?[/.\\- ]?[ ]?)?(${Object.keys(MESES).join("|")})[A-Z]*\\.?[ ]?[/.\\- ]?[ ]?((?:2${D})?${D}{2})(?![0-9])`, "g");
+	const reMes = new RegExp(`(?<![A-Z])(?:(${D}{1,2})[ ]?[/.\\- ]?[ ]?(?:DE )?)?(${Object.keys(MESES).join("|")})[A-Z]*\\.?[ ]?[/.\\- ]?[ ]?(?:DE )?((?:2${D})?${D}{2})(?![0-9])`, "g");
 	for (const m of resto.matchAll(reMes)) {
 		const mes = MESES[m[2]], ano = anoCompleto(digitos(m[3]));
 		const dia = m[1] ? Number(digitos(m[1])) : ultimoDiaDoMes(ano, mes);
@@ -156,6 +178,18 @@ export function extrairCandidatas(texto, hoje = new Date(), { soDigitos = false 
 		if (data) { registrar(m.index, m[0], data, true, true); apagar(m.index, m.index + m[0].length); }
 	}
 
+	// 2c) Mês colado no ano por uma barra lida como letra (comum em relevo): "FEVIZG" = FEV/26, "FEULZE" = FEV/28
+	const DX = "[0-9OQDILTZSBGE]"; // aqui o "E" também pode ser um 8 (relevo)
+	// (o relevo às vezes acrescenta um traço no fim: "FEVIZES" → aceita um caractere sobrando)
+	const reMesColado = new RegExp(`(?<![A-Z0-9])([A-Z]{3})[/|IL1]((?:2${DX})?${DX}{2})[A-Z0-9]?(?![0-9A-Z])`, "g");
+	for (const m of resto.matchAll(reMesColado)) {
+		const mes = MESES[m[1]] || mesAproximado(m[1]);
+		if (!mes) continue;
+		const ano = anoCompleto(m[2].replace(/E/g, "8").replace(/[OQDILTZSBG|]/g, c => PARA_DIGITO[c]));
+		const data = dataValida(ano, mes, ultimoDiaDoMes(ano, mes));
+		if (data) { registrar(m.index, m[0], data, true, true); apagar(m.index, m.index + m[0].length); }
+	}
+
 	// 3) Mês/ano: 03/2027, 03/27 (validade = último dia do mês)
 	const reMA = new RegExp(`(?<![0-9A-Z/.\\-])(${D}{1,2})[ ]?[/.\\-][ ]?((?:2${D})?${D}{2})(?![0-9/.\\-])`, "g");
 	for (const m of resto.matchAll(reMA)) {
@@ -163,6 +197,29 @@ export function extrairCandidatas(texto, hoje = new Date(), { soDigitos = false 
 		if (soDigitos && digitos(m[1]).length < 2) continue;
 		const mes = Number(digitos(m[1])), ano = anoCompleto(digitos(m[2]));
 		if (mes >= 1 && mes <= 12) registrar(m.index, m[0], dataValida(ano, mes, ultimoDiaDoMes(ano, mes)));
+	}
+
+	// 4) Prazo em vez de data: "VALIDADE: 12 MESES (após a fabricação)", "VAL 2 ANOS" → fabricação + prazo
+	const prazo = original.match(/(?:VAL|VALIDADE|PRAZO)[A-Z]*\W{0,4}(?:DE\s)?([0-9]{1,3})\s?(MESES|MES|ANOS?|DIAS)\b/);
+	if (prazo && candidatas.length) {
+		const fab = candidatas.find(c => c.fabricacao) || (candidatas.length === 1 ? candidatas[0] : null);
+		const n = Number(prazo[1]);
+		if (fab && n > 0) {
+			const [a, m, d] = fab.data.split("-").map(Number);
+			let alvo;
+			if (/^DIA/.test(prazo[2])) alvo = new Date(Date.UTC(a, m - 1, d + n));
+			else {
+				const meses = /^ANO/.test(prazo[2]) ? n * 12 : n;
+				const total = (m - 1) + meses, ano = a + Math.floor(total / 12), mes = (total % 12) + 1;
+				alvo = new Date(Date.UTC(ano, mes - 1, Math.min(d, ultimoDiaDoMes(ano, mes))));
+			}
+			const data = dataValida(alvo.getUTCFullYear(), alvo.getUTCMonth() + 1, alvo.getUTCDate());
+			if (data) {
+				fab.fabricacao = true;
+				fab.validade = false;
+				candidatas.push({ inicio: prazo.index, data, trecho: prazo[0], reparada: false, extenso: false, validade: true, fabricacao: false });
+			}
+		}
 	}
 
 	// Descarta datas absurdas (mais de 5 anos atrás ou 15 anos à frente)
@@ -332,6 +389,31 @@ function limparManchas(g, W, H) {
 	return o;
 }
 
+/**
+ * Data em RELEVO (gravada no papelão, sem tinta): só a sombra e o brilho das
+ * bordas mostram as letras. Passa-alta (imagem − desfoque largo) em valor
+ * absoluto: as bordas viram traços escuros em fundo claro, que o OCR lê.
+ */
+function realcarRelevo(g, W, H, raio = 20, suave = 1) {
+	const fundo = borrar(g, W, H, raio);
+	let d = new Float32Array(W * H);
+	for (let i = 0; i < d.length; i++) d[i] = Math.abs(g[i] - fundo[i]);
+	if (suave) d = borrar(d, W, H, suave);
+	// Contraste pelos percentis: metade mais lisa vira branco; as bordas mais fortes, preto
+	const passo = Math.max(1, Math.floor(d.length / 40000));
+	const amostra = [];
+	for (let i = 0; i < d.length; i += passo) amostra.push(d[i]);
+	amostra.sort((a, b) => a - b);
+	const baixo = amostra[Math.floor(amostra.length * 0.5)] || 0;
+	const alto = Math.max(baixo + 1, amostra[Math.floor(amostra.length * 0.995)] || 0);
+	const o = new Float32Array(W * H);
+	for (let i = 0; i < o.length; i++) {
+		const v = Math.min(1, Math.max(0, (d[i] - baixo) / (alto - baixo)));
+		o[i] = 255 - Math.pow(v, 0.6) * 255;
+	}
+	return o;
+}
+
 const SO_DIGITOS = { tessedit_pageseg_mode: "6", tessedit_char_whitelist: "0123456789/.-: " };
 const LETRAS_E_DIGITOS = { tessedit_pageseg_mode: "6", tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/:.- " };
 const TEXTO_LIVRE = { tessedit_pageseg_mode: "11", tessedit_char_whitelist: "" };
@@ -371,8 +453,15 @@ const LEITURAS_RECORTE = [
 	{ alvo: 60, tratar: otsuDerretido([3, 3]), ocr: LETRAS_E_DIGITOS, soExtenso: true },
 	{ alvo: 55, tratar: localDerretido([3, 3], 60, 4), ocr: LETRAS_E_DIGITOS, soExtenso: true },
 	{ alvo: 85, tratar: (g, W, H) => limiarLocal(g, W, H, 40, 10), ocr: LETRAS_E_DIGITOS, soExtenso: true },
-	{ lado: 1200, tratar: (g, W, H) => limiarLocal(g, W, H, 30, 12), ocr: TEXTO_LIVRE } // pega datas com mês por extenso (MAR, OUT…)
-].map(l => ({ ...l, tratar: (g, W, H) => limparManchas(l.tratar(g, W, H), W, H) }));
+	{ lado: 1200, tratar: (g, W, H) => limiarLocal(g, W, H, 30, 12), ocr: TEXTO_LIVRE }, // pega datas com mês por extenso (MAR, OUT…)
+	// Data em relevo (sem tinta): só rodam quando as leituras acima não decidiram
+	// (palpite = altura da letra em relação ao recorte: 3 linhas ≈ 0,2; 2 linhas ≈ 0,33; 1 linha ≈ 0,5)
+	{ alvo: 55, palpite: 0.2, tratar: (g, W, H) => realcarRelevo(g, W, H, 20, 1), ocr: LETRAS_E_DIGITOS, cru: true },
+	{ alvo: 55, palpite: 0.2, tratar: (g, W, H) => realcarRelevo(g, W, H, 11, 1), ocr: LETRAS_E_DIGITOS, cru: true },
+	{ alvo: 55, palpite: 0.5, tratar: (g, W, H) => realcarRelevo(g, W, H, 20, 1), ocr: LETRAS_E_DIGITOS, cru: true },
+	{ alvo: 55, palpite: 0.33, tratar: (g, W, H) => realcarRelevo(g, W, H, 20, 1), ocr: LETRAS_E_DIGITOS, cru: true },
+	{ alvo: 65, palpite: 0.2, tratar: (g, W, H) => realcarRelevo(g, W, H, 25, 2), ocr: LETRAS_E_DIGITOS, cru: true }
+].map(l => (l.cru ? l : { ...l, tratar: (g, W, H) => limparManchas(l.tratar(g, W, H), W, H) }));
 
 /** Para uma foto inteira (sem recorte): menos variações, imagem maior. */
 const LEITURAS_FOTO = [
@@ -558,7 +647,7 @@ export async function lerDatas(fonte, { recorte = true, aoProgresso } = {}) {
 		let lado = leituras[i].lado;
 		if (alvo) {
 			// Sem medida ainda: a letra costuma ter 12–65% da altura do recorte (palpites alternados)
-			const letra = alturaLetra || Math.max(8, alturaImagem * PALPITES_ALTURA[i % PALPITES_ALTURA.length]);
+			const letra = alturaLetra || Math.max(8, alturaImagem * (leituras[i].palpite ?? PALPITES_ALTURA[i % PALPITES_ALTURA.length]));
 			lado = Math.round(Math.min(2000, Math.max(400, maiorLado * alvo / letra)) / 25) * 25;
 		}
 		const quadro = i % imagens.length;

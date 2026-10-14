@@ -3636,17 +3636,28 @@ body.carregado .topo {
 	to { transform: rotate(360deg); }
 }
 
-/* Valor preenchido automaticamente (nome sugerido ou data lida): realce até a pessoa mexer */
+/* Valor preenchido automaticamente (código lido, nome sugerido, data lida): pisca em verde e some em ~5 s */
 input.sugerido {
 	border-color: color-mix(in srgb, var(--ok) 60%, var(--borda-forte));
 	box-shadow: 0 0 0 3px var(--ok-fundo);
-	animation: realce-sugerido 900ms ease;
+	animation: realce-sugerido 520ms ease-in-out 3;
+	transition: border-color 600ms ease, box-shadow 600ms ease;
+}
+
+input.sugerido.sugerido-saindo {
+	border-color: var(--borda-forte);
+	box-shadow: 0 0 0 0 transparent;
 }
 
 @keyframes realce-sugerido {
-	0% { box-shadow: 0 0 0 0 var(--ok-fundo); }
-	40% { box-shadow: 0 0 0 7px var(--ok-fundo); }
-	100% { box-shadow: 0 0 0 3px var(--ok-fundo); }
+	0%, 100% { box-shadow: 0 0 0 3px var(--ok-fundo); border-color: color-mix(in srgb, var(--ok) 60%, var(--borda-forte)); }
+	50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--ok) 35%, transparent); border-color: var(--ok); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	input.sugerido {
+		animation: none;
+	}
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3947,17 +3958,31 @@ input.sugerido {
 
 @media (max-width: 760px) {
 	/* Não aumenta a altura da linha (cabem pelo menos 3 produtos na tela) */
-	/* A miniatura "flutua" ao lado da 1ª linha: nomes longos usam a largura toda nas linhas seguintes */
+	/* Miniatura ao lado do nome; nomes longos quebram abaixo do próprio nome (não por baixo da foto) */
+	/* Foto rente ao nome, centrada na 1ª linha; as linhas seguintes do nome ficam alinhadas a ele */
 	.nome-com-foto {
-		display: block;
+		display: flex;
+		align-items: flex-start;
+		gap: 6px;
+	}
+
+	.nome-texto {
+		flex: 1;
+		min-width: 0;
+		overflow-wrap: anywhere;
+		line-height: 1.22;
 	}
 
 	.miniatura {
-		float: left;
-		width: 32px;
-		height: 32px;
-		margin: -6px 8px -12px 0;
-		border-radius: 8px;
+		width: 26px;
+		height: 26px;
+		margin: -4px 0 -6px;
+		border-radius: 7px;
+	}
+
+	.miniatura svg {
+		width: 15px;
+		height: 15px;
 	}
 }
 
