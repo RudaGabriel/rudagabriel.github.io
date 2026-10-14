@@ -245,7 +245,8 @@ Todos veem as alterações **em tempo real**.
 
 **Dono e convidados — permissões garantidas pelo servidor:**
 
-- **Dono** é quem criou a lista (ou entra com a conta dona dela, ou com o **código do dono**). O código do dono aparece em **Salvar e compartilhar** (28 letras/números): guarde e não compartilhe — com ele você recupera a lista como dono em qualquer aparelho.
+- **Dono** é a **conta que criou a lista** (Google ou e-mail) — e o aparelho onde ela foi criada. Em outro aparelho, entre com essa conta: o acesso completo é liberado sozinho.
+- **Código da lista:** fica **escondido** em **Salvar e compartilhar** (toque no 👁 para revelar). Quem digitar o código **só visualiza** — nunca edita. Para outras pessoas editarem, use **convidados**.
 - Em **Novo convidado**, o dono cria um convite para cada pessoa/aparelho: cada um tem um **código único** e um **link/QR Code próprio**.
 - O dono vê a **lista de convidados**: nome, nome do aparelho, código, permissão e quando cada um foi visto pela última vez; muda a qualquer momento se cada um **pode editar** ou **só visualizar**, e pode **remover** um convidado.
 - Quem garante isso é o **servidor da nuvem** (regras do Firebase), não só o app: convidado "só visualizar" não consegue gravar nada, mesmo mexendo no navegador; quem só tem o código da lista, sem convite, não lê nem grava; convidado removido perde o acesso na hora.

@@ -2300,12 +2300,16 @@ input[type="number"]::-webkit-inner-spin-button {
 	margin-top: 20px;
 	width: 100%;
 	justify-content: flex-end;
-	flex-wrap: wrap;
+	flex-wrap: nowrap;
 	padding: 0 4px;
 }
 
+/* Botões lado a lado, sem quebrar para outra linha: encolhem e o texto quebra dentro do botão */
 .swal2-popup.sw-popup .swal2-actions .btn {
 	margin: 0;
+	flex: 0 1 auto;
+	min-width: 0;
+	white-space: normal;
 }
 
 .swal2-popup.sw-popup .swal2-icon {
@@ -4121,4 +4125,11 @@ input.sugerido.sugerido-saindo {
 	letter-spacing: .02em;
 	text-transform: uppercase;
 	vertical-align: middle;
+}
+
+/* Código da lista escondido até tocar em "Mostrar" */
+.codigo-lista.codigo-oculto {
+	letter-spacing: .12em;
+	color: var(--texto-suave);
+	user-select: none;
 }
