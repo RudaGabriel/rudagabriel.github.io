@@ -335,7 +335,7 @@ O app é um site estático, rápido e sem instalação. As bibliotecas abaixo s�
 | [barcode-detector](https://github.com/Sec-ant/barcode-detector) · [ZXing-C++](https://github.com/zxing-cpp/zxing-cpp) | Leitura rápida de códigos de barras (WebAssembly), inclusive no iPhone. |
 | [ZXing JS](https://github.com/zxing-js/library) | Leitor reserva para aparelhos e navegadores mais antigos. |
 | [Tesseract.js](https://tesseract.projectnaptha.com/) | Lê a data de validade de uma foto, no próprio aparelho (OCR). |
-| [Open Food Facts](https://world.openfoodfacts.org/) · [UPCitemdb](https://www.upcitemdb.com/) · [Wikidata](https://www.wikidata.org/) | Bases públicas usadas para sugerir o nome do produto pelo código de barras (só quando você pede ou liga a sugestão automática). |
+| [Open Food Facts](https://world.openfoodfacts.org/) · [UPCitemdb](https://www.upcitemdb.com/) · [Wikidata](https://www.wikidata.org/) · pesquisa na web (Bing/DuckDuckGo, pelo intermediário) | Bases públicas usadas para sugerir o nome do produto pelo código de barras (só quando você pede ou liga a sugestão automática). |
 | [SweetAlert2](https://sweetalert2.github.io/) | Janelas de confirmação claras e acessíveis. |
 | [Notyf](https://carlosroso.com/notyf/) | Avisos rápidos, como "Produto adicionado" e "Desfazer". |
 | [Lucide](https://lucide.dev/) | Ícones nítidos em qualquer tela. |

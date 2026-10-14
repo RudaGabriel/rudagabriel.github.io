@@ -247,10 +247,12 @@ O intermediário tenta **primeiro as bases com chave e limite diário** (na orde
 
 | Base | O que traz |
 |---|---|
-| Catálogos públicos de lojas (plataforma VTEX): Carrefour Mercado, Cobasi, Petz, Drogaria São Paulo, Drogarias Pacheco, Pague Menos, Época Cosméticos, Zona Sul, Sonda, Super Nosso | Nome e foto pelo código de barras (só aceita o item com o **mesmo** código) e busca de fotos pelo nome (`/busca`). |
+| Catálogos públicos de lojas (plataforma VTEX): Carrefour Mercado, Cobasi, Petz, Drogaria São Paulo, Drogarias Pacheco, Pague Menos, Época Cosméticos, Zona Sul, Sonda, Super Nosso, Atacadão, Drogaria Araujo, Ultrafarma, Drogaria Venancio, Mambo, Hirota | Nome e foto pelo código de barras (só aceita o item com o **mesmo** código) e busca de fotos pelo nome (`/busca`). |
 | UPCitemdb | Base internacional (o navegador não consegue consultar direto; por isso passa pelo intermediário). |
+| Cosmos (página pública) | A página do produto no site do Cosmos — não gasta a cota da API do Cosmos. |
+| Pesquisa na web (Bing; reserva: DuckDuckGo) | Pesquisa o código de barras entre aspas, abre as 3 primeiras páginas de loja e lê os dados do produto (JSON-LD/`og:image`). Nome e foto só são aceitos quando a página traz o **mesmo** código; sem isso, usa o nome que se repete em 2+ resultados (sem foto). Também completa a busca de fotos **por nome** quando as lojas trazem pouco. |
 
-Lojas que bloquearem a consulta são simplesmente ignoradas. Para ver o que cada loja respondeu: `https://SEU-WORKER.workers.dev/lojas?gtin=7898019864316`.
+As bases abertas só são consultadas quando as anteriores não trouxeram nome **e** foto, e ficam dentro do limite gratuito da Cloudflare (50 consultas externas por pedido). Lojas que bloquearem a consulta são simplesmente ignoradas. Para ver o que cada loja respondeu: `https://SEU-WORKER.workers.dev/lojas?gtin=7898019864316`.
 
 As fotos encontradas são baixadas **uma única vez** e guardadas no aparelho (IndexedDB, como imagem própria). Quando o site da foto não permite isso, o app pega a imagem pelo intermediário (`/imagem`).
 

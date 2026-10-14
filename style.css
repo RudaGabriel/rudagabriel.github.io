@@ -2524,6 +2524,28 @@ input[type="radio"] {
 	touch-action: manipulation;
 }
 
+/* Botões nunca viram "texto selecionado" (no iPhone, um toque demorado ou duplo selecionava o
+   botão e a seleção cobria o ícone com um bloco colorido) */
+button,
+summary,
+[role="button"],
+.btn,
+.btn-anexo,
+.btn-icone,
+.acao,
+.miniatura,
+.pilula-sync {
+	-webkit-user-select: none;
+	user-select: none;
+	-webkit-touch-callout: none;
+}
+
+button svg,
+button img {
+	pointer-events: none; /* o toque vai sempre para o botão, não para o desenho dentro dele */
+	-webkit-user-drag: none;
+}
+
 .acao,
 .btn-icone,
 .btn-anexo,
