@@ -117,7 +117,7 @@ Não é preciso criar conta. Se quiser guardar na nuvem, veja [Salvar na nuvem](
 
 Cada produto da lista mostra uma **miniatura** ao lado do nome.
 
-- **Automático:** o app procura a foto sozinho — primeiro **pelo nome** que você informou (só aceita um produto com nome bem parecido) e, se não achar, **pelo código de barras** (bases brasileiras e catálogos de lojas pelo intermediário, Open Food Facts e bases parecidas, UPCitemdb, Wikidata). A foto encontrada é baixada **uma vez** e guardada no aparelho — não depende mais da internet para aparecer. Dá para desligar em **⋮ → Buscar fotos automaticamente**.
+- **Automático:** quando o **código de barras é válido** (digitado ou lido pelo leitor), o app procura a foto sozinho — ela já aparece no botão de foto do formulário e entra com o produto. Produto **só com nome** não busca sozinho: toque no botão de foto (ou na miniatura) para buscar. A foto encontrada é baixada **uma vez** e guardada no aparelho. Dá para desligar em **⋮ → Buscar fotos automaticamente**.
 - **Toque na miniatura** para ver a foto grande e:
   - **Tirar ou escolher foto** — use a câmera ou escolha uma imagem do celular/computador. A sua foto **sempre tem prioridade**;
   - **Buscar na internet** — mostra as fotos encontradas pelo nome e pelo código para você escolher;
@@ -247,6 +247,8 @@ Todos veem as alterações **em tempo real**.
 
 - **Dono** é a **conta que criou a lista** (Google ou e-mail) — e o aparelho onde ela foi criada. Em outro aparelho, entre com essa conta: o acesso completo é liberado sozinho.
 - **Código da lista:** fica **escondido** em **Salvar e compartilhar** (toque no 👁 para revelar). Quem digitar o código **só visualiza** — nunca edita. Para outras pessoas editarem, use **convidados**.
+- **Pedido de acesso:** quem entrou só com o código vê **Pedir acesso para editar**: informa o nome (e o telefone, se quiser) e o app envia junto o tipo de aparelho/navegador. Os dois veem o mesmo **código de confirmação** de 4 números para conferir entre si. O pedido aparece para o dono em **Solicitações pendentes** (com aviso e uma bolinha no botão da nuvem): **Aprovar** transforma a pessoa em convidado com "pode editar"; **Recusar** a mantém só visualizando.
+- **Código de convite:** em cada convidado, o botão de copiar gera um código (lista + convidado) que a pessoa pode digitar em **Já tem um código?** no lugar de abrir o link.
 - Em **Novo convidado**, o dono cria um convite para cada pessoa/aparelho: cada um tem um **código único** e um **link/QR Code próprio**.
 - O dono vê a **lista de convidados**: nome, nome do aparelho, código, permissão e quando cada um foi visto pela última vez; muda a qualquer momento se cada um **pode editar** ou **só visualizar**, e pode **remover** um convidado.
 - Quem garante isso é o **servidor da nuvem** (regras do Firebase), não só o app: convidado "só visualizar" não consegue gravar nada, mesmo mexendo no navegador; quem só tem o código da lista, sem convite, não lê nem grava; convidado removido perde o acesso na hora.

@@ -92,7 +92,7 @@
 						<button type="button" role="menuitem" data-acao="sincronizar"><i data-lucide="share-2"></i>Salvar e compartilhar</button>
 						<button type="button" role="menuitem" data-acao="loja"><i data-lucide="store"></i>Nome da loja</button>
 						<button type="button" role="menuitemcheckbox" aria-checked="false" data-acao="sugestao-auto" id="itemSugestaoAuto" title="Ao ler um código novo, preencher o nome sozinho"><i data-lucide="sparkles"></i><span class="menu-texto">Sugerir nome automaticamente <span class="pilula-exp">Experimental</span></span><span class="menu-chave" aria-hidden="true"></span></button>
-						<button type="button" role="menuitemcheckbox" aria-checked="true" data-acao="fotos-auto" id="itemFotosAuto" title="Buscar a foto dos produtos pelo nome ou, se não achar, pelo código de barras"><i data-lucide="image"></i><span class="menu-texto">Buscar fotos automaticamente <span class="pilula-exp">Experimental</span></span><span class="menu-chave" aria-hidden="true"></span></button>
+						<button type="button" role="menuitemcheckbox" aria-checked="true" data-acao="fotos-auto" id="itemFotosAuto" title="Buscar a foto quando o código de barras é válido (digitado ou lido pelo leitor). Só com o nome, use o botão de foto."><i data-lucide="image"></i><span class="menu-texto">Buscar fotos automaticamente <span class="pilula-exp">Experimental</span></span><span class="menu-chave" aria-hidden="true"></span></button>
 						<div class="menu-links-rodape">
 							<hr>
 							<a role="menuitem" href="privacidade.html"><i data-lucide="shield-check"></i>Política de privacidade</a>
@@ -430,6 +430,11 @@
 
 			<button type="button" class="btn btn-secundario btn-bloco" id="btnSouDono" hidden><i data-lucide="shield-check"></i>Sou o dono desta lista</button>
 
+			<div class="bloco-pedido" id="blocoPedido" hidden>
+				<button type="button" class="btn btn-primario btn-bloco" id="btnPedirAcesso"><i data-lucide="hand"></i>Pedir acesso para editar</button>
+				<p class="ajuda" id="statusPedido" aria-live="polite"></p>
+			</div>
+
 			<div class="campo" id="blocoNomeConvidado" hidden>
 				<label for="nomeConvidado">Seu nome nesta lista</label>
 				<div class="grupo-entrada">
@@ -437,6 +442,12 @@
 					<button type="button" class="btn-anexo btn-anexo-texto" id="btnSalvarNomeConvidado">Salvar</button>
 				</div>
 				<small class="ajuda">O dono da lista vê este nome e o seu código de convidado (<b id="meuCodigoConvidado" class="codigo-convidado"></b>). Em branco, aparece a marca/modelo do aparelho.</small>
+			</div>
+
+			<div class="compartilhar pedidos" id="blocoPedidos" hidden>
+				<h3><i data-lucide="bell-ring"></i>Solicitações pendentes <span class="contador-pedidos" id="contadorPedidos"></span></h3>
+				<p class="ajuda">Pessoas que entraram com o código da lista e pedem para editar. Confira o <b>código de confirmação</b> com a pessoa antes de aprovar.</p>
+				<ul id="listaPedidos" class="lista-convidados" aria-label="Solicitações pendentes"></ul>
 			</div>
 
 			<div class="compartilhar" id="blocoCompartilhar">

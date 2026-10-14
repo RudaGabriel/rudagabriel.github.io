@@ -95,6 +95,24 @@ service cloud.firestore {
           && request.resource.data.aparelho is string && request.resource.data.aparelho.size() <= 80;
         allow delete: if logado() && (request.auth.uid == uid || ehDono(codigo));
       }
+      // Pedidos de acesso: quem só visualiza pede para editar; o dono aprova (cria um convite) ou recusa
+      match /pedidos/{uid} {
+        allow get: if logado() && (request.auth.uid == uid || ehDono(codigo));
+        allow list: if ehDono(codigo);
+        allow create: if logado() && request.auth.uid == uid
+          && exists(caminhoLista(codigo))
+          && request.resource.data.keys().hasOnly(['nome', 'telefone', 'aparelho', 'navegador', 'confirmacao', 'criadoEm', 'status'])
+          && request.resource.data.status == 'pendente'
+          && request.resource.data.nome is string && request.resource.data.nome.size() >= 2 && request.resource.data.nome.size() <= 40
+          && request.resource.data.telefone is string && request.resource.data.telefone.size() <= 20
+          && request.resource.data.aparelho is string && request.resource.data.aparelho.size() <= 80
+          && request.resource.data.navegador is string && request.resource.data.navegador.size() <= 160
+          && request.resource.data.confirmacao is string && request.resource.data.confirmacao.matches('^[0-9]{4}$');
+        allow update: if ehDono(codigo)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'convite'])
+          && request.resource.data.status in ['aprovado', 'recusado'];
+        allow delete: if logado() && (request.auth.uid == uid || ehDono(codigo));
+      }
     }
 
     match /contas/{uid} {
