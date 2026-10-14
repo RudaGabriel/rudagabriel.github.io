@@ -12,7 +12,7 @@ import { criarLeitor } from "./leitor.js";
 import { buscarNomeProduto, buscarNomesParecidos, codigoConsultavel, linksPesquisaCodigo } from "./produtos.js";
 import { lerDatas, criarCameraValidade } from "./validade.js";
 import { ligarInterfaceFoco } from "./foco.js";
-import { chaveFoto, carregarFotos, guardarFoto, precisaBuscar, buscarFotoAutomatica, fotosPorCodigo, fotosPorNome, prepararFotoDaPessoa } from "./fotos.js";
+import { chaveFoto, carregarFotos, guardarFoto, precisaBuscar, buscarFotoAutomatica, fotosPorCodigo, fotosPorNome, prepararFotoDaPessoa, aoCopiarFoto, copiarFotosPendentes } from "./fotos.js";
 import { iniciarAnuncios } from "./anuncios.js";
 
 const URL_AUTO_ANIMATE = "https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.10.0/index.mjs";
@@ -345,7 +345,7 @@ const estado = {
 	busca: "",
 	ordenacao: "prioridade",
 	editandoId: null,
-	sync: null,              // { tipo: "facil"|"proprio", config, codigo|lista, modo: "edicao"|"leitura", reconciliar }
+	sync: null,              // { provedor, codigo, modo: "edicao"|"leitura", papel: "dono"|"convidado", reconciliar }
 	usuarios: {},            // conta logada em cada provedor de nuvem
 	statusSync: "local",
 	detalheSync: "",
@@ -356,6 +356,8 @@ const estado = {
 
 const emNuvem = () => !!estado.sync;
 const podeEditar = () => !emNuvem() || estado.sync.modo !== "leitura";
+/** Dono: criou a lista, entrou com a conta dona dela ou digitou o código. Convidado: entrou por um link compartilhado. */
+const ehDono = () => !emNuvem() || estado.sync.papel !== "convidado";
 const itensAtuais = () => (emNuvem() ? estado.itensNuvem : estado.itensLocais);
 
 function limiteAlertaDias() {
@@ -506,6 +508,8 @@ const el = {
 	codigoLista: $("#codigoLista"),
 	btnCopiarCodigo: $("#btnCopiarCodigo"),
 	avisoLink: $("#avisoLink"),
+	syncPermissaoTitulo: $("#syncPermissaoTitulo"),
+	syncPermissaoAjuda: $("#syncPermissaoAjuda"),
 	btnDesconectar: $("#btnDesconectar"),
 	syncPermitirEdicao: $("#syncPermitirEdicao"),
 	syncStatusBox: $(".status-sync"),
@@ -1355,6 +1359,8 @@ let fotoPendente = null; // foto escolhida no formulário antes de adicionar o p
 let filaFotos = [];
 let buscandoFotos = false;
 const tentadasNestaSessao = new Set();
+const falhasFoto = new Map(); // chave → buscas que falharam nesta sessão
+const MAX_FALHAS_FOTO = 3;
 
 function definirFotoPendente(registro) {
 	fotoPendente = registro;
@@ -1401,8 +1407,13 @@ async function processarFilaFotos() {
 				achada = await buscarFotoAutomatica(item);
 			} catch (e) {
 				// Base fora do ar ou limite de consultas: não grava "sem foto"; tenta de novo em alguns minutos
-				console.warn("[fotos] busca falhou, tentando depois:", e?.message || e);
-				setTimeout(() => { tentadasNestaSessao.delete(chave); agendarBuscaFotos(); }, 5 * 60 * 1000);
+				const falhas = (falhasFoto.get(chave) || 0) + 1;
+				falhasFoto.set(chave, falhas);
+				// Depois de algumas falhas seguidas, só tenta de novo na próxima vez que o app abrir
+				if (falhas < MAX_FALHAS_FOTO) {
+					console.warn("[fotos] busca falhou, tentando depois:", e?.message || e);
+					setTimeout(() => { tentadasNestaSessao.delete(chave); agendarBuscaFotos(); }, 5 * 60 * 1000 * falhas);
+				}
 				continue;
 			}
 			// A pessoa pode ter colocado uma foto enquanto buscava: a dela vence
@@ -2361,7 +2372,12 @@ function normalizarSync(bruto) {
 	if (!provedor || !provedores[provedor].disponivel) return null;
 	const codigo = provedor === "dropbox" ? CODIGO_CONTA : normalizarCodigoLista(bruto.codigo);
 	if (!codigo) return null;
-	return { provedor, codigo, modo: bruto.modo === "leitura" ? "leitura" : "edicao", reconciliar: !!bruto.reconciliar };
+	const modo = bruto.modo === "leitura" ? "leitura" : "edicao";
+	// Dropbox: a lista é sempre da própria conta. Configurações antigas (sem papel): só leitura era convidado.
+	const papel = provedor === "dropbox" ? "dono"
+		: bruto.papel === "convidado" || bruto.papel === "dono" ? bruto.papel
+			: modo === "leitura" ? "convidado" : "dono";
+	return { provedor, codigo, modo, papel, reconciliar: !!bruto.reconciliar };
 }
 
 const idSync = s => `${s.provedor}:${s.codigo}`;
@@ -2485,9 +2501,10 @@ async function conectarNuvem(destino) {
 	try {
 		const prov = provedores[novo.provedor];
 		await prov.conectar(novo.codigo);
-		// Com login, a conta passa a lembrar esta lista (para os outros aparelhos)
+		// Com login, a conta do dono passa a lembrar esta lista (para os outros aparelhos).
+		// Convidado nunca grava: não vira dono e não perde a lista da própria conta.
 		const u = estado.usuarios[novo.provedor];
-		if (u?.id && prov.salvarListaNaConta) prov.salvarListaNaConta(u.id, novo.codigo).catch(e => console.warn(e));
+		if (novo.papel === "dono" && u?.id && prov.salvarListaNaConta) prov.salvarListaNaConta(u.id, novo.codigo).catch(e => console.warn(e));
 		return true;
 	} catch (erro) {
 		const info = explicarErro(erro);
@@ -2556,12 +2573,50 @@ async function desconectarNuvem() {
 }
 
 /* ---------- Link de compartilhamento ---------- */
+/* O link novo leva código, provedor e permissão embaralhados e com verificação:
+   trocar "só visualizar" por "pode editar" no texto do link deixa o link inválido. */
+const CHAVE_LINK = [83, 17, 201, 64, 142, 9, 230, 117, 38, 199, 90, 13, 176, 61, 244, 128];
+const b64url = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const deB64url = texto => Uint8Array.from(atob(texto.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+const somaLink = bytes => bytes.reduce((s, b, i) => (s * 31 + b + i) % 65521, 7);
+
+function codificarLink(sigla, codigo, modo) {
+	const texto = `${sigla}.${codigo}.${modo === "leitura" ? "v" : "e"}`;
+	const dados = Array.from(texto, c => c.charCodeAt(0) & 255);
+	const soma = somaLink(dados);
+	const bytes = [...dados, soma >> 8, soma & 255].map((b, i) => b ^ CHAVE_LINK[i % CHAVE_LINK.length] ^ (i * 7 & 255));
+	return b64url(bytes);
+}
+
+function decodificarLink(token) {
+	try {
+		const bytes = Array.from(deB64url(token)).map((b, i) => b ^ CHAVE_LINK[i % CHAVE_LINK.length] ^ (i * 7 & 255));
+		if (bytes.length < 6) return null;
+		const dados = bytes.slice(0, -2);
+		if (((bytes.at(-2) << 8) | bytes.at(-1)) !== somaLink(dados)) return null;
+		const m = String.fromCharCode(...dados).match(/^([a-z]{2})\.([A-Z0-9]{16})\.([ve])$/);
+		return m ? { sigla: m[1], codigo: m[2], modo: m[3] === "v" ? "leitura" : "edicao" } : null;
+	} catch {
+		return null;
+	}
+}
+
 const gerarLink = modo =>
-	`${location.origin}${location.pathname}#lista=${estado.sync.codigo}&p=${SIGLA[estado.sync.provedor] || "fb"}${modo === "leitura" ? "&ver=1" : ""}`;
+	`${location.origin}${location.pathname}#l=${codificarLink(SIGLA[estado.sync.provedor] || "fb", estado.sync.codigo, modo)}`;
 
 function lerLink(hash) {
 	const texto = String(hash || "");
 	if (/[#&]conectar=/.test(texto)) return { invalido: true, motivo: "Este link é da versão antiga da nuvem. Peça um novo link a quem compartilhou." };
+	const token = (texto.match(/[#&]l=([A-Za-z0-9_-]+)/) || [])[1];
+	if (token) {
+		const d = decodificarLink(token);
+		if (!d) return { invalido: true };
+		const prov = DE_SIGLA[d.sigla];
+		const codigoOk = normalizarCodigoLista(d.codigo);
+		if (!prov || !codigoOk) return { invalido: true };
+		if (!provedores[prov]?.disponivel) return { invalido: true, motivo: "Esta opção de nuvem não está ativada nesta versão do site." };
+		return { provedor: prov, codigo: codigoOk, modo: d.modo, papel: "convidado" };
+	}
 	const achado = texto.match(/[#&]lista=([A-Za-z0-9-]+)/);
 	if (!achado) return null;
 	const codigo = normalizarCodigoLista(achado[1]);
@@ -2569,7 +2624,7 @@ function lerLink(hash) {
 	const sigla = (texto.match(/[#&]p=([a-z]+)/) || [])[1];
 	const provedor = DE_SIGLA[sigla] || provedorDeCodigo()?.id;
 	if (!provedor || !provedores[provedor]?.disponivel) return { invalido: true, motivo: "Esta opção de nuvem não está ativada nesta versão do site." };
-	return { provedor, codigo, modo: /[#&]ver=1/.test(texto) ? "leitura" : "edicao" };
+	return { provedor, codigo, modo: /[#&]ver=1/.test(texto) ? "leitura" : "edicao", papel: "convidado" };
 }
 
 async function processarLinkCompartilhado() {
@@ -2590,7 +2645,8 @@ async function entrarEmLista(dados) {
 		return false;
 	}
 	if (emNuvem() && idSync(estado.sync) === idSync(novo)) {
-		if (estado.sync.modo !== novo.modo) {
+		// O dono continua dono (um link não rebaixa o aparelho dele); o convidado recebe a permissão do link novo
+		if (estado.sync.papel === "convidado" && novo.papel === "convidado" && estado.sync.modo !== novo.modo) {
 			estado.sync = { ...estado.sync, modo: novo.modo };
 			armazenamento.gravar(CHAVE.sync, estado.sync);
 			render();
@@ -2603,7 +2659,9 @@ async function entrarEmLista(dados) {
 	const trocar = emNuvem() ? "<br><br><small>Este aparelho deixará de usar a lista atual.</small>" : "";
 	const ok = await confirmar({
 		titulo: "Conectar à lista na nuvem?",
-		html: `Código: <b style="font-family:var(--fonte-mono)">${formatarCodigoLista(novo.codigo)}</b><br>Permissão: <b>${novo.modo === "leitura" ? "somente visualizar" : "pode editar"}</b>${trocar}`,
+		html: novo.papel === "convidado"
+			? `Você vai entrar como <b>convidado</b>.<br>Permissão: <b>${novo.modo === "leitura" ? "somente visualizar" : "pode editar"}</b><br><small>Só o dono da lista pode mudar essa permissão.</small>${trocar}`
+			: `Código: <b style="font-family:var(--fonte-mono)">${formatarCodigoLista(novo.codigo)}</b>${trocar}`,
 		confirmar: "Conectar",
 		icone: "question"
 	});
@@ -2618,9 +2676,10 @@ let qrUltimoLink = "";
 async function atualizarCompartilhamento() {
 	if (!emNuvem()) return;
 	const temCodigo = estado.sync.provedor !== "dropbox";
-	el.caixaCodigo.hidden = !temCodigo;
-	el.blocoCompartilhar.hidden = !temCodigo;
-	if (!temCodigo) return;
+	// Convidado não vê o código nem gera links (só o dono compartilha e define permissões)
+	el.caixaCodigo.hidden = !temCodigo || !ehDono();
+	el.blocoCompartilhar.hidden = !temCodigo || !ehDono();
+	if (!temCodigo || !ehDono()) return;
 	const tipo = document.querySelector('input[name="tipoLink"]:checked')?.value || "edicao";
 	const link = gerarLink(tipo);
 	el.linkCompartilhar.value = link;
@@ -2660,7 +2719,14 @@ function atualizarDialogoSync() {
 	const comConta = !!u || estado.sync?.provedor === "dropbox";
 	el.btnDesconectar.innerHTML = `${icone("LogOut")}${comConta ? "Sair da conta" : "Desconectar"}`;
 	if (conectado) {
+		const dono = ehDono();
 		el.syncPermitirEdicao.checked = estado.sync.modo !== "leitura";
+		el.syncPermitirEdicao.disabled = !dono;
+		el.syncPermissaoTitulo.textContent = dono ? "Permitir edição neste aparelho" : estado.sync.modo === "leitura" ? "Somente visualizar" : "Pode editar";
+		el.syncPermissaoAjuda.textContent = dono
+			? "Desative para que este aparelho apenas visualize a lista."
+			: "Você entrou como convidado. Só o dono da lista pode mudar esta permissão (enviando um novo link).";
+		el.syncPermitirEdicao.closest(".interruptor")?.classList.toggle("bloqueado", !dono);
 		atualizarIndicadorSync();
 		if (el.dlgSync.open) atualizarCompartilhamento();
 	}
@@ -2682,7 +2748,7 @@ async function aposLogin(provedorId, usuario) {
 	estado.usuarios[provedorId] = usuario;
 	const prov = provedores[provedorId];
 	if (provedorId === "dropbox") {
-		if (await conectarNuvem({ provedor: "dropbox", codigo: CODIGO_CONTA, modo: "edicao", reconciliar: estado.itensLocais.length > 0 })) {
+		if (await conectarNuvem({ provedor: "dropbox", codigo: CODIGO_CONTA, modo: "edicao", papel: "dono", reconciliar: estado.itensLocais.length > 0 })) {
 			toast("sucesso", "Conectado ao Dropbox! Entre com a mesma conta nos outros aparelhos para ver a mesma lista.", 7000);
 		}
 		return;
@@ -2690,7 +2756,7 @@ async function aposLogin(provedorId, usuario) {
 	let codigo = null;
 	try { codigo = await prov.listaDaConta(usuario.id); } catch (e) { console.warn(e); }
 	if (codigo) {
-		if (await conectarNuvem({ provedor: provedorId, codigo, modo: "edicao", reconciliar: estado.itensLocais.length > 0 })) {
+		if (await conectarNuvem({ provedor: provedorId, codigo, modo: "edicao", papel: "dono", reconciliar: estado.itensLocais.length > 0 })) {
 			toast("sucesso", `Bem-vindo de volta! Lista da conta <b>${esc(usuario.email || "")}</b> carregada.`, 6000);
 		}
 	} else {
@@ -2878,7 +2944,7 @@ async function criarListaNova({ provedorId = provedorDeCodigo()?.id, silencioso 
 	if (!provedorId) return;
 	el.btnCriarLista.disabled = true;
 	try {
-		const ok = await conectarNuvem({ provedor: provedorId, codigo: gerarCodigoLista(), modo: "edicao", reconciliar: false });
+		const ok = await conectarNuvem({ provedor: provedorId, codigo: gerarCodigoLista(), modo: "edicao", papel: "dono", reconciliar: false });
 		if (!ok) return;
 		// Lista nova (vazia): envia já os produtos deste aparelho. Sem internet, vão para a fila.
 		const n = enviarLocaisParaLista(estado.itensLocais);
@@ -2890,19 +2956,35 @@ async function criarListaNova({ provedorId = provedorDeCodigo()?.id, silencioso 
 
 /** Sem login: entra numa lista digitando o código. */
 async function entrarPorCodigo() {
-	const codigo = normalizarCodigoLista(el.syncCodigo.value);
+	const valor = el.syncCodigo.value.trim();
+	// Link colado: vale a permissão do link (entra como convidado)
+	const doLink = valor.includes("#") ? lerLink(valor.slice(valor.indexOf("#"))) : null;
+	if (doLink && !doLink.invalido) {
+		el.syncCodigo.removeAttribute("aria-invalid");
+		el.btnEntrarCodigo.disabled = true;
+		try {
+			if (await entrarEmLista(doLink)) el.syncCodigo.value = "";
+		} finally {
+			el.btnEntrarCodigo.disabled = false;
+		}
+		return;
+	}
+	if (doLink?.invalido) {
+		el.syncCodigo.setAttribute("aria-invalid", "true");
+		return toast("erro", esc(doLink.motivo || "Este link está incompleto ou foi alterado. Peça um novo link."));
+	}
+	const codigo = normalizarCodigoLista(valor);
 	if (!codigo) {
 		el.syncCodigo.setAttribute("aria-invalid", "true");
 		el.syncCodigo.focus();
 		return toast("erro", "Código inválido. Ele tem 16 letras/números, como <b>ABCD-EFGH-JKLM-NPQR</b>.");
 	}
-	// Um link colado indica o provedor; um código digitado usa o provedor padrão
-	const doLink = lerLink(el.syncCodigo.value.includes("#") ? el.syncCodigo.value.slice(el.syncCodigo.value.indexOf("#")) : "");
-	const provedor = doLink?.provedor || provedorDeCodigo()?.id;
+	// Quem tem o código da lista é o dono (o código só aparece no aparelho do dono)
+	const provedor = provedorDeCodigo()?.id;
 	el.syncCodigo.removeAttribute("aria-invalid");
 	el.btnEntrarCodigo.disabled = true;
 	try {
-		if (await entrarEmLista({ provedor, codigo, modo: "edicao" })) el.syncCodigo.value = "";
+		if (await entrarEmLista({ provedor, codigo, modo: "edicao", papel: "dono" })) el.syncCodigo.value = "";
 	} finally {
 		el.btnEntrarCodigo.disabled = false;
 	}
@@ -2927,6 +3009,8 @@ function processarComando(valor) {
 	estado.busca = "";
 	if (!emNuvem()) {
 		toast("aviso", "Conecte uma lista compartilhada primeiro (botão de sincronização).");
+	} else if (!ehDono()) {
+		toast("aviso", "Só o <b>dono da lista</b> pode mudar a permissão deste aparelho.");
 	} else {
 		estado.sync = { ...estado.sync, modo: autorizar ? "edicao" : "leitura" };
 		armazenamento.gravar(CHAVE.sync, estado.sync);
@@ -3219,7 +3303,7 @@ function registrarEventos() {
 		el.syncCodigo.removeAttribute("aria-invalid");
 		// Formata enquanto digita: ABCD-EFGH-JKLM-NPQR (links colados ficam intactos)
 		const v = el.syncCodigo.value;
-		if (/lista=/.test(v)) return;
+		if (/[#&](lista|l)=|:\/\//.test(v)) return;
 		const limpo = v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16);
 		const formatado = formatarCodigoLista(limpo);
 		if (formatado !== v) el.syncCodigo.value = formatado;
@@ -3230,6 +3314,10 @@ function registrarEventos() {
 	el.btnDesconectar.addEventListener("click", desconectarNuvem);
 	el.syncPermitirEdicao.addEventListener("change", () => {
 		if (!emNuvem()) return;
+		if (!ehDono()) {
+			el.syncPermitirEdicao.checked = estado.sync.modo !== "leitura";
+			return toast("aviso", "Só o <b>dono da lista</b> pode mudar a permissão deste aparelho.");
+		}
 		estado.sync = { ...estado.sync, modo: el.syncPermitirEdicao.checked ? "edicao" : "leitura" };
 		armazenamento.gravar(CHAVE.sync, estado.sync);
 		if (!podeEditar() && estado.editandoId) sairDaEdicao(true);
@@ -3297,7 +3385,10 @@ function iniciar() {
 	aplicarSugestaoAuto();
 	estado.fotosAuto = armazenamento.lerTexto(CHAVE.fotosAuto) !== "0";
 	$("#itemFotosAuto")?.setAttribute("aria-checked", String(estado.fotosAuto));
-	carregarFotos().then(mapa => { estado.fotos = mapa; render(); }).catch(e => console.warn("[fotos]", e));
+	// Foto da internet virou cópia local: troca na tela sem baixar de novo
+	const renderFotos = debounce(() => render(), 400);
+	aoCopiarFoto((chave, registro) => { estado.fotos.set(chave, registro); renderFotos(); });
+	carregarFotos().then(mapa => { estado.fotos = mapa; render(); copiarFotosPendentes(mapa); }).catch(e => console.warn("[fotos]", e));
 	const alerta = armazenamento.ler(CHAVE.alerta, null);
 	if (alerta && Number.isFinite(Number(alerta.valor))) {
 		estado.alerta = { valor: Math.max(0, Math.min(3650, Math.floor(Number(alerta.valor)))), unidade: alerta.unidade === "meses" ? "meses" : "dias" };

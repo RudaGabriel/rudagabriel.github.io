@@ -6,8 +6,11 @@
      2. Open Products Facts (outros produtos)
      3. Open Beauty Facts (higiene e cosméticos)
      4. Open Pet Food Facts (produtos para animais)
-     5. UPCitemdb (base internacional)
-     6. Wikidata (base livre da Wikipédia)
+     5. Wikidata (base livre da Wikipédia)
+   Com o intermediário configurado (config-busca.js), antes delas:
+   bases brasileiras com chave (SI5, Kodebar, Cosmos) e, em seguida,
+   as abertas que o navegador não acessa direto (catálogos públicos
+   de lojas e UPCitemdb).
    Se nenhuma conhecer o código, o app oferece pesquisar na web
    (Google e Cosmos/Bluesoft) — ver linksPesquisaCodigo().
    Só o número do código de barras é enviado. Os resultados
@@ -29,8 +32,10 @@ const CAMPOS_OFF = [
 
 /* ---------- Intermediário (config-busca.js) ----------
    Um Worker na Cloudflare que consulta bases brasileiras (SI5 Global,
-   Kodebar, OSCBR, Cosmos) guardando as chaves em segredo.
+   Kodebar, Cosmos) guardando as chaves em segredo e, depois delas, as
+   abertas (lojas com catálogo público, UPCitemdb).
    - /produto?gtin=…  → nome, marca e foto (várias bases)
+   - /busca?q=texto    → produtos com foto pelo nome (lojas + Open Food Facts)
    - ?q=texto          → busca por nome no Cosmos
    Cada uso tem sua pausa: quando responde "sem cota" (429), fica 1 hora
    sem ser consultado (uma pausa não bloqueia a outra). */
@@ -61,7 +66,6 @@ const FONTES_BASE = [
 	{ nome: "Open Products Facts", url: c => `https://world.openproductsfacts.org/api/v2/product/${c}.json?fields=${CAMPOS_OFF}&lc=pt`, ler: lerOff },
 	{ nome: "Open Beauty Facts", url: c => `https://world.openbeautyfacts.org/api/v2/product/${c}.json?fields=${CAMPOS_OFF}&lc=pt`, ler: lerOff },
 	{ nome: "Open Pet Food Facts", url: c => `https://world.openpetfoodfacts.org/api/v2/product/${c}.json?fields=${CAMPOS_OFF}&lc=pt`, ler: lerOff },
-	{ nome: "UPCitemdb", url: c => `https://api.upcitemdb.com/prod/trial/lookup?upc=${c}`, ler: lerUpc },
 	{ nome: "Wikidata", url: urlWikidata, ler: lerWikidata, aceitar: "application/sparql-results+json" }
 ];
 // Com o intermediário configurado, as bases brasileiras são consultadas primeiro
@@ -180,11 +184,6 @@ function lerOff(dados) {
 	return montarNome({ base, marca: p.brands, quantidade: p.quantity });
 }
 
-function lerUpc(dados) {
-	const item = Array.isArray(dados?.items) ? dados.items[0] : null;
-	if (!item?.title) return null;
-	return montarNome({ base: item.title, marca: item.brand, quantidade: item.size });
-}
 
 async function consultar(fonte, codigo, sinalExterno) {
 	const controle = new AbortController();

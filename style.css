@@ -1427,6 +1427,16 @@ input[type="number"]::-webkit-inner-spin-button {
 	font-size: .78rem;
 }
 
+/* Convidado: a permissão é definida pelo dono da lista */
+.interruptor.bloqueado {
+	cursor: not-allowed;
+	background: var(--superficie-2, transparent);
+}
+
+.interruptor.bloqueado .interruptor-trilho {
+	opacity: .5;
+}
+
 /* Compartilhar */
 .compartilhar {
 	display: flex;

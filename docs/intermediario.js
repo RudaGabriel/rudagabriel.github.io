@@ -1,27 +1,38 @@
 /* =========================================================
    Intermediário de produtos — Cloudflare Workers (grátis)
    ---------------------------------------------------------
-   Consulta bases brasileiras de códigos de barras guardando as
-   chaves em SEGREDO (elas nunca aparecem no site) e só atende o
-   site do app. Cada base é opcional: só é usada se a chave dela
-   estiver configurada em Settings → Variables and Secrets.
+   Consulta bases de códigos de barras guardando as chaves em
+   SEGREDO (elas nunca aparecem no site) e só atende o site do app.
+
+   Ordem: primeiro as bases com chave e limite diário (cada uma só
+   é usada se a chave estiver em Settings → Variables and Secrets),
+   depois as abertas, sem chave:
 
      SI5_TOKEN       (Secret) SI5 Global — 100 consultas/dia grátis
      KODEBAR_KEY     (Secret) Kodebar — 50 consultas/dia grátis
-     OSCBR_USUARIO   (Secret) OSCBR API GTIN — usuário
-     OSCBR_SENHA     (Secret) OSCBR API GTIN — senha (20/min grátis)
+     OSCBR_USUARIO   (Secret) OSCBR API GTIN — só pessoa jurídica (CNPJ);
+     OSCBR_SENHA     (Secret)   sem as chaves fica desligada
      COSMOS_TOKEN    (Secret) Cosmos (Bluesoft) — exige franquia
      ORIGEM          (Text)   ex.: https://rudagabriel.github.io
+
+     Abertas: catálogos públicos de lojas (plataforma VTEX: Cobasi,
+     Carrefour, drogarias…) e UPCitemdb (base internacional).
 
    Endereços:
      GET /produto?gtin=7891000100103
          → { gtin, nome, marca, foto, fonte, fonteFoto, fontes } (formato único)
+     GET /busca?q=arroz tio joao
+         → { produtos: [{ nome, marca, foto, fonte }] } (lojas + Open Food Facts)
+     GET /imagem?url=https://...
+         → a imagem com permissão para o app guardar uma cópia no aparelho
      GET /foto?gtin=...&fonte=oscbr
          → a foto (para bases que exigem a chave até na imagem)
      GET /?gtin=...  e  GET /?q=texto
          → Cosmos direto (compatibilidade)
      GET /status
          → quais bases estão configuradas (sem mostrar chaves)
+     GET /lojas?gtin=...
+         → diagnóstico: o que cada loja respondeu
 
    Respostas ficam no cache da Cloudflare (7 dias; "não achei",
    1 dia). Base que estourar a cota diária fica pausada até a
@@ -59,8 +70,11 @@ async function lerCache(chave) {
 async function gravarCache(ctx, chave, resposta, segundos) {
 	const corpo = await resposta.arrayBuffer();
 	const cabecalhos = Object.fromEntries(resposta.headers);
-	if (memoria.size > 500) memoria.clear();
-	memoria.set(chave, { corpo, status: resposta.status, cabecalhos, ate: Date.now() + segundos * 1000 });
+	// Memória do Worker é pequena (128 MB): só guarda respostas leves (JSON); imagens ficam só no cache da Cloudflare
+	if (corpo.byteLength <= 64 * 1024) {
+		if (memoria.size > 500) memoria.clear();
+		memoria.set(chave, { corpo, status: resposta.status, cabecalhos, ate: Date.now() + segundos * 1000 });
+	}
 	const r = new Response(corpo, { status: resposta.status, headers: { ...cabecalhos, "Cache-Control": `public, max-age=${segundos}` } });
 	try { ctx.waitUntil(caches.default.put(new Request(`https://cache.intermediario/${chave}`), r)); } catch { /* sem cache */ }
 }
@@ -72,9 +86,9 @@ function pausar(ctx, fonte) {
 }
 
 /** Busca JSON com tempo limite; devolve { status, dados }. */
-async function buscar(url, cabecalhos) {
+async function buscar(url, cabecalhos, limiteMs = 8000) {
 	const controle = new AbortController();
-	const tempo = setTimeout(() => controle.abort(), 8000);
+	const tempo = setTimeout(() => controle.abort(), limiteMs);
 	try {
 		const r = await fetch(url, { headers: { Accept: "application/json", ...cabecalhos }, signal: controle.signal });
 		const texto = await r.text().catch(() => "");
@@ -131,8 +145,83 @@ const BASES = [
 			const p = r.dados;
 			return { status: r.status, nome: limpar(p?.description), marca: limpar(p?.brand?.name), foto: urlHttps(p?.thumbnail), texto: r.texto };
 		}
+	},
+	// ----- Abertas (sem chave): só depois das bases acima -----
+	{
+		id: "lojas", nome: "Lojas (catálogo público)",
+		ativa: () => true,
+		async consultar(gtin) {
+			const respostas = await consultarLojas(`?fq=alternateIds_Ean:${gtin}`, gtin);
+			// Prefere a ordem da lista; nome de uma loja, foto da primeira que tiver
+			const achados = respostas.flatMap(r => r.produtos);
+			const comNome = achados.find(a => a.nome);
+			if (!comNome) return { status: respostas.some(r => r.respondeu) ? 404 : 0, texto: "nenhuma loja tem este código" };
+			const comFoto = achados.find(a => a.foto);
+			return { status: 200, nome: comNome.nome, marca: comNome.marca, foto: comFoto?.foto || "", nomeFonte: comNome.fonte, nomeFonteFoto: comFoto?.fonte };
+		}
+	},
+	{
+		id: "upcitemdb", nome: "UPCitemdb",
+		ativa: () => true,
+		async consultar(gtin) {
+			const r = await buscar(`https://api.upcitemdb.com/prod/trial/lookup?upc=${gtin}`, CABECALHO_LOJA);
+			const item = Array.isArray(r.dados?.items) ? r.dados.items[0] : null;
+			if (r.status === 200 && !item) return { status: 404 };
+			const foto = (Array.isArray(item?.images) ? item.images : []).map(urlHttps).find(Boolean) || "";
+			return { status: r.status, nome: limpar(item?.title), marca: limpar(item?.brand), foto, texto: r.texto };
+		}
 	}
 ];
+
+/* ---------- Lojas com catálogo público (VTEX) ----------
+   Lojas na plataforma VTEX publicam o catálogo em
+   /api/catalog_system/pub/products/search (sem chave). A resposta só é
+   aceita se o EAN do item for exatamente o pedido: uma loja que ignorar
+   o filtro não consegue empurrar um produto errado. */
+const LOJAS_VTEX = [
+	{ nome: "Carrefour Mercado", host: "mercado.carrefour.com.br" },
+	{ nome: "Cobasi", host: "www.cobasi.com.br" },
+	{ nome: "Petz", host: "www.petz.com.br" },
+	{ nome: "Drogaria São Paulo", host: "www.drogariasaopaulo.com.br" },
+	{ nome: "Drogarias Pacheco", host: "www.drogariaspacheco.com.br" },
+	{ nome: "Pague Menos", host: "www.paguemenos.com.br" },
+	{ nome: "Época Cosméticos", host: "www.epocacosmeticos.com.br" },
+	{ nome: "Zona Sul", host: "www.zonasul.com.br" },
+	{ nome: "Sonda", host: "www.sondadelivery.com.br" },
+	{ nome: "Super Nosso", host: "www.supernosso.com" }
+];
+const CABECALHO_LOJA = { "User-Agent": "Mozilla/5.0 (compatible; ControleDeVencimento/1.0; +https://rudagabriel.github.io)" };
+const mesmoGtin = (a, b) => {
+	const x = String(a || "").replace(/\D/g, "").replace(/^0+/, "");
+	return !!x && x === String(b || "").replace(/\D/g, "").replace(/^0+/, "");
+};
+/** Imagem da VTEX em tamanho menor (480 px): /arquivos/ids/123/ → /arquivos/ids/123-480-480/ */
+const imagemVtex = u => urlHttps(String(u || "").replace(/^http:\/\//i, "https://").replace(/(\/arquivos\/ids\/\d+)\//, "$1-480-480/"));
+
+/** Lê a lista de produtos da VTEX; com gtin, só aceita o item com aquele EAN. */
+function lerVtex(lista, gtin, loja) {
+	const saida = [];
+	for (const p of Array.isArray(lista) ? lista : []) {
+		for (const item of Array.isArray(p?.items) ? p.items : []) {
+			if (gtin && !mesmoGtin(item?.ean, gtin)) continue;
+			const nome = limpar(p?.productName || item?.nameComplete || item?.name);
+			if (!nome) continue;
+			const imagem = Array.isArray(item?.images) ? item.images[0]?.imageUrl : "";
+			saida.push({ nome, marca: limpar(p?.brand), foto: imagemVtex(imagem), fonte: loja.nome });
+			break; // um item por produto basta
+		}
+	}
+	return saida;
+}
+
+async function consultarLojas(caminho, gtin, limiteMs = 6000) {
+	const respostas = await Promise.all(LOJAS_VTEX.map(async loja => {
+		const r = await buscar(`https://${loja.host}/api/catalog_system/pub/products/search${caminho}`, CABECALHO_LOJA, limiteMs);
+		const respondeu = (r.status === 200 || r.status === 206) && Array.isArray(r.dados);
+		return { loja: loja.nome, status: r.status, respondeu, produtos: respondeu ? lerVtex(r.dados, gtin, loja) : [] };
+	}));
+	return respostas;
+}
 
 async function tokenOscbr(env, ctx) {
 	const guardado = await lerCache("token/oscbr");
@@ -165,9 +254,9 @@ async function rotaProduto(gtin, env, ctx, origemPedido, json) {
 		if (r.status === 429) { await pausar(ctx, base.id); continue; }
 		if (r.status === 200 || r.status === 404 || r.status === 204) algumaRespondeu = true;
 		if (r.status !== 200) continue;
-		if (!resultado.nome && r.nome) { resultado.nome = r.nome; resultado.marca = r.marca; resultado.fonte = base.nome; }
-		if (!resultado.foto && r.foto) { resultado.foto = r.foto; resultado.fonteFoto = base.nome; }
-		if (r.nome || r.foto) resultado.fontes.push(base.nome);
+		if (!resultado.nome && r.nome) { resultado.nome = r.nome; resultado.marca = r.marca; resultado.fonte = r.nomeFonte || base.nome; }
+		if (!resultado.foto && r.foto) { resultado.foto = r.foto; resultado.fonteFoto = r.nomeFonteFoto || r.nomeFonte || base.nome; }
+		if (r.nome || r.foto) resultado.fontes.push(r.nomeFonte || base.nome);
 		if (resultado.nome && resultado.foto) break; // já tem tudo: não gasta cota das outras
 	}
 	if (resultado.nome || resultado.foto) {
@@ -200,6 +289,59 @@ async function rotaFoto(gtin, fonte, env, ctx, cors) {
 		foto = new Response(bytes, { headers: { "Content-Type": tipo } });
 	}
 	const saida = new Response(foto.body, foto);
+	for (const [k, v] of Object.entries(cors)) saida.headers.set(k, v);
+	saida.headers.set("Cache-Control", "public, max-age=2592000");
+	return saida;
+}
+
+/** Busca por nome: lojas (VTEX) + Open Food Facts mundial. */
+async function rotaBusca(q, ctx, json) {
+	const chave = `busca/${q.toLowerCase()}`;
+	const emCache = await lerCache(chave);
+	if (emCache) return json(200, await emCache.json());
+	const termos = encodeURIComponent(q);
+	const [lojas, off] = await Promise.all([
+		consultarLojas(`?ft=${termos}&_from=0&_to=9`, "", 7000),
+		buscar(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${termos}&search_simple=1&action=process&json=1&page_size=12&fields=product_name,product_name_pt,brands,image_front_url,image_url&lc=pt`, CABECALHO_LOJA, 9000)
+	]);
+	const produtos = lojas.flatMap(r => r.produtos.slice(0, 5));
+	for (const p of Array.isArray(off.dados?.products) ? off.dados.products : []) {
+		const nome = limpar(p?.product_name_pt || p?.product_name);
+		const foto = urlHttps(p?.image_front_url) || urlHttps(p?.image_url);
+		if (nome && foto) produtos.push({ nome, marca: limpar(String(p?.brands || "").split(",")[0]), foto, fonte: "Open Food Facts" });
+	}
+	const algumaRespondeu = lojas.some(r => r.respondeu) || off.status === 200;
+	if (!algumaRespondeu) return json(502, { erro: "busca indisponível" });
+	const corpo = { produtos: produtos.slice(0, 40) };
+	await gravarCache(ctx, chave, new Response(JSON.stringify(corpo), { headers: { "Content-Type": "application/json" } }), produtos.length ? CACHE_ACHADO : CACHE_NAO_ACHADO);
+	return json(200, corpo);
+}
+
+/** Repassa uma imagem com permissão (CORS) para o app guardar a cópia no aparelho. */
+const MAX_IMAGEM = 5 * 1024 * 1024;
+async function rotaImagem(alvo, ctx, cors) {
+	if (!urlHttps(alvo) || alvo.length > 1500) return new Response("url", { status: 400, headers: cors });
+	const chave = `imagem/${alvo}`;
+	let resposta = await lerCache(chave);
+	if (!resposta) {
+		const controle = new AbortController();
+		const tempo = setTimeout(() => controle.abort(), 10000);
+		try {
+			const r = await fetch(alvo, { headers: { ...CABECALHO_LOJA, Accept: "image/*" }, signal: controle.signal, redirect: "follow" });
+			const tipo = (r.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase();
+			if (!r.ok || !/^image\/(jpeg|png|webp|gif|avif)$/.test(tipo)) return new Response("não é imagem", { status: 404, headers: cors });
+			if (Number(r.headers.get("Content-Length") || 0) > MAX_IMAGEM) return new Response("grande demais", { status: 413, headers: cors });
+			const bytes = await r.arrayBuffer();
+			if (bytes.byteLength > MAX_IMAGEM) return new Response("grande demais", { status: 413, headers: cors });
+			await gravarCache(ctx, chave, new Response(bytes, { headers: { "Content-Type": tipo } }), 30 * UM_DIA);
+			resposta = new Response(bytes, { headers: { "Content-Type": tipo } });
+		} catch {
+			return new Response("falhou", { status: 502, headers: cors });
+		} finally {
+			clearTimeout(tempo);
+		}
+	}
+	const saida = new Response(resposta.body, resposta);
 	for (const [k, v] of Object.entries(cors)) saida.headers.set(k, v);
 	saida.headers.set("Cache-Control", "public, max-age=2592000");
 	return saida;
@@ -256,6 +398,17 @@ export default {
 			if (url.pathname === "/produto") {
 				if (!/^\d{8,14}$/.test(gtin)) return json(400, { erro: "gtin inválido" });
 				return await rotaProduto(gtin, env, ctx, origemPedido, json);
+			}
+			if (url.pathname === "/busca") {
+				const q = limpar(url.searchParams.get("q")).slice(0, 80);
+				if (q.length < 3) return json(400, { erro: "texto curto" });
+				return await rotaBusca(q, ctx, json);
+			}
+			if (url.pathname === "/imagem") return await rotaImagem(url.searchParams.get("url") || "", ctx, cors);
+			if (url.pathname === "/lojas") {
+				if (!/^\d{8,14}$/.test(gtin)) return json(400, { erro: "gtin inválido" });
+				const respostas = await consultarLojas(`?fq=alternateIds_Ean:${gtin}`, gtin);
+				return json(200, { gtin, lojas: respostas.map(r => ({ loja: r.loja, status: r.status, respondeu: r.respondeu, achou: r.produtos[0] || null })) });
 			}
 			if (url.pathname === "/foto") {
 				if (!/^\d{8,14}$/.test(gtin)) return json(400, { erro: "gtin inválido" });

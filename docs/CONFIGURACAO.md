@@ -133,24 +133,37 @@ O Firebase não permite trocar o texto do e-mail de login por link, mas permite 
 3. **Authentication → Modelos → Idioma do modelo:** *Português (Brasil)*. O app também pede os e-mails em português automaticamente.
 4. **Remetente `noreply@seudominio`** (opcional): em *Modelos → Personalizar domínio*, use um domínio próprio (ex.: `controledevencimento.com.br`) e siga a verificação de DNS. Sem domínio próprio, o remetente continua `noreply@<id-do-projeto>.firebaseapp.com`.
 
-### Supabase (e-mail alternativo) — e-mail totalmente personalizado
-1. **Authentication → Emails → Magic Link**:
-   - **Assunto:** `Seu acesso ao Controle de Vencimento`;
-   - **Corpo:** cole o conteúdo de [`docs/email-login.html`](email-login.html) (botão "Entrar no app" + código de 6 dígitos, em português, com o ícone do app).
+### Supabase (e-mail alternativo)
+1. **Authentication → Emails → Magic Link → Assunto:** `Seu acesso ao Controle de Vencimento` (o corpo padrão do Supabase funciona; se quiser o código de 6 dígitos no e-mail, inclua `{{ .Token }}` no corpo).
 2. **Remetente profissional** (recomendado): em *Authentication → SMTP Settings*, configure um SMTP (ex.: Brevo, Resend ou Amazon SES) com remetente `Controle de Vencimento <noreply@seudominio>` — também aumenta o limite de envios.
 
 ## Intermediário de produtos — nome e foto pelo código de barras (opcional)
 
 As bases brasileiras de códigos de barras exigem uma **chave** que não pode ficar no site (qualquer pessoa veria). Por isso o app consulta essas bases por um **intermediário gratuito na Cloudflare** ([`docs/intermediario.js`](intermediario.js)), que guarda as chaves em segredo, só atende o site do app e guarda as respostas por 7 dias (economiza as cotas).
 
-Cada base é **opcional** — ligue as que quiser. O intermediário tenta na ordem abaixo, junta nome e foto e para quando já tem os dois. Base que estourar a cota do dia fica pausada até a meia-noite.
+O intermediário tenta **primeiro as bases com chave e limite diário** (na ordem abaixo) e, **depois, as abertas** (sem chave). Junta nome e foto e para quando já tem os dois. Base que estourar a cota do dia fica pausada até a meia-noite.
+
+**Com chave** (cada uma é opcional — ligue as que quiser):
 
 | Base | Grátis | Onde criar a chave | Variável (tipo **Secret**) |
 |---|---|---|---|
 | SI5 Global | 100 consultas/dia | <https://global.si5.com.br/login> (entra com Google) → **Minha conta** → gerar token | `SI5_TOKEN` |
 | Kodebar | 50 consultas/dia | <https://kodebar.korvensistemas.com.br> → cadastro → **Painel do Usuário** → chave | `KODEBAR_KEY` |
-| OSCBR – API GTIN | 20 consultas/minuto | <https://gtin.rscsistemas.com.br/cadastro> → usuário e senha | `OSCBR_USUARIO` e `OSCBR_SENHA` |
 | Cosmos (Bluesoft) | depende do plano (conta gratuita veio com franquia 0) | <https://cosmos.bluesoft.com.br/api> → token | `COSMOS_TOKEN` |
+| OSCBR – API GTIN | 20 consultas/minuto — **só para empresa (pede CNPJ)** | <https://gtin.rscsistemas.com.br/cadastro> | `OSCBR_USUARIO` e `OSCBR_SENHA` |
+
+> Pessoa física: use SI5 e Kodebar e deixe a OSCBR de fora — sem as chaves ela fica desligada (`/status` mostra `sem chave`), e isso é normal.
+
+**Abertas** (sem chave, já ligadas):
+
+| Base | O que traz |
+|---|---|
+| Catálogos públicos de lojas (plataforma VTEX): Carrefour Mercado, Cobasi, Petz, Drogaria São Paulo, Drogarias Pacheco, Pague Menos, Época Cosméticos, Zona Sul, Sonda, Super Nosso | Nome e foto pelo código de barras (só aceita o item com o **mesmo** código) e busca de fotos pelo nome (`/busca`). |
+| UPCitemdb | Base internacional (o navegador não consegue consultar direto; por isso passa pelo intermediário). |
+
+Lojas que bloquearem a consulta são simplesmente ignoradas. Para ver o que cada loja respondeu: `https://SEU-WORKER.workers.dev/lojas?gtin=7898019864316`.
+
+As fotos encontradas são baixadas **uma única vez** e guardadas no aparelho (IndexedDB, como imagem própria). Quando o site da foto não permite isso, o app pega a imagem pelo intermediário (`/imagem`).
 
 ### Publicar o intermediário
 1. Crie uma conta grátis em <https://dash.cloudflare.com> → **Workers & Pages** → **Create** → **Create Worker** → nome (ex.: `cosmos`) → **Deploy**.
@@ -163,6 +176,10 @@ Cada base é **opcional** — ligue as que quiser. O intermediário tenta na ord
 ### Testar (pela barra de endereço do navegador)
 - `https://SEU-WORKER.workers.dev/status` → mostra cada base como `ativa`, `sem chave` ou `pausada até meia-noite` (nunca mostra as chaves).
 - `https://SEU-WORKER.workers.dev/produto?gtin=7891000100103` → nome, marca, foto e qual base achou.
+- `https://SEU-WORKER.workers.dev/busca?q=arroz tio joao` → produtos com foto encontrados pelo nome.
+- `https://SEU-WORKER.workers.dev/lojas?gtin=7898019864316` → o que cada loja respondeu (diagnóstico).
+
+> Depois de atualizar o código do Worker, as respostas antigas de "não encontrado" continuam guardadas por até 1 dia.
 
 O painel de teste da própria Cloudflare (aba **HTTP**) responde `{"erro":"origem"}` — é a proteção (só o app e a barra de endereço são aceitos). Teste pela barra de endereço.
 
@@ -211,7 +228,7 @@ O site já está preparado para o AdSense (editor `pub-2042570332495044`):
 ├── config-anuncios.js    # ID de editor e bloco de anúncio
 ├── privacidade.html      # Política de Privacidade
 ├── ads.txt               # Autorização de vendedores do AdSense
-├── docs/                 # Capturas, modelo de e-mail e intermediario.js (Cloudflare)
+├── docs/                 # Capturas de tela, CONFIGURACAO.md e intermediario.js (Cloudflare)
 ├── icones/               # Ícone do app (SVG original + PNGs) 
 └── manifest.webmanifest  # Instalação na tela inicial (PWA)
 ```
