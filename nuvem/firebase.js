@@ -39,8 +39,8 @@ service cloud.firestore {
     }
 
     match /listas/{codigo} {
-      // Lista protegida: só o dono e os convidados com convite válido leem
-      allow get: if codigoOk(codigo) && (resource == null || !protegida(resource.data) || ehDono(codigo) || ehMembro(codigo));
+      // Ler: quem tem o código (com identidade no app) só VISUALIZA; gravar exige ser dono ou convidado com "pode editar"
+      allow get: if codigoOk(codigo) && (resource == null || !protegida(resource.data) || logado());
       allow list, delete: if false;
       allow create: if codigoOk(codigo) && camposLista();
       allow update: if codigoOk(codigo) && camposLista() && (
@@ -280,7 +280,11 @@ export function criarFirebase(configBruta, { aoReceber, aoStatus, aoErro, aoUsua
 		let protecao = "sem-protecao";
 		if (acesso.segredo) protecao = await garantirDono(codigo, acesso.segredo);
 		else if (acesso.convite) protecao = await garantirMembro(codigo, acesso.convite, acesso);
-		else await garantirIdentidade();
+		else if (await garantirIdentidade()) {
+			// Só visualizar (entrou com o código da lista): descobre se a lista já é protegida
+			try { protecao = (await fb.getDocFromServer(fb.doc(db, "listas", codigo))).data()?.donoHash ? "protegida" : "sem-protecao"; }
+			catch { /* offline: tenta de novo na próxima conexão */ }
+		}
 		if (minha !== geracao) return;
 		ref = fb.doc(db, "listas", codigo);
 

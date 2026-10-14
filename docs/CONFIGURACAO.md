@@ -17,7 +17,7 @@ Habilita **Entrar com Google**, **Entrar com e-mail (link)** e **listas por cód
 1. Em https://console.firebase.google.com abra (ou crie) o projeto.
 2. **Firestore Database** → *Criar banco de dados* (local: `southamerica-east1`, modo produção) → aba **Regras** → apague tudo, cole as regras abaixo e clique em **Publicar**.
 
-   Estas regras fazem o **servidor** garantir as permissões das listas compartilhadas: só o **dono** (quem tem a chave do dono) e os **convidados** com convite válido leem a lista; convidado "só visualizar" não consegue gravar nada, mesmo mexendo no navegador; convidado removido perde o acesso na hora. Listas antigas continuam funcionando e passam a ser protegidas assim que o dono abre o app.
+   Estas regras fazem o **servidor** garantir as permissões das listas compartilhadas: só o **dono** (a conta que criou a lista) e os **convidados com "pode editar"** gravam; quem entra só com o código da lista apenas **visualiza**; convidado "só visualizar" não consegue gravar nada, mesmo mexendo no navegador; convidado removido perde o acesso na hora. Listas antigas continuam funcionando e passam a ser protegidas quando o dono abre o app com a conta dona (ou entra com uma conta, se a lista ainda não tinha dono).
 
 ```
 rules_version = '2';
@@ -43,8 +43,8 @@ service cloud.firestore {
     }
 
     match /listas/{codigo} {
-      // Lista protegida: só o dono e os convidados com convite válido leem
-      allow get: if codigoOk(codigo) && (resource == null || !protegida(resource.data) || ehDono(codigo) || ehMembro(codigo));
+      // Ler: quem tem o código (com identidade no app) só VISUALIZA; gravar exige ser dono ou convidado com "pode editar"
+      allow get: if codigoOk(codigo) && (resource == null || !protegida(resource.data) || logado());
       allow list, delete: if false;
       allow create: if codigoOk(codigo) && camposLista();
       allow update: if codigoOk(codigo) && camposLista() && (
