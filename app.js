@@ -2855,6 +2855,7 @@ function aplicarPermissaoConvidado(info = {}) {
 		return;
 	}
 	if (!info.existe) return;
+	exigirNomeConvidado();
 	const modo = info.editar ? "edicao" : "leitura";
 	const primeiraVez = !s.confirmado;
 	if (modo === s.modo && !primeiraVez) return;
@@ -2873,6 +2874,50 @@ function aplicarPermissaoConvidado(info = {}) {
 		toast(modo === "edicao" ? "sucesso" : "aviso", modo === "edicao"
 			? "✏️ O dono da lista liberou: agora você <b>pode editar</b>."
 			: "👁️ O dono da lista mudou sua permissão: agora você <b>só pode visualizar</b>.", 8000);
+	}
+}
+
+/** Convidado sem nome: pede o nome antes de continuar (obrigatório — o dono precisa saber quem é). */
+let pedindoNome = false;
+async function exigirNomeConvidado() {
+	const s = estado.sync;
+	if (pedindoNome || !s || s.papel !== "convidado" || !s.convidado) return;
+	if (limparNomeConvidado(armazenamento.lerTexto(CHAVE.nomeAparelho)).length >= 2) return;
+	if (!window.Swal) return;
+	pedindoNome = true;
+	try {
+		// Na fila dos alertas: não atropela outro alerta aberto (nem é atropelado por ele)
+		const abrir = () => window.Swal.fire({
+			title: "Qual é o seu nome?",
+			html: `<p>O dono da lista precisa saber quem está usando este convite.</p>`,
+			input: "text",
+			inputPlaceholder: "Seu nome",
+			inputAttributes: { maxlength: "40", autocomplete: "name", autocapitalize: "words", enterkeyhint: "done" },
+			confirmButtonText: "Continuar",
+			showCancelButton: false,
+			allowOutsideClick: false,
+			allowEscapeKey: false,
+			buttonsStyling: false,
+			heightAuto: false,
+			target: document.querySelector("dialog[open]") || "body",
+			customClass: { popup: "sw-popup", input: "sw-input", confirmButton: "btn btn-primario" },
+			preConfirm: valor => {
+				const nome = limparNomeConvidado(valor);
+				if (nome.length < 2) { window.Swal.showValidationMessage("Digite seu nome (pelo menos 2 letras)."); return false; }
+				return nome;
+			}
+		});
+		const promessa = filaDialogos.then(abrir, abrir);
+		filaDialogos = promessa.catch(() => { });
+		const r = await promessa;
+		const nome = limparNomeConvidado(r?.value);
+		if (nome.length < 2) return;
+		armazenamento.gravarTexto(CHAVE.nomeAparelho, nome);
+		if (el.nomeConvidado) el.nomeConvidado.value = nome;
+		enviarAparelho().catch(e => console.warn("[convidados] nome:", e));
+		toast("sucesso", `Obrigado, <b>${esc(nome)}</b>! O dono da lista vê este aparelho com o seu nome.`, 4000);
+	} finally {
+		pedindoNome = false;
 	}
 }
 
@@ -4452,11 +4497,17 @@ function registrarEventos() {
 	const salvarNomeConvidado = () => {
 		const nome = limparNomeConvidado(el.nomeConvidado.value);
 		el.nomeConvidado.value = nome;
-		if (nome) armazenamento.gravarTexto(CHAVE.nomeAparelho, nome);
-		else armazenamento.remover(CHAVE.nomeAparelho);
+		// Nome é obrigatório: não deixa apagar
+		if (nome.length < 2) {
+			el.nomeConvidado.value = limparNomeConvidado(armazenamento.lerTexto(CHAVE.nomeAparelho));
+			el.nomeConvidado.setAttribute("aria-invalid", "true");
+			setTimeout(() => el.nomeConvidado.removeAttribute("aria-invalid"), 2500);
+			return toast("erro", "Digite seu nome (pelo menos 2 letras). O nome é obrigatório.");
+		}
+		armazenamento.gravarTexto(CHAVE.nomeAparelho, nome);
 		if (!estado.sync?.confirmado) return toast("info", "Nome guardado. Ele vai para o dono assim que o convite for confirmado.");
 		enviarAparelho().catch(e => console.warn("[convidados] nome:", e));
-		toast("sucesso", nome ? `Pronto! O dono da lista vê este aparelho como <b>${esc(nome)}</b>.` : "Pronto! O dono vê o nome do aparelho.");
+		toast("sucesso", `Pronto! O dono da lista vê este aparelho como <b>${esc(nome)}</b>.`);
 	};
 	el.btnSalvarNomeConvidado.addEventListener("click", salvarNomeConvidado);
 	el.nomeConvidado.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); salvarNomeConvidado(); } });
