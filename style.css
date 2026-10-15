@@ -357,6 +357,10 @@ svg.lucide,
 	right: 0;
 	top: calc(100% + 8px);
 	min-width: 250px;
+	/* Celular deitado / janela baixa: o menu não passa da tela (rola por dentro) */
+	max-height: calc(100dvh - 72px);
+	overflow-y: auto;
+	overscroll-behavior: contain;
 	padding: 6px;
 	border-radius: var(--raio);
 	background: var(--superficie);
@@ -708,13 +712,13 @@ input[type="number"]::-webkit-inner-spin-button {
 
 /* Realce de "passar o mouse" só em quem tem mouse (no celular ele ficava preso depois do toque) */
 @media (hover: hover) {
-	.btn-anexo:hover {
+	.btn-anexo:hover:not(:disabled) {
 		background: var(--primaria);
 		color: #fff;
 	}
 }
 
-.btn-anexo:active {
+.btn-anexo:active:not(:disabled) {
 	background: color-mix(in srgb, var(--primaria) 25%, var(--superficie-3));
 }
 
@@ -2286,7 +2290,37 @@ input[type="number"]::-webkit-inner-spin-button {
 	box-shadow: var(--sombra-flutuante);
 	padding: 22px 22px 20px;
 	width: min(480px, calc(100vw - 24px));
+	/* Nunca passa da altura da tela: se ainda faltar espaço, rola só por dentro do alerta */
+	max-height: calc(100dvh - 24px); /* 24px = respiro do fundo escuro em volta */
+	overflow-y: auto;
+	overscroll-behavior: contain;
 	font-family: var(--fonte);
+}
+
+/* Telas baixas (notebook, celular deitado, janela pequena): alertas mais compactos, mesmo texto legível */
+@media (max-height: 760px) {
+	.swal2-popup.sw-popup {
+		padding: 14px 16px 14px;
+	}
+
+	.swal2-popup.sw-popup .swal2-title {
+		font-size: 1.04rem;
+		padding-top: 2px;
+	}
+
+	.swal2-popup.sw-popup .swal2-html-container {
+		margin-top: 6px;
+		line-height: 1.45;
+	}
+
+	.swal2-popup.sw-popup .swal2-actions {
+		margin-top: 12px;
+	}
+
+	.swal2-popup.sw-popup .swal2-icon {
+		transform: scale(.8);
+		margin: 0 auto -6px;
+	}
 }
 
 .swal2-popup.sw-popup .swal2-title {
@@ -4069,10 +4103,23 @@ input.sugerido.sugerido-saindo {
 	gap: 10px;
 }
 
+.foto-figura {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin: 0;
+	min-width: 0;
+}
+
+.foto-figura .ajuda {
+	margin: 0;
+}
+
 .foto-grande {
 	display: grid;
 	place-items: center;
-	height: min(42vh, 260px);
+	/* A foto encolhe para o alerta inteiro caber na tela (sem rolar) */
+	height: clamp(120px, calc(100dvh - 500px), 260px);
 	border-radius: var(--raio-sm);
 	background: #fff;
 	overflow: hidden;
@@ -4111,7 +4158,7 @@ input.sugerido.sugerido-saindo {
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
 	gap: 8px;
-	max-height: min(40vh, 320px);
+	max-height: clamp(140px, 40dvh, 320px);
 	overflow-y: auto;
 	padding: 2px;
 }
@@ -4193,7 +4240,7 @@ input.sugerido.sugerido-saindo {
 	border-radius: 999px;
 	background: var(--alerta-fundo);
 	color: var(--alerta);
-	font-size: .62rem;
+	font-size: max(.68rem, 11px); /* menor que isso fica ilegível no celular */
 	font-weight: 700;
 	letter-spacing: .02em;
 	text-transform: uppercase;
@@ -4283,3 +4330,90 @@ input.sugerido.sugerido-saindo {
 	box-shadow: 0 0 0 2px var(--fundo, #0b0d12);
 }
 
+
+/* Com as fotos encontradas na tela: a foto atual encolhe e a grade usa o espaço que sobra */
+.sw-foto.com-resultados .foto-grande {
+	height: clamp(80px, calc(100dvh - 600px), 160px);
+}
+
+.sw-foto.com-resultados .grade-fotos {
+	max-height: clamp(110px, calc(100dvh - 450px), 320px);
+}
+
+/* Celular bem baixo ou deitado: ainda mais compacto (o texto continua do mesmo tamanho legível) */
+@media (max-height: 600px) {
+	.sw-foto .foto-grande {
+		height: clamp(90px, calc(100dvh - 470px), 200px);
+	}
+
+	.sw-foto .aviso-experimental {
+		padding: 6px 10px;
+		margin-bottom: 0;
+	}
+
+	.sw-foto .foto-acoes {
+		gap: 6px;
+	}
+
+	.sw-foto .foto-acoes .btn {
+		height: 38px;
+	}
+
+	.swal2-popup.sw-popup .swal2-actions .btn {
+		height: 38px;
+	}
+
+	/* Com as fotos na tela, o aviso sai (a frase acima das fotos já lembra de conferir) */
+	.sw-foto.com-resultados .aviso-experimental {
+		display: none;
+	}
+}
+
+/* Alerta da foto em tela larga e baixa (computador, tablet ou celular deitados):
+   foto à esquerda, ações e resultados à direita — cabe sem rolar */
+@media (min-width: 620px) and (max-height: 820px) {
+	.swal2-popup.sw-popup.sw-foto {
+		width: min(780px, calc(100vw - 24px));
+	}
+
+	.sw-foto .foto-dialogo {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		grid-template-rows: auto auto 1fr;
+		grid-template-areas:
+			"foto aviso"
+			"foto acoes"
+			"foto resultados";
+		column-gap: 16px;
+		row-gap: 10px;
+		align-items: start;
+	}
+
+	.sw-foto .foto-dialogo > .aviso-experimental {
+		grid-area: aviso;
+		margin: 0;
+	}
+
+	.sw-foto .foto-figura {
+		grid-area: foto;
+	}
+
+	.sw-foto .foto-grande,
+	.sw-foto.com-resultados .foto-grande {
+		height: clamp(130px, calc(100dvh - 250px), 340px);
+	}
+
+	.sw-foto .foto-acoes {
+		grid-area: acoes;
+	}
+
+	.sw-foto .foto-resultados {
+		grid-area: resultados;
+		min-width: 0;
+	}
+
+	.sw-foto .grade-fotos,
+	.sw-foto.com-resultados .grade-fotos {
+		max-height: clamp(96px, calc(100dvh - 380px), 300px);
+	}
+}
