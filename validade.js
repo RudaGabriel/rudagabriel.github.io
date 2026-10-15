@@ -31,11 +31,11 @@ const digitos = t => t.replace(/[OQDILTZSBG|]/g, c => PARA_DIGITO[c]);
 // Rótulos usados no Brasil: VAL, VALIDADE, VÁLIDO ATÉ, VENC, VENCIMENTO, VCTO, VTO, DV (data de validade),
 // CONSUMIR (PREFERENCIALMENTE) ATÉ, USAR ATÉ, EXP, EXPIRA, BB/BBE/BEST BEFORE, USE BY.
 // Em relevo, os dois-pontos costumam sair como letra ("VENC.J", "VENC.I"): aceita uma letra solta no fim.
-const PALAVRAS_VALIDADE = /(VAL|VALID|VALIDO|VALIDADE|VENC|VENCIMENTO|VCTO|VTO|EXP|EXPIRA|EXPIRY|BBE?|BEST|BEFORE|USE BY|CONSUMIR|ATE|D\.?V|V\s?[:.]|[UVL]?I?EN[CG])(?:\.?[JIL1|])?\W{0,4}$/;
-const PALAVRAS_FABRICACAO = /(FAB|FABR|FABRICACAO|FABRICADO|PROD|PRODUCAO|EMB|EMBALADO|MFG|MFD|D\.?F|F\s?[:.]|L\s?[:.]|LOTE|PART|F[A-Z]{2,4}R)(?:\.?[JIL1|])?\W{0,4}$/;
+const PALAVRAS_VALIDADE = /(VAL|VALID|VALIDO|VALIDADE|VENC|VENCIMENTO|VCTO|VTO|EXP|EXPIRA|EXPIRY|BBE?|BEST|BEFORE|USE BY|CONSUMIR|ATE|D\.?V|V\s?[:.]|[UVL]?I?EN[CG]|[UVW]R?A?L)(?:\.?[JIL1|])?\W{0,4}$/;
+const PALAVRAS_FABRICACAO = /(FAB|FABR|FABRICACAO|FABRICADO|PROD|PRODUCAO|EMB|EMBALADO|MFG|MFD|D\.?F|F\s?[:.]|L\s?[:.]|LOTE|PART|F[A-Z]{2,4}R|F[AR][BR8])(?:\.?[JIL1|])?\W{0,4}$/;
 
 // Letras que o OCR troca entre si em letras de pontinhos (custo menor na comparação)
-const LETRAS_PARECIDAS = ["AR", "MH", "MN", "O0", "UV", "EF", "B8", "S5", "I1", "L1", "Z2", "G6", "T7", "DO", "CG", "PR", "EB", "VY", "VI", "PF"];
+const LETRAS_PARECIDAS = ["AR", "MH", "MN", "O0", "UV", "EF", "B8", "S5", "I1", "L1", "Z2", "G6", "T7", "DO", "CG", "PR", "EB", "VY", "VI", "PF", "DJ", "BD"];
 const parecidas = (a, b) => LETRAS_PARECIDAS.some(p => (p[0] === a && p[1] === b) || (p[0] === b && p[1] === a));
 
 /** Distância de edição tolerante a letras parecidas. */
@@ -64,7 +64,14 @@ function mesAproximado(token) {
 			melhor = { dist, mes };
 		} else if (mes !== melhor.mes) segunda = Math.min(segunda, dist);
 	}
-	return melhor && melhor.dist <= 1 && segunda - melhor.dist >= 0.5 ? melhor.mes : null;
+	if (melhor && melhor.dist <= 1 && segunda - melhor.dist >= 0.5) return melhor.mes;
+	// Uma letra a mais no meio (pontinhos lidos como outra letra): "DFEZ" = DEZ, "MARR" = MAR
+	if (t.length === 4) {
+		const achados = new Set();
+		for (let i = 0; i < 4; i++) { const m = MESES[t.slice(0, i) + t.slice(i + 1)]; if (m) achados.add(m); }
+		if (achados.size === 1) return [...achados][0];
+	}
+	return null;
 }
 
 const doisDigitos = n => String(n).padStart(2, "0");
@@ -188,6 +195,30 @@ export function extrairCandidatas(texto, hoje = new Date(), { soDigitos = false 
 		const ano = anoCompleto(m[2].replace(/E/g, "8").replace(/[OQDILTZSBG|]/g, c => PARA_DIGITO[c]));
 		const data = dataValida(ano, mes, ultimoDiaDoMes(ano, mes));
 		if (data) { registrar(m.index, m[0], data, true, true); apagar(m.index, m.index + m[0].length); }
+	}
+
+	// 2d) Mês colado no ano, sem separador, com erro de OCR (impressão de pontinhos): "DEZ27" lido como
+	//     "DE227" (Z → 2), "DFEZ27", "JEZ27". Só depois de um rótulo (VAL/FAB…) ou de ":" — sem isso,
+	//     letras + números colados costumam ser lote ("L364034")
+	const reMesSemSeparador = /(?<![A-Z0-9])([A-Z][A-Z0-9|]{4,7})(?![0-9A-Z])/g;
+	for (const m of resto.matchAll(reMesSemSeparador)) {
+		const antes = original.slice(Math.max(0, m.index - 12), m.index).replace(/¦/g, " ");
+		if (!(PALAVRAS_VALIDADE.test(antes) || PALAVRAS_FABRICACAO.test(antes) || /:\s{0,2}$/.test(antes))) continue;
+		const token = m[1];
+		let achou = null;
+		// Ano no fim: 2 dígitos ("27") ou 4 ("2027"); o resto (3–4 letras) é o mês
+		for (const tamAno of [2, 4]) {
+			// No ano, o "7" de pontinhos às vezes sai como "F" ("DEZZF" = DEZ/27)
+			const parteMes = token.slice(0, token.length - tamAno), parteAno = token.slice(token.length - tamAno).replace(/F/g, "7");
+			if (parteMes.length < 3 || parteMes.length > 4) continue;
+			if (!new RegExp(`^(?:2${D})?${D}{2}$`).test(parteAno) || !/^[0-9]{2}$|^[0-9]{4}$/.test(digitos(parteAno))) continue;
+			const mes = MESES[parteMes] || mesAproximado(parteMes);
+			if (!mes) continue;
+			const ano = anoCompleto(digitos(parteAno));
+			const data = dataValida(ano, mes, ultimoDiaDoMes(ano, mes));
+			if (data) { achou = data; break; }
+		}
+		if (achou) { registrar(m.index, m[0], achou, true, true); apagar(m.index, m.index + m[0].length); }
 	}
 
 	// 3) Mês/ano: 03/2027, 03/27 (validade = último dia do mês)
@@ -599,6 +630,17 @@ function confiancaDe(trecho, linhas) {
 /** Já baixou o leitor? (para avisar "só na primeira vez") */
 export const leitorPronto = () => !!trabalhador;
 
+/** Há no texto uma palavra que começa como um mês e vem seguida de algo como um ano ("DEZES", "BEZZF", "MAR 2")? */
+function pareceMesNoTexto(texto) {
+	const t = String(texto || "").toUpperCase();
+	for (const m of t.matchAll(/(?<![A-Z0-9])([A-Z]{3,4})[ ./\-]?([0-9A-Z]{1,4})(?![A-Z0-9])/g)) {
+		if (!/[0-9OQDILTZSBGEF]/.test(m[2][0])) continue;
+		const tres = m[1].slice(0, 3);
+		if (MESES[tres] || mesAproximado(tres) || mesAproximado(m[1])) return true;
+	}
+	return false;
+}
+
 /**
  * Lê as datas de uma imagem (recorte da câmera, foto ou canvas) e as ordena
  * por votos (quantas leituras concordam) e, no empate, pela mais distante.
@@ -639,10 +681,11 @@ export async function lerDatas(fonte, { recorte = true, aoProgresso } = {}) {
 	const alturas = [];
 	let alturaLetra = null;
 	let modoExtenso = false; // já leu um mês por extenso: leituras só de números não ajudam mais
+	let talvezExtenso = false; // apareceu algo parecido com mês ("DEZES", "BEZZF"): libera as leituras com letras
 	for (let i = 0; i < leituras.length; i++) {
 		const { tratar, ocr, alvo, soExtenso } = leituras[i];
 		const soNumeros = !/[A-Z]/.test(ocr.tessedit_char_whitelist ?? "A");
-		if ((soExtenso && !modoExtenso) || (modoExtenso && soNumeros)) continue;
+		if ((soExtenso && !modoExtenso && !talvezExtenso) || (modoExtenso && soNumeros)) continue;
 		avisar({ etapa: "lendo", atual: i + 1, total: leituras.length });
 		let lado = leituras[i].lado;
 		if (alvo) {
@@ -676,6 +719,7 @@ export async function lerDatas(fonte, { recorte = true, aoProgresso } = {}) {
 		const linhas = linhasDe(data);
 		const achadas = extrairCandidatas(texto, new Date(), { soDigitos: soNumeros });
 		if (achadas.some(c => c.extenso)) modoExtenso = true;
+		else if (!soNumeros && !talvezExtenso && pareceMesNoTexto(texto)) talvezExtenso = true;
 		// Voto de validade desta leitura: com 2+ datas, a mais distante (a fabricação vem antes);
 		// com uma só, meio voto (pode ser qualquer uma das linhas)
 		// (ano absurdo, como 27 lido 37, ainda é a linha da validade — a ordenação corrige o ano depois)

@@ -9,10 +9,10 @@ import { criarSupabase } from "./nuvem/supabase.js";
 import { criarDropbox } from "./nuvem/dropbox.js";
 import { NUVEM } from "./config-nuvem.js";
 import { criarLeitor } from "./leitor.js";
-import { buscarNomeProduto, buscarNomesParecidos, codigoConsultavel, linksPesquisaCodigo } from "./produtos.js";
+import { buscarNomeProduto, buscarNomesParecidos, codigoConsultavel, linksPesquisaCodigo, nomeAbreviado } from "./produtos.js";
 import { lerDatas, criarCameraValidade } from "./validade.js";
 import { ligarInterfaceFoco } from "./foco.js";
-import { chaveFoto, carregarFotos, guardarFoto, apagarFoto, precisaBuscar, buscarFotoAutomatica, fotosPorCodigo, fotosPorNome, nomeAbreviado, prepararFotoDaPessoa, aoCopiarFoto, copiarFotosPendentes } from "./fotos.js";
+import { chaveFoto, carregarFotos, guardarFoto, apagarFoto, precisaBuscar, buscarFotoAutomatica, fotosPorCodigo, fotosPorNome, prepararFotoDaPessoa, aoCopiarFoto, copiarFotosPendentes } from "./fotos.js";
 import { iniciarAnuncios } from "./anuncios.js";
 
 const URL_AUTO_ANIMATE = "https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.10.0/index.mjs";
@@ -1300,7 +1300,8 @@ async function nomesParecidos(codigo, sinal) {
 	}
 	let publicos = [];
 	try { publicos = await buscarNomesParecidos(codigo, { sinal, limite: 8 }); } catch (e) { console.warn("[nomes parecidos]", e); }
-	const todos = [...daLista, ...publicos].sort((a, b) => a.distancia - b.distancia);
+	// Nomes completos primeiro (do código mais próximo ao mais distante); abreviados só se não houver outros
+	const todos = [...daLista, ...publicos].sort((a, b) => (nomeAbreviado(a.nome) - nomeAbreviado(b.nome)) || (a.distancia - b.distancia));
 	const unicos = [];
 	const nomes = new Set();
 	for (const t of todos) {

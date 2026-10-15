@@ -20,7 +20,7 @@
 import { BUSCA } from "./config-busca.js";
 
 const CHAVE_CACHE = "cv2:nomesCodigo";
-const VERSAO_CACHE = 3; // muda quando a montagem do nome ou as fontes melhoram (ignora resultados antigos)
+const VERSAO_CACHE = 4; // muda quando a montagem do nome ou as fontes melhoram (ignora resultados antigos)
 const MAX_CACHE = 400;
 const VALIDADE_NEGATIVO_MS = 24 * 60 * 60 * 1000; // "não encontrado" vale 1 dia
 const TEMPO_LIMITE_MS = 6000;
@@ -134,6 +134,27 @@ function gravarCache(codigo, resultado) {
 const limpar = texto => String(texto ?? "").replace(/[\u0000-\u001F\u007F]/g, "").replace(/\s+/g, " ").trim();
 const semAcento = t => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 const contem = (a, b) => semAcento(a).includes(semAcento(b));
+
+/* Palavras curtas de verdade (não são abreviação), incluindo marcas curtas */
+const CURTAS_REAIS = new Set(["bom", "boa", "ar", "pao", "sal", "cha", "mel", "gas", "gel", "kit", "uva", "rum", "gin", "ovo", "po", "mao", "pe", "lar", "sol", "mar", "cor", "air", "oil", "max", "top", "pet", "sem", "com", "de", "da", "do", "e", "em", "no", "na", "kg", "ml", "lt", "un", "und", "g", "l", "x",
+	"omo", "ype", "bic", "lux", "axe", "tio", "rei", "uau", "zero", "diet", "light"]);
+/* Abreviações comuns nos cadastros de mercado/ERP (mais longas que 3 letras) */
+const ABREVIACOES = new Set(["desod", "shamp", "cond", "refrig", "refri", "bisc", "achoc", "choc", "deterg", "amac", "desinf", "tradic", "trad", "integ", "orig", "trat", "sabon", "lavand", "alim", "past", "emb", "econ", "pct", "unid", "bdj", "sach", "lamin", "absorv", "hidrat", "protet", "antitransp"]);
+
+/** Nome abreviado ("Des Bom Ar Aer Emb Econ", "Sab Liq Dove", "Desod. Rexona", "Cr Trat Novex")?
+ *  Aí o código de barras identifica melhor o produto, e um nome completo de outra base é preferível. */
+export function nomeAbreviado(nome) {
+	const bruto = String(nome || "");
+	if (/\b[a-zà-ú]{2,7}\.(?=\s|$)/i.test(bruto)) return true; // "Desod.", "Liq."
+	// Em nome com minúsculas, palavra toda em maiúsculas é sigla/marca ("UCB", "OMO"), não abreviação
+	const temMinusculas = /[a-zà-ú]/.test(bruto);
+	const palavras = bruto.split(/[^A-Za-zÀ-ú]+/)
+		.filter(p => p && !(temMinusculas && p.length >= 2 && p === p.toUpperCase()))
+		.map(semAcento)
+		.filter(p => p && !CURTAS_REAIS.has(p));
+	const curtas = palavras.filter(p => p.length <= 3 || ABREVIACOES.has(p)).length;
+	return curtas >= 2 || (curtas >= 1 && palavras.length >= 3 && curtas / palavras.length >= 0.34);
+}
 const MINUSCULAS = new Set(["de", "da", "do", "das", "dos", "e", "com", "sem", "em", "para", "a", "o", "ao", "na", "no", "c/", "s/"]);
 const SIGLAS = new Set(["uht", "pet", "fps", "led", "usb", "pvc", "abs", "tv", "dvd", "aaa", "aa", "xl", "xg", "gg", "pp"]);
 
@@ -220,6 +241,8 @@ export async function buscarNomeProduto(codigo, { sinal } = {}) {
 	if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
 
 	let algumaRespondeu = false;
+	// Nome abreviado ("Cr Trat Novex", "Des Bom Ar Aer") fica de reserva: as outras bases podem ter o nome completo
+	let reserva = null;
 	for (const fonte of fontes()) {
 		if (sinal?.aborted) return null;
 		try {
@@ -229,14 +252,20 @@ export async function buscarNomeProduto(codigo, { sinal } = {}) {
 			const nome = typeof lido === "string" ? lido : lido?.nome;
 			if (nome) {
 				const resultado = { nome, fonte: (typeof lido === "object" && lido?.fonte) || fonte.nome };
-				gravarCache(codigo, resultado);
-				return resultado;
+				if (!nomeAbreviado(nome)) {
+					gravarCache(codigo, resultado);
+					return resultado;
+				}
+				reserva ||= resultado;
 			}
 		} catch (e) {
 			if (sinal?.aborted) return null;
 			console.warn("[produtos] consulta falhou:", fonte.nome, e?.message || e);
 		}
 	}
+	if (sinal?.aborted) return null;
+	// Sem nome completo em nenhuma base: usa o abreviado mesmo
+	if (reserva) { gravarCache(codigo, reserva); return reserva; }
 	// Só guarda "não encontrado" se alguma base respondeu (falha de rede não conta)
 	if (algumaRespondeu) gravarCache(codigo, null);
 	return null;
@@ -352,7 +381,9 @@ export async function buscarNomesParecidos(codigo, { sinal, limite = 8 } = {}) {
 		const chave = semAcento(a.nome);
 		if (!porNome.has(chave)) porNome.set(chave, a);
 	}
-	const resultado = [...porNome.values()];
+	// Nomes completos primeiro (na ordem de proximidade); os abreviados só depois
+	const valores = [...porNome.values()];
+	const resultado = [...valores.filter(a => !nomeAbreviado(a.nome)), ...valores.filter(a => nomeAbreviado(a.nome))];
 	parecidosGuardados.set(codigo, resultado);
 	return resultado.slice(0, limite);
 }
