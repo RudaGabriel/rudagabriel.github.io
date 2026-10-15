@@ -36,6 +36,11 @@ service cloud.firestore {
     function ehMembro(c) { return logado() && exists(caminhoMembro(c)) && exists(caminhoConvite(c, conviteDe(c))); }
     function membroEdita(c) { return ehMembro(c) && get(caminhoConvite(c, conviteDe(c))).data.editar == true; }
     function protegida(dados) { return dados.get('donoHash', null) != null; }
+    // Nome da loja (item reservado da lista): só o dono muda; convidado, mesmo com "pode editar", não
+    function lojaIntacta() {
+      return request.resource.data.itens.get('c5e0c0de-0000-4000-8000-00000000a001', null)
+        == resource.data.itens.get('c5e0c0de-0000-4000-8000-00000000a001', null);
+    }
     function camposLista() {
       return request.resource.data.keys().hasOnly(['itens', 'versao', 'atualizadoEm', 'donoHash'])
         && request.resource.data.itens is map
@@ -50,7 +55,7 @@ service cloud.firestore {
       allow update: if codigoOk(codigo) && camposLista() && (
         // Protegida: só o dono ou convidado com "pode editar"; ninguém troca a chave do dono
         (protegida(resource.data) && request.resource.data.donoHash == resource.data.donoHash
-          && (ehDono(codigo) || membroEdita(codigo)))
+          && (ehDono(codigo) || (membroEdita(codigo) && lojaIntacta())))
         // Lista antiga (sem proteção): continua aberta até o dono protegê-la
         || !protegida(resource.data)
       );
