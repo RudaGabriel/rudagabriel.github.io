@@ -298,10 +298,28 @@ export function termosNome(nome) {
  *  (ignorando tamanho, acento e plural; abreviações como "desod" valem pelo começo da palavra). */
 const casaPalavra = (t, lista) => lista.some(w => w === t || (t.length >= 3 && w.length >= 3 && (w.startsWith(t) || t.startsWith(w))));
 
-/** O produto achado é do mesmo tipo do procurado? (a 1ª palavra do nome procurado aparece nele) */
+/** O produto achado é do mesmo tipo do procurado? A 1ª palavra do nome procurado aparece nele
+ *  como o próprio produto, não como detalhe: "Enxaguante Sem Álcool" e "Sachê c/ álcool" não são álcool. */
 export function mesmoTipoProduto(a, b) {
 	const pa = termosNome(a), pb = termosNome(b);
-	return !!pa.length && casaPalavra(pa[0], pb);
+	if (!pa.length || !casaPalavra(pa[0], pb)) return false;
+	const tipo = pa[0];
+	// Palavras do achado, na ordem, para ver o que vem logo antes do tipo
+	const bruto = normalizarNome(String(b || "").toLowerCase()).split(" ").filter(Boolean);
+	const posicoes = bruto.map((w, i) => (casaPalavra(tipo, [singular(w)]) ? i : -1)).filter(i => i >= 0);
+	return posicoes.some(i => !QUALIFICADORES.has(bruto[i - 1] || ""));
+}
+const QUALIFICADORES = new Set(["sem", "com", "c", "p", "para", "porta", "anti", "contra", "livre"]);
+
+/** Ordem das opções: mais palavras em comum; empate → tipo logo no começo, mesmos números ("96"), nome mais curto. */
+function pontuacaoOpcao(procurado, f) {
+	const numeros = s => new Set(String(s || "").match(/\d+/g) || []);
+	const na = numeros(procurado), nb = numeros(f.nome);
+	let mesmos = 0;
+	for (const n of na) if (nb.has(n)) mesmos++;
+	const pa = termosNome(procurado), pb = termosNome(f.nome);
+	const tipoNoComeco = pa.length && pb.slice(0, 2).some(w => casaPalavra(pa[0], [w])) ? 1 : 0;
+	return f.semelhanca + tipoNoComeco * 0.08 + Math.min(mesmos, 2) * 0.05 - Math.min(pb.length, 12) * 0.002;
 }
 
 export function semelhancaNomes(a, b) {
@@ -383,7 +401,15 @@ export async function fotosPorNome(nome, { sinal, limite = 8, rapido = false } =
 	}
 	if (!lista.length && falhas && falhas === tentativas) throw new FalhaBusca("busca por nome indisponível");
 	// Só aparece como opção o que é do mesmo tipo de produto (nada de "sementes" para "álcool")
-	return lista.filter(f => mesmoTipoProduto(nome, f.nome)).sort((a, b) => b.semelhanca - a.semelhanca).slice(0, limite);
+	// Mesmo produto em várias lojas: fica só uma opção por nome
+	const nomesVistos = new Set();
+	return lista
+		.filter(f => mesmoTipoProduto(nome, f.nome))
+		.map(f => ({ ...f, ordem: pontuacaoOpcao(nome, f) }))
+		.sort((a, b) => b.ordem - a.ordem)
+		.filter(f => { const k = termosNome(f.nome).join(" "); if (nomesVistos.has(k)) return false; nomesVistos.add(k); return true; })
+		.slice(0, limite)
+		.map(({ ordem, ...f }) => f);
 }
 
 /**
