@@ -111,7 +111,7 @@ Não é preciso criar conta. Se quiser guardar na nuvem, veja [Salvar na nuvem](
 
 ## Funções experimentais
 
-> **Atenção:** a **sugestão de nome**, a **foto do produto** (busca automática) e a **leitura da data de validade** são **experimentais** e **não são totalmente precisas**. O app sempre mostra o resultado para você conferir — confira com a embalagem antes de salvar.
+> **Atenção:** a **sugestão de nome** e a **leitura da data de validade** são **experimentais** e **não são totalmente precisas**. O app sempre mostra o resultado para você conferir — confira com a embalagem antes de salvar.
 
 ## Foto do produto
 

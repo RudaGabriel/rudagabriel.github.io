@@ -1699,7 +1699,7 @@ async function dialogoFoto(produto, { pendente = false } = {}) {
 	const editavel = podeEditar();
 	if (!window.Swal) return undefined;
 	let resultado;
-	const html = `<div class="foto-dialogo${editavel ? "" : " so-ver"}">${editavel ? avisoExperimental("a foto encontrada na internet pode não ser exatamente deste produto.") : ""}
+	const html = `<div class="foto-dialogo${editavel ? "" : " so-ver"}">
 		<figure class="foto-figura">
 			<div class="foto-grande">${temFoto ? `<img src="${esc(atual.src)}" alt="Foto de ${esc(produto.nome || "produto")}" referrerpolicy="no-referrer">` : `<span class="foto-vazia">${icone("Package")}<small>Sem foto</small></span>`}</div>
 			${temFoto ? `<figcaption class="ajuda">${esc(ROTULO_ORIGEM[atual.origem] || "")}${atual.fonte ? ` · ${esc(atual.fonte)}` : ""}</figcaption>` : ""}
@@ -3092,7 +3092,8 @@ async function migrarConvitesAntigos(recebidos) {
 }
 
 function enviarNomeLojaNuvem() {
-	if (!emNuvem() || !podeEditar()) return;
+	// Só o dono da lista muda o nome da loja (o servidor também recusa de convidado)
+	if (!emNuvem() || !podeEditar() || !ehDono()) return;
 	const agora = Date.now();
 	provAtual()?.salvarVarios([{
 		id: ID_CONFIG_LOJA,
@@ -3119,11 +3120,15 @@ function receberNomeLojaNuvem(config, { doServidor }) {
 	}
 	if (!doServidor || estado.lojaVerificadaEm === lista) return;
 	estado.lojaVerificadaEm = lista;
-	// Só envia um nome definido neste aparelho (nunca o de outra lista compartilhada)
-	if (estado.loja && armazenamento.lerTexto(CHAVE.lojaOrigem) !== "nuvem") enviarNomeLojaNuvem();
+	// Só envia um nome definido neste aparelho (nunca o de outra lista compartilhada) — e só o dono
+	if (ehDono() && estado.loja && armazenamento.lerTexto(CHAVE.lojaOrigem) !== "nuvem") enviarNomeLojaNuvem();
 }
 
 async function configurarNomeLoja() {
+	if (emNuvem() && !ehDono()) {
+		toast("aviso", "Só o <b>dono da lista</b> pode mudar o nome da loja.");
+		return;
+	}
 	if (emNuvem() && !podeEditar()) {
 		toast("aviso", "Este aparelho está no modo <b>somente leitura</b>: o nome da loja segue a lista compartilhada.");
 		return;
