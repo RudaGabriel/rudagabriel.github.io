@@ -316,6 +316,22 @@ async function resultadosDaWeb(consulta) {
 	return { respondeu, lista: lista.filter(x => !SITES_IGNORADOS.test(x.link)).slice(0, 10) };
 }
 
+/** Busca de imagens do Bing: [{ titulo, foto, pagina }] — a foto vem direto, com o título da página. */
+async function imagensDaWeb(consulta) {
+	const r = await buscarPagina(`https://www.bing.com/images/search?q=${encodeURIComponent(consulta)}&form=HDRSC2&first=1&setlang=pt-BR&cc=BR`);
+	const lista = [];
+	for (const m of r.html.matchAll(/\sm="(\{[^"]*\})"/g)) {
+		try {
+			const d = JSON.parse(m[1].replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&"));
+			const foto = urlHttps(String(d.murl || "").replace(/^http:\/\//i, "https://"));
+			const titulo = decodificarHtml(String(d.t || "").replace(/[\ue000-\ue001]/g, ""));
+			if (foto && titulo && !SITES_IGNORADOS.test(d.purl || "")) lista.push({ titulo, foto, pagina: String(d.purl || "") });
+		} catch { /* item com JSON quebrado: ignora */ }
+		if (lista.length >= 30) break;
+	}
+	return { respondeu: !!r.html, lista };
+}
+
 const palavrasDe = t => limpar(t).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/).filter(p => p.length > 2 && !/^\d+$/.test(p));
 
 async function pesquisarNaWeb(gtin) {
@@ -491,9 +507,9 @@ function relevancia(procurado, achado) {
 	if (comuns < 2 && Math.min(pa.length, pb.length) >= 2) return Math.min(0.5, base);
 	return Math.min(1, base);
 }
-const RELEVANTE = 0.5;
+const RELEVANTE = 0.6; // com 2+ palavras procuradas, só o tipo em comum (0,5) não basta: outra marca não conta
 const casaTermo = (t, w) => w === t || (t.length >= 3 && w.length >= 3 && (w.startsWith(t) || t.startsWith(w)));
-const QUALIFICADORES = new Set(["sem", "com", "c", "p", "para", "porta", "anti", "contra", "livre"]);
+const QUALIFICADORES = new Set(["sem", "com", "c", "p", "para", "porta", "anti", "contra", "livre", "de", "do", "da", "dos", "das"]); // "Vinagre de Álcool" não é álcool
 /** Mesmo tipo de produto: a 1ª palavra procurada aparece como o produto, não como detalhe ("Enxaguante Sem Álcool"). */
 function mesmoTipo(procurado, achado) {
 	const pa = termosBusca(procurado);
@@ -513,7 +529,7 @@ function pontuacao(procurado, achado) {
 }
 
 async function rotaBusca(q, ctx, json) {
-	const chave = `busca3/${q.toLowerCase()}`; // muda o número quando a regra de relevância muda (ignora o cache antigo)
+	const chave = `busca4/${q.toLowerCase()}`; // muda o número quando a regra de relevância muda (ignora o cache antigo)
 	const emCache = await lerCache(chave);
 	if (emCache) return json(200, await emCache.json());
 	const termos = encodeURIComponent(q);
@@ -529,7 +545,7 @@ async function rotaBusca(q, ctx, json) {
 	}
 	// Só conta o que tem a ver com o nome (as lojas devolvem qualquer item que divida uma palavra)
 	const relevantes = () => produtos.filter(x => relevancia(q, `${x.nome} ${x.marca || ""}`) >= RELEVANTE);
-	let webRespondeu = false, lojas2 = [], webLinks = 0, webPaginas = 0;
+	let webRespondeu = false, lojas2 = [], webLinks = 0, webPaginas = 0, imagensRespondeu = false, imagensAchadas = 0;
 	if (relevantes().length < 6) {
 		// Pouca coisa que preste: ao mesmo tempo, (1) as lojas de novo só pelo tipo do produto
 		// ("álcool" em vez de "álcool santa cruz 96", que as lojas confundem com "sementes santa cruz")
@@ -547,17 +563,25 @@ async function rotaBusca(q, ctx, json) {
 			}));
 			return { respondeu, paginas, links: lista.length };
 		})();
-		const [r1, r2] = await Promise.all([porTipo, porWeb]);
+		const [r1, r2, r3] = await Promise.all([porTipo, porWeb, imagensDaWeb(q)]);
 		lojas2 = r1;
 		for (const x of lojas2.flatMap(r => r.produtos)) if (!produtos.some(p => p.foto === x.foto)) produtos.push(x);
 		webRespondeu = r2.respondeu;
 		webLinks = r2.links;
 		webPaginas = r2.paginas.filter(pg => pg?.foto).length;
+		imagensRespondeu = r3.respondeu;
+		imagensAchadas = r3.lista.length;
+		for (const im of r3.lista) {
+			if (produtos.some(x => x.foto === im.foto)) continue;
+			let site = "";
+			try { site = new URL(im.pagina).hostname.replace(/^www\./, ""); } catch { /* sem página */ }
+			produtos.push({ nome: limparTituloProduto(im.titulo, ""), marca: "", foto: im.foto, fonte: `Imagens da web${site ? ` (${site})` : ""}` });
+		}
 		for (const pg of r2.paginas) {
 			if (pg?.foto && pg.nome && !produtos.some(x => x.foto === pg.foto)) produtos.push({ nome: limparTituloProduto(pg.nome, ""), marca: pg.marca || "", foto: pg.foto, fonte: `Pesquisa na web (${pg.site})` });
 		}
 	}
-	const algumaRespondeu = lojas.some(r => r.respondeu) || lojas2.some(r => r.respondeu) || off.status === 200 || webRespondeu;
+	const algumaRespondeu = lojas.some(r => r.respondeu) || lojas2.some(r => r.respondeu) || off.status === 200 || webRespondeu || imagensRespondeu;
 	if (!algumaRespondeu) return json(502, { erro: "busca indisponível" });
 	// Só o mesmo tipo de produto, do mais parecido para o menos, um por nome (várias lojas vendem o mesmo)
 	const vistos = new Set();
@@ -570,7 +594,7 @@ async function rotaBusca(q, ctx, json) {
 	// "consultas": só para conferir de onde veio cada coisa (o app ignora)
 	const corpo = {
 		produtos: produtos.slice(0, 40),
-		consultas: { lojas: lojas.filter(r => r.respondeu).length, lojasPeloTipo: lojas2.filter(r => r.respondeu).length, web: webRespondeu ? `${webLinks} links, ${webPaginas} páginas com foto` : "não respondeu", openFoodFacts: off.status }
+		consultas: { lojas: lojas.filter(r => r.respondeu).length, lojasPeloTipo: lojas2.filter(r => r.respondeu).length, web: webRespondeu ? `${webLinks} links, ${webPaginas} páginas com foto` : "não respondeu", imagens: imagensRespondeu ? `${imagensAchadas} imagens` : "não respondeu", openFoodFacts: off.status }
 	};
 	await gravarCache(ctx, chave, new Response(JSON.stringify(corpo), { headers: { "Content-Type": "application/json" } }), produtos.length ? CACHE_ACHADO : CACHE_NAO_ACHADO);
 	return json(200, corpo);
