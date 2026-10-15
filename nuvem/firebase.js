@@ -339,22 +339,86 @@ export function criarFirebase(configBruta, { aoReceber, aoStatus, aoErro, aoUsua
 		return { protecao };
 	}
 
+	/**
+	 * Ouvinte em tempo real que não "morre":
+	 * 1) espera o aparelho ter identidade no servidor (antes, se ainda não tinha, o ouvinte nem começava);
+	 * 2) se o servidor recusar ou a conexão cair, liga de novo sozinho (2 s, 4 s, 8 s… até 30 s).
+	 * 3) ao voltar para a aba/app, quando a internet volta e (com renovarMs) de tempos em tempos,
+	 *    liga de novo — no celular a conexão em tempo real pode parar em segundo plano sem avisar.
+	 * abrir(uid, sucesso, falha) devolve a função que para o onSnapshot.
+	 */
+	const ouvintesAtivos = new Set();
+	let renovacaoInstalada = false;
+	function instalarRenovacao() {
+		if (renovacaoInstalada || typeof window === "undefined") return;
+		renovacaoInstalada = true;
+		let adiado = null;
+		const renovarTodos = () => {
+			clearTimeout(adiado);
+			adiado = setTimeout(() => { for (const renovar of [...ouvintesAtivos]) renovar(); }, 800);
+		};
+		document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") renovarTodos(); });
+		window.addEventListener("online", renovarTodos);
+		window.addEventListener("pageshow", e => { if (e.persisted) renovarTodos(); });
+	}
+
+	function ouvirSempre(nome, abrir, { renovarMs = 0 } = {}) {
+		instalarRenovacao();
+		let vivo = true, parar = null, espera = null, tentativas = 0, ultimaLigacao = 0;
+		const desligar = () => { try { parar?.(); } catch { /* ignora */ } parar = null; };
+		// Liga de novo agora (evita repetir se acabou de ligar)
+		const renovar = () => {
+			if (!vivo || Date.now() - ultimaLigacao < 3000) return;
+			clearTimeout(espera);
+			tentativas = 0;
+			ligar();
+		};
+		ouvintesAtivos.add(renovar);
+		const periodico = renovarMs > 0 ? setInterval(() => { if (document.visibilityState === "visible") renovar(); }, renovarMs) : null;
+		const religar = () => {
+			if (!vivo) return;
+			clearTimeout(espera);
+			espera = setTimeout(ligar, Math.min(30000, 2000 * 2 ** Math.min(tentativas++, 4)));
+		};
+		async function ligar() {
+			if (!vivo || !db) return;
+			ultimaLigacao = Date.now();
+			const uid = await garantirIdentidade().catch(() => null);
+			if (!vivo) return;
+			desligar();
+			if (!uid) { religar(); return; }
+			try {
+				parar = abrir(uid, () => { tentativas = 0; }, e => {
+					console.warn(`[firebase] ${nome}:`, e?.code || e);
+					desligar();
+					religar();
+				});
+			} catch (e) {
+				console.warn(`[firebase] ${nome}:`, e?.code || e);
+				religar();
+			}
+		}
+		ligar();
+		return () => { vivo = false; clearTimeout(espera); clearInterval(periodico); ouvintesAtivos.delete(renovar); desligar(); };
+	}
+
 	/* ---------- Convites (dono) e permissão (convidado) ---------- */
 	/** Dono: acompanha convites e aparelhos dos convidados. Devolve a função para parar. */
 	function ouvirConvidados(codigo, aoMudar) {
 		if (!db) return () => { };
 		let convites = [], membros = [], vivo = true;
 		const emitir = () => vivo && seguro(aoMudar, { convites, membros });
-		const erro = e => console.warn("[firebase] convidados:", e?.code || e);
-		const pararC = fb.onSnapshot(fb.collection(db, "listas", codigo, "convites"), snap => {
+		const pararC = ouvirSempre("convites", (uid, sucesso, falha) => fb.onSnapshot(fb.collection(db, "listas", codigo, "convites"), snap => {
+			sucesso();
 			convites = snap.docs.map(d => ({ codigo: d.id, ...d.data() }));
 			emitir();
-		}, erro);
-		const pararM = fb.onSnapshot(fb.collection(db, "listas", codigo, "membros"), snap => {
+		}, falha));
+		const pararM = ouvirSempre("membros", (uid, sucesso, falha) => fb.onSnapshot(fb.collection(db, "listas", codigo, "membros"), snap => {
+			sucesso();
 			membros = snap.docs.map(d => ({ uid: d.id, ...d.data() }));
 			emitir();
-		}, erro);
-		return () => { vivo = false; try { pararC(); pararM(); } catch { /* ignora */ } };
+		}, falha));
+		return () => { vivo = false; pararC(); pararM(); };
 	}
 
 	function salvarConvite(codigo, convite, { nome, editar, criadoEm }) {
@@ -399,11 +463,13 @@ export function criarFirebase(configBruta, { aoReceber, aoStatus, aoErro, aoUsua
 
 	/** Quem pediu: acompanha o próprio pedido (aprovado → recebe o convite). */
 	function ouvirMeuPedido(codigo, aoMudar) {
-		const uid = auth?.currentUser?.uid;
-		if (!db || !uid) return () => { };
-		return fb.onSnapshot(fb.doc(db, "listas", codigo, "pedidos", uid), snap => {
-			seguro(aoMudar, snap.exists() ? { existe: true, ...snap.data() } : { existe: false });
-		}, e => console.warn("[firebase] pedido:", e?.code || e));
+		if (!db) return () => { };
+		let vivo = true;
+		const parar = ouvirSempre("pedido", (uid, sucesso, falha) => fb.onSnapshot(fb.doc(db, "listas", codigo, "pedidos", uid), snap => {
+			sucesso();
+			if (vivo) seguro(aoMudar, snap.exists() ? { existe: true, ...snap.data() } : { existe: false });
+		}, falha), { renovarMs: 20000 });
+		return () => { vivo = false; parar(); };
 	}
 
 	async function cancelarPedido(codigo) {
@@ -414,10 +480,13 @@ export function criarFirebase(configBruta, { aoReceber, aoStatus, aoErro, aoUsua
 	/** Dono: acompanha os pedidos pendentes. */
 	function ouvirPedidos(codigo, aoMudar) {
 		if (!db) return () => { };
-		return fb.onSnapshot(fb.collection(db, "listas", codigo, "pedidos"), snap => {
+		let vivo = true;
+		const parar = ouvirSempre("pedidos", (uid, sucesso, falha) => fb.onSnapshot(fb.collection(db, "listas", codigo, "pedidos"), snap => {
+			sucesso();
 			// Todos os pedidos (pendentes e respondidos): o app separa; os aprovados mostram telefone/navegador nos detalhes do convidado
-			seguro(aoMudar, snap.docs.map(d => ({ uid: d.id, ...d.data() })));
-		}, e => console.warn("[firebase] pedidos:", e?.code || e));
+			if (vivo) seguro(aoMudar, snap.docs.map(d => ({ uid: d.id, ...d.data() })));
+		}, falha), { renovarMs: 30000 });
+		return () => { vivo = false; parar(); };
 	}
 
 	/** Dono: aprova (cria o convite com "pode editar" e responde o pedido no mesmo lote) ou recusa. */
