@@ -9,7 +9,7 @@ import { criarSupabase } from "./nuvem/supabase.js";
 import { criarDropbox } from "./nuvem/dropbox.js";
 import { NUVEM } from "./config-nuvem.js";
 import { criarLeitor } from "./leitor.js";
-import { buscarNomeProduto, buscarNomesParecidos, codigoConsultavel, linksPesquisaCodigo, nomeAbreviado } from "./produtos.js";
+import { buscarNomeProduto, buscarNomesParecidos, buscarOpcoesNome, codigoConsultavel, linksPesquisaCodigo, nomeAbreviado } from "./produtos.js";
 import { lerDatas, criarCameraValidade } from "./validade.js";
 import { ligarInterfaceFoco } from "./foco.js";
 import { chaveFoto, carregarFotos, guardarFoto, apagarFoto, precisaBuscar, buscarFotoAutomatica, fotosPorCodigo, fotosPorNome, prepararFotoDaPessoa, aoCopiarFoto, copiarFotosPendentes } from "./fotos.js";
@@ -1316,14 +1316,25 @@ async function nomesParecidos(codigo, sinal) {
  * @returns {Promise<string|null>} o nome escolhido ou null
  */
 async function escolherNomeParecido(codigo, opcoes) {
-	if (!window.Swal) {
-		return window.confirm(`Código ${codigo} não encontrado. Usar o nome parecido “${opcoes[0].nome}”?`) ? opcoes[0].nome : null;
-	}
+	return escolherNome(codigo, opcoes, {
+		pergunta: `Código ${codigo} não encontrado. Usar o nome parecido “${opcoes[0].nome}”?`,
+		html: avisoExperimental("os nomes são palpites e podem não ser deste produto.") + `<p>O código <b>${esc(codigo)}</b> não está nas bases. Estes são do <b>mesmo fabricante</b>, com código parecido — escolha o mais próximo e ajuste depois se precisar:</p>`,
+		rotulo: "Nomes parecidos"
+	});
+}
+
+/**
+ * Lista de nomes para a pessoa escolher um (o primeiro já vem marcado).
+ * @param {{ nome: string, fonte: string, codigo?: string, abreviado?: boolean }[]} opcoes
+ * @returns {Promise<string|null>} o nome escolhido ou null
+ */
+async function escolherNome(codigo, opcoes, { pergunta, html: introducao, rotulo = "Nomes encontrados", atual = "" }) {
+	if (!window.Swal) return window.confirm(pergunta) ? opcoes[0].nome : null;
 	let escolhido = opcoes[0].nome;
-	const html = avisoExperimental("os nomes são palpites e podem não ser deste produto.") + `<p>O código <b>${esc(codigo)}</b> não está nas bases. Estes são do <b>mesmo fabricante</b>, com código parecido — escolha o mais próximo e ajuste depois se precisar:</p>`
-		+ `<div class="opcoes-data opcoes-nome" role="radiogroup" aria-label="Nomes parecidos">${opcoes.map((o, i) =>
+	const html = introducao
+		+ `<div class="opcoes-data opcoes-nome" role="radiogroup" aria-label="${esc(rotulo)}">${opcoes.map((o, i) =>
 			`<button type="button" class="opcao-data opcao-nome" role="radio" data-i="${i}" aria-checked="${i === 0}">`
-			+ `<b>${esc(o.nome)}</b><small>${esc(o.fonte)} · ${esc(o.codigo)}</small></button>`).join("")}</div>`
+			+ `<b>${esc(o.nome)}</b><small>${esc(o.fonte)}${o.codigo ? ` · ${esc(o.codigo)}` : ""}${o.abreviado ? " · nome abreviado" : ""}${atual && o.nome === atual ? " · igual ao atual" : ""}</small></button>`).join("")}</div>`
 		+ `<p class="ajuda links-web">Não é nenhum? Pesquise na web: ${htmlLinksPesquisa(codigo, true)}</p>`;
 	const executar = async () => {
 		const r = await window.Swal.fire({
@@ -1376,7 +1387,30 @@ async function sugerirNomeManual() {
 	el.btnSugerirNome?.setAttribute("aria-busy", "true");
 	try {
 		const naLista = itensAtuais().slice().sort((a, b) => b.atualizadoEm - a.atualizadoEm).find(i => i.codigoBarras === codigo);
-		const resultado = naLista ? { nome: naLista.nome, fonte: "sua lista de produtos" } : await buscarNomeProduto(codigo);
+		// Todas as opções: da sua lista, das bases (com a pesquisa na web) — a pessoa escolhe
+		const { opcoes: daInternet } = await buscarOpcoesNome(codigo);
+		if (el.codigo.value.replace(/\s+/g, "") !== codigo) return; // o código mudou enquanto buscava
+		const opcoes = [];
+		const vistas = new Set();
+		for (const o of [...(naLista ? [{ nome: naLista.nome, fonte: "sua lista de produtos", abreviado: nomeAbreviado(naLista.nome) }] : []), ...daInternet]) {
+			const chave = String(o.nome || "").trim().toLowerCase();
+			if (chave && !vistas.has(chave)) { vistas.add(chave); opcoes.push(o); }
+		}
+		const atual = el.nome.value.trim();
+		if (opcoes.length > 1) {
+			const nome = await escolherNome(codigo, opcoes, {
+				pergunta: `Usar o nome “${opcoes[0].nome}”?`,
+				html: avisoExperimental("os nomes vêm de bases públicas e da web. Confira com a embalagem.")
+					+ `<p>Para o código <b>${esc(codigo)}</b> encontramos <b>${opcoes.length}</b> opções — escolha a que bate com a embalagem${atual ? ` (vai substituir “${esc(atual)}”)` : ""}:</p>`,
+				atual
+			});
+			if (nome && el.codigo.value.replace(/\s+/g, "") === codigo) {
+				aplicarNomeSugerido(nome);
+				el.quantidade.focus();
+			}
+			return;
+		}
+		const resultado = opcoes[0] || null;
 		if (!resultado) {
 			if (navigator.onLine === false) return toast("aviso", "Sem internet para buscar o nome agora.", 5000);
 			// Código exato fora das bases: mostra os nomes mais plausíveis para escolher
@@ -1401,7 +1435,6 @@ async function sugerirNomeManual() {
 			if (acao === "confirmar") el.nome.focus();
 			return;
 		}
-		const atual = el.nome.value.trim();
 		if (atual === resultado.nome) return toast("info", "O nome já está igual à sugestão.");
 		const { acao } = await dialogo({
 			titulo: "Nome sugerido",
