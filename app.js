@@ -1743,9 +1743,22 @@ async function dialogoFoto(produto, { pendente = false } = {}) {
 			});
 			popup.querySelector('[data-f="buscar"]')?.addEventListener("click", async e => {
 				const botao = e.currentTarget;
+				const textoBotao = botao.innerHTML;
 				botao.disabled = true;
+				botao.classList.add("buscando");
+				botao.innerHTML = `${icone("LoaderCircle")}Procurando fotos…`;
 				resultados.hidden = false;
-				resultados.innerHTML = `<p class="ajuda">Procurando fotos… (pode levar alguns segundos)</p>`;
+				// Aviso bem visível: a busca consulta várias lojas e sites e pode demorar
+				resultados.innerHTML = `<div class="aviso-buscando" role="status" aria-live="polite">
+					<span class="aviso-buscando-icone">${icone("LoaderCircle")}</span>
+					<span><b>Procurando fotos na internet…</b><br>Aguarde, não feche esta janela. Isso pode levar até 30 segundos. <span class="aviso-buscando-tempo"></span></span>
+				</div>`;
+				const inicioBusca = Date.now();
+				const relogio = setInterval(() => {
+					const t = resultados.querySelector(".aviso-buscando-tempo");
+					if (!t || !popup.isConnected) return clearInterval(relogio);
+					t.textContent = `(${Math.round((Date.now() - inicioBusca) / 1000)} s)`;
+				}, 1000);
 				// Leva a área dos resultados para a vista (no computador ela ficava abaixo da dobra)
 				const mostrarResultados = () => { try { resultados.scrollIntoView({ behavior: semMovimento() ? "auto" : "smooth", block: "nearest" }); } catch { /* ignora */ } };
 				mostrarResultados();
@@ -1780,7 +1793,10 @@ async function dialogoFoto(produto, { pendente = false } = {}) {
 				} catch (erro) {
 					console.warn("[fotos] busca manual:", erro);
 				}
+				clearInterval(relogio);
 				botao.disabled = false;
+				botao.classList.remove("buscando");
+				botao.innerHTML = textoBotao;
 				if (!popup.isConnected) return;
 				if (!opcoes.length) {
 					resultados.innerHTML = `<p class="ajuda">${navigator.onLine === false ? "Sem internet agora." : falhou ? "As bases de fotos não responderam agora. Tente de novo em alguns minutos, ou tire/escolha uma foto." : (produto.nome ? "Nenhuma foto de produto com nome parecido. Confira o nome ou tire/escolha uma foto." : "Nenhuma foto encontrada. Tire ou escolha uma foto.")}</p>`;
