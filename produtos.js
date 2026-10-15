@@ -24,6 +24,7 @@ const VERSAO_CACHE = 3; // muda quando a montagem do nome ou as fontes melhoram 
 const MAX_CACHE = 400;
 const VALIDADE_NEGATIVO_MS = 24 * 60 * 60 * 1000; // "não encontrado" vale 1 dia
 const TEMPO_LIMITE_MS = 6000;
+const TEMPO_INTERMEDIARIO_MS = 25000;
 const CAMPOS_OFF = [
 	"product_name_pt", "abbreviated_product_name_pt", "generic_name_pt",
 	"product_name", "abbreviated_product_name", "generic_name",
@@ -188,7 +189,8 @@ function lerOff(dados) {
 async function consultar(fonte, codigo, sinalExterno) {
 	const controle = new AbortController();
 	const cancelar = () => controle.abort();
-	const tempo = setTimeout(cancelar, TEMPO_LIMITE_MS);
+	// O intermediário consulta várias bases e buscadores antes de responder: espera mais por ele
+	const tempo = setTimeout(cancelar, fonte.uso ? TEMPO_INTERMEDIARIO_MS : TEMPO_LIMITE_MS);
 	sinalExterno?.addEventListener("abort", cancelar, { once: true });
 	try {
 		const r = await fetch(fonte.url(codigo), { signal: controle.signal, headers: { Accept: fonte.aceitar || "application/json" } });

@@ -42,6 +42,7 @@
 const UM_DIA = 24 * 60 * 60;
 const CACHE_ACHADO = 7 * UM_DIA;
 const CACHE_NAO_ACHADO = UM_DIA;
+const CACHE_CURTO = 60 * 60; // 1 hora
 
 // Segundos até a próxima meia-noite em Brasília (UTC-3)
 function ateMeiaNoiteBrasilia() {
@@ -292,40 +293,25 @@ async function buscarPagina(url, limiteMs = 7000) {
 /** Resultados de busca: [{ titulo, link }] (Bing RSS; reserva: DuckDuckGo HTML). */
 async function resultadosDaWeb(consulta) {
 	const q = encodeURIComponent(consulta);
+	// Os três ao mesmo tempo (um costuma bloquear o Worker; esperar um por um demorava demais)
+	const [bing, ddg, lite] = await Promise.all([
+		buscarPagina(`https://www.bing.com/search?format=rss&setlang=pt-BR&cc=BR&q=${q}`, 5000),
+		buscarPagina(`https://html.duckduckgo.com/html/?q=${q}&kl=br-pt`, 5000),
+		buscarPagina(`https://lite.duckduckgo.com/lite/?q=${q}&kl=br-pt`, 5000)
+	]);
 	const lista = [];
-	let respondeu = false;
-	const r = await buscarPagina(`https://www.bing.com/search?format=rss&setlang=pt-BR&cc=BR&q=${q}`);
-	if (r.html) respondeu = true;
-	for (const m of r.html.matchAll(/<item>([\s\S]*?)<\/item>/gi)) {
-		const titulo = decodificarHtml((m[1].match(/<title>([\s\S]*?)<\/title>/i) || [])[1]);
-		const link = decodificarHtml((m[1].match(/<link>([\s\S]*?)<\/link>/i) || [])[1]);
-		if (titulo && /^https?:/i.test(link)) lista.push({ titulo, link });
+	const juntar = (titulo, link) => {
+		const destino = link.match(/[?&]uddg=([^&]+)/);
+		if (destino) { try { link = decodeURIComponent(destino[1]); } catch { /* link quebrado */ } }
+		if (link.startsWith("//")) link = "https:" + link;
+		if (titulo && /^https?:/i.test(link) && !lista.some(x => x.link === link)) lista.push({ titulo, link });
+	};
+	for (const m of bing.html.matchAll(/<item>([\s\S]*?)<\/item>/gi)) {
+		juntar(decodificarHtml((m[1].match(/<title>([\s\S]*?)<\/title>/i) || [])[1]), decodificarHtml((m[1].match(/<link>([\s\S]*?)<\/link>/i) || [])[1]));
 	}
-	if (lista.length < 3) {
-		const d = await buscarPagina(`https://html.duckduckgo.com/html/?q=${q}&kl=br-pt`);
-		if (d.html) respondeu = true;
-		for (const m of d.html.matchAll(/<a[^>]+class="[^"]*result__a[^"]*"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)) {
-			let link = decodificarHtml(m[1]);
-			const destino = link.match(/[?&]uddg=([^&]+)/);
-			if (destino) link = decodeURIComponent(destino[1]);
-			if (link.startsWith("//")) link = "https:" + link;
-			const titulo = decodificarHtml(m[2]);
-			if (titulo && /^https?:/i.test(link) && !lista.some(x => x.link === link)) lista.push({ titulo, link });
-		}
-	}
-	if (lista.length < 3) {
-		// Reserva: DuckDuckGo "lite" (página simples, costuma responder quando a outra bloqueia)
-		const l = await buscarPagina(`https://lite.duckduckgo.com/lite/?q=${q}&kl=br-pt`);
-		if (l.html) respondeu = true;
-		for (const m of l.html.matchAll(/<a[^>]+href="([^"]+)"[^>]*class=['"]result-link['"][^>]*>([\s\S]*?)<\/a>/gi)) {
-			let link = decodificarHtml(m[1]);
-			const destino = link.match(/[?&]uddg=([^&]+)/);
-			if (destino) link = decodeURIComponent(destino[1]);
-			if (link.startsWith("//")) link = "https:" + link;
-			const titulo = decodificarHtml(m[2]);
-			if (titulo && /^https?:/i.test(link) && !lista.some(x => x.link === link)) lista.push({ titulo, link });
-		}
-	}
+	for (const m of ddg.html.matchAll(/<a[^>]+class="[^"]*result__a[^"]*"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)) juntar(decodificarHtml(m[2]), decodificarHtml(m[1]));
+	for (const m of lite.html.matchAll(/<a[^>]+href="([^"]+)"[^>]*class=['"]result-link['"][^>]*>([\s\S]*?)<\/a>/gi)) juntar(decodificarHtml(m[2]), decodificarHtml(m[1]));
+	const respondeu = !!(bing.html || ddg.html || lite.html);
 	return { respondeu, lista: lista.filter(x => !SITES_IGNORADOS.test(x.link)).slice(0, 10) };
 }
 
@@ -347,8 +333,11 @@ function lerImagensBing(html) {
 /** Imagens do DuckDuckGo (precisa do "vqd" da página de busca). */
 async function imagensDuckDuckGo(consulta) {
 	const q = encodeURIComponent(consulta);
-	const pagina = await buscarPagina(`https://duckduckgo.com/?q=${q}&iax=images&ia=images&kl=br-pt`);
-	const vqd = (pagina.html.match(/vqd=["']?([0-9a-z_-]+)["']?/i) || [])[1];
+	let vqd = "";
+	for (let tentativa = 0; tentativa < 2 && !vqd; tentativa++) {
+		const pagina = await buscarPagina(`https://duckduckgo.com/?q=${q}&iax=images&ia=images&kl=br-pt`, 5000);
+		vqd = (pagina.html.match(/vqd=["']?([0-9a-z_-]+)["']?/i) || [])[1] || "";
+	}
 	if (!vqd) return { respondeu: false, lista: [] };
 	const r = await buscar(`https://duckduckgo.com/i.js?l=br-pt&o=json&q=${q}&vqd=${encodeURIComponent(vqd)}&f=,,,,,&p=1`, { ...CABECALHO_NAVEGADOR, Accept: "application/json", Referer: "https://duckduckgo.com/" }, 7000);
 	const resultados = Array.isArray(r.dados?.results) ? r.dados.results : [];
@@ -364,15 +353,13 @@ async function imagensDuckDuckGo(consulta) {
 /** Fotos pelo nome em buscadores de imagem: Bing (rápido e completo); vazio → DuckDuckGo. */
 async function imagensDaWeb(consulta) {
 	const q = encodeURIComponent(consulta);
-	let r = await buscarPagina(`https://www.bing.com/images/async?q=${q}&first=0&count=35&mmasync=1&setlang=pt-BR&cc=BR`);
-	let lista = lerImagensBing(r.html);
-	let respondeu = !!r.html;
-	if (!lista.length) {
-		const d = await imagensDuckDuckGo(consulta);
-		lista = d.lista;
-		respondeu = respondeu || d.respondeu;
-	}
-	return { respondeu, lista };
+	// Bing e DuckDuckGo ao mesmo tempo; vale o Bing se ele trouxer algo, senão o DuckDuckGo
+	const [bing, ddg] = await Promise.all([
+		buscarPagina(`https://www.bing.com/images/async?q=${q}&first=0&count=35&mmasync=1&setlang=pt-BR&cc=BR`, 5000),
+		imagensDuckDuckGo(consulta).catch(() => ({ respondeu: false, lista: [] }))
+	]);
+	const doBing = lerImagensBing(bing.html);
+	return { respondeu: !!bing.html || ddg.respondeu, lista: doBing.length ? doBing : ddg.lista };
 }
 
 const palavrasDe = t => limpar(t).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/).filter(p => p.length > 2 && !/^\d+$/.test(p));
@@ -495,24 +482,36 @@ async function tokenOscbr(env, ctx) {
 }
 
 /* ---------- Rotas ---------- */
+const BASES_ABERTAS = new Set(["lojas", "upcitemdb", "cosmos-site", "web"]);
+
 async function rotaProduto(gtin, env, ctx, origemPedido, json) {
 	const emCache = await lerCache(`produto/${gtin}`);
 	if (emCache) return json(emCache.status, await emCache.json());
 	const resultado = { gtin, nome: "", marca: "", foto: "", fonte: "", fonteFoto: "", fontes: [] };
 	const tentativas = [];
 	let algumaRespondeu = false;
-	for (const base of BASES) {
-		if (!base.ativa(env)) continue;
-		if (await pausada(base.id)) { tentativas.push({ fonte: base.id, status: "pausada até meia-noite" }); continue; }
-		const r = await base.consultar(gtin, env, ctx, origemPedido);
+	const aproveitar = (base, r) => {
 		tentativas.push({ fonte: base.id, status: r.status });
-		if (r.status === 429) { await pausar(ctx, base.id); continue; }
 		if (r.status === 200 || r.status === 404 || r.status === 204) algumaRespondeu = true;
-		if (r.status !== 200) continue;
+		if (r.status !== 200) return;
 		if (!resultado.nome && r.nome) { resultado.nome = r.nome; resultado.marca = r.marca; resultado.fonte = r.nomeFonte || base.nome; }
 		if (!resultado.foto && r.foto) { resultado.foto = r.foto; resultado.fonteFoto = r.nomeFonteFoto || r.nomeFonte || base.nome; }
 		if (r.nome || r.foto) resultado.fontes.push(r.nomeFonte || base.nome);
-		if (resultado.nome && resultado.foto) break; // já tem tudo: não gasta cota das outras
+	};
+	// Bases com chave (cota diária): uma de cada vez, e para assim que tiver nome e foto
+	for (const base of BASES.filter(b => !BASES_ABERTAS.has(b.id))) {
+		if (!base.ativa(env)) continue;
+		if (await pausada(base.id)) { tentativas.push({ fonte: base.id, status: "pausada até meia-noite" }); continue; }
+		const r = await base.consultar(gtin, env, ctx, origemPedido);
+		if (r.status === 429) { tentativas.push({ fonte: base.id, status: 429 }); await pausar(ctx, base.id); continue; }
+		aproveitar(base, r);
+		if (resultado.nome && resultado.foto) break;
+	}
+	// Bases abertas (sem cota): todas ao mesmo tempo, na ordem da lista para escolher
+	if (!resultado.nome || !resultado.foto) {
+		const abertas = BASES.filter(b => BASES_ABERTAS.has(b.id) && b.ativa(env));
+		const respostas = await Promise.all(abertas.map(b => b.consultar(gtin, env, ctx, origemPedido).catch(() => ({ status: 0 }))));
+		abertas.forEach((b, i) => aproveitar(b, respostas[i]));
 	}
 	if (resultado.nome || resultado.foto) {
 		await gravarCache(ctx, `produto/${gtin}`, new Response(JSON.stringify(resultado), { status: 200, headers: { "Content-Type": "application/json" } }), CACHE_ACHADO);
@@ -590,10 +589,22 @@ function pontuacao(procurado, achado) {
 }
 
 async function rotaBusca(q, ctx, json) {
-	const chave = `busca7/${q.toLowerCase()}`; // muda o número quando a regra de relevância muda (ignora o cache antigo)
+	const chave = `busca8/${q.toLowerCase()}`; // muda o número quando a regra de relevância muda (ignora o cache antigo)
 	const emCache = await lerCache(chave);
 	if (emCache) return json(200, await emCache.json());
 	const termos = encodeURIComponent(q);
+	// Começam já (em paralelo com as lojas) para a resposta não demorar; só são usados se precisar
+	const porWebJa = (async () => {
+		const { respondeu, lista } = await resultadosDaWeb(`${q} produto`);
+		// Só abre links cujo título já tem a ver com o nome (o buscador às vezes devolve qualquer coisa)
+		const uteis = lista.filter(r => mesmoTipo(q, r.titulo)).slice(0, 3);
+		const paginas = await Promise.all(uteis.map(async r => {
+			const pg = await buscarPagina(r.link, 5000);
+			return pg.html ? { ...dadosDaPagina(pg.html, ""), site: new URL(r.link).hostname.replace(/^www\./, "") } : null;
+		}));
+		return { respondeu, paginas, links: lista.length };
+	})().catch(() => ({ respondeu: false, paginas: [], links: 0 }));
+	const imagensJa = imagensDaWeb(q).catch(() => ({ respondeu: false, lista: [] }));
 	const [lojas, off] = await Promise.all([
 		consultarLojas(`?ft=${termos}&_from=0&_to=9`, "", 7000),
 		buscar(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${termos}&search_simple=1&action=process&json=1&page_size=12&fields=product_name,product_name_pt,brands,image_front_url,image_url&lc=pt`, CABECALHO_LOJA, 9000)
@@ -616,17 +627,7 @@ async function rotaBusca(q, ctx, json) {
 		const porTipo = termos.length >= 2 && tipo.length >= 3
 			? consultarLojas(`?ft=${encodeURIComponent(tipo)}&_from=0&_to=19`, "", 7000)
 			: Promise.resolve([]);
-		const porWeb = (async () => {
-			const { respondeu, lista } = await resultadosDaWeb(`${q} produto`);
-			// Só abre links cujo título já tem a ver com o nome (o buscador às vezes devolve qualquer coisa)
-			const uteis = lista.filter(r => mesmoTipo(q, r.titulo)).slice(0, 3);
-			const paginas = await Promise.all(uteis.map(async r => {
-				const pg = await buscarPagina(r.link, 6000);
-				return pg.html ? { ...dadosDaPagina(pg.html, ""), site: new URL(r.link).hostname.replace(/^www\./, "") } : null;
-			}));
-			return { respondeu, paginas, links: lista.length };
-		})();
-		const [r1, r2, r3] = await Promise.all([porTipo, porWeb, imagensDaWeb(q)]);
+		const [r1, r2, r3] = await Promise.all([porTipo, porWebJa, imagensJa]);
 		lojas2 = r1;
 		for (const x of lojas2.flatMap(r => r.produtos)) if (!produtos.some(p => p.foto === x.foto)) produtos.push(x);
 		webRespondeu = r2.respondeu;
@@ -660,7 +661,9 @@ async function rotaBusca(q, ctx, json) {
 		produtos: produtos.slice(0, 40),
 		consultas: { lojas: lojas.filter(r => r.respondeu).length, lojasPeloTipo: lojas2.filter(r => r.respondeu).length, web: webRespondeu ? `${webLinks} links, ${webPaginas} páginas com foto` : "não respondeu", imagens: imagensRespondeu ? `${imagensAchadas} imagens` : "não respondeu", openFoodFacts: off.status, amostra }
 	};
-	await gravarCache(ctx, chave, new Response(JSON.stringify(corpo), { headers: { "Content-Type": "application/json" } }), produtos.length ? CACHE_ACHADO : CACHE_NAO_ACHADO);
+	// Nada bem parecido (ou as imagens falharam): guarda só 1 hora, para uma nova tentativa buscar de novo
+	const bom = produtos.some(x => relevancia(q, `${x.nome} ${x.marca || ""}`) >= RELEVANTE) && (imagensRespondeu || relevantes().length >= 6);
+	await gravarCache(ctx, chave, new Response(JSON.stringify(corpo), { headers: { "Content-Type": "application/json" } }), bom ? CACHE_ACHADO : CACHE_CURTO);
 	return json(200, corpo);
 }
 
