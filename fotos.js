@@ -443,8 +443,8 @@ export async function fotosPorNome(nome, { sinal, limite = 8, rapido = false } =
  */
 export async function buscarFotoAutomatica(item, { sinal } = {}) {
 	let falhou = null;
-	// Nome abreviado: o código de barras vem primeiro; o nome só se o código não achar nada
-	const codigoPrimeiro = !!item?.codigoBarras && nomeAbreviado(item?.nome);
+	// O código de barras vem sempre primeiro (identifica o produto exato); o nome só se ele não achar
+	const codigoPrimeiro = !!item?.codigoBarras;
 	if (codigoPrimeiro) {
 		try {
 			const porCodigo = await fotosPorCodigo(item.codigoBarras, { sinal });
