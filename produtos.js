@@ -20,7 +20,7 @@
 import { BUSCA } from "./config-busca.js";
 
 const CHAVE_CACHE = "cv2:nomesCodigo";
-const VERSAO_CACHE = 4; // muda quando a montagem do nome ou as fontes melhoram (ignora resultados antigos)
+const VERSAO_CACHE = 5; // muda quando a montagem do nome ou as fontes melhoram (ignora resultados antigos)
 const MAX_CACHE = 400;
 const VALIDADE_NEGATIVO_MS = 24 * 60 * 60 * 1000; // "não encontrado" vale 1 dia
 const TEMPO_LIMITE_MS = 6000;
@@ -269,6 +269,55 @@ export async function buscarNomeProduto(codigo, { sinal } = {}) {
 	// Só guarda "não encontrado" se alguma base respondeu (falha de rede não conta)
 	if (algumaRespondeu) gravarCache(codigo, null);
 	return null;
+}
+
+/**
+ * Todas as opções de nome para o código (botão ✨): bases brasileiras pelo intermediário
+ * (com a pesquisa na web) e as bases abertas, ao mesmo tempo. Uma opção por nome;
+ * nomes completos primeiro, abreviados no fim.
+ * @returns {Promise<{ opcoes: { nome: string, fonte: string, abreviado: boolean }[], respondeu: boolean }>}
+ *   respondeu: alguma base respondeu (false = sem internet/bases fora do ar)
+ */
+const opcoesGuardadas = new Map(); // só nesta sessão
+export async function buscarOpcoesNome(codigo, { sinal } = {}) {
+	codigo = String(codigo || "").trim();
+	if (!codigoConsultavel(codigo)) return { opcoes: [], respondeu: false };
+	if (opcoesGuardadas.has(codigo)) return { opcoes: opcoesGuardadas.get(codigo), respondeu: true };
+	if (typeof navigator !== "undefined" && navigator.onLine === false) return { opcoes: [], respondeu: false };
+	const base = intermediario("produto");
+	const todas = [
+		// "todas=1": o intermediário consulta todas as bases e devolve a lista "nomes"
+		...(base ? [{ nome: "Bases brasileiras", url: c => `${base}/produto?gtin=${c}&todas=1`, ler: d => d, uso: "produto" }] : []),
+		...FONTES_BASE
+	];
+	const respostas = await Promise.allSettled(todas.map(f => consultar(f, codigo, sinal)));
+	if (sinal?.aborted) return { opcoes: [], respondeu: false };
+	const opcoes = [];
+	const vistas = new Set();
+	const juntar = (nome, fonte) => {
+		nome = limpar(nome);
+		const chave = semAcento(nome).replace(/[^a-z0-9]+/g, " ").trim();
+		if (!chave || vistas.has(chave)) return;
+		vistas.add(chave);
+		opcoes.push({ nome, fonte, abreviado: nomeAbreviado(nome) });
+	};
+	let respondeu = false;
+	respostas.forEach((r, i) => {
+		if (r.status !== "fulfilled") return;
+		respondeu = true;
+		const fonte = todas[i], v = r.value;
+		if (!v) return;
+		if (fonte.uso) {
+			// Intermediário antigo (sem "nomes"): só o nome principal
+			const lista = Array.isArray(v.nomes) && v.nomes.length ? v.nomes : (v.nome ? [{ nome: v.nome, marca: v.marca, fonte: v.fonte }] : []);
+			for (const n of lista) juntar(montarNome({ base: limpar(n?.nome), marca: n?.marca }) || n?.nome, limpar(n?.fonte) || fonte.nome);
+		} else {
+			juntar(typeof v === "string" ? v : v?.nome, fonte.nome);
+		}
+	});
+	const ordenadas = [...opcoes.filter(o => !o.abreviado), ...opcoes.filter(o => o.abreviado)];
+	if (respondeu) opcoesGuardadas.set(codigo, ordenadas);
+	return { opcoes: ordenadas, respondeu };
 }
 
 /* =========================================================

@@ -3939,9 +3939,22 @@ input.sugerido.sugerido-saindo {
 	text-align: left;
 }
 
+/* Nome em cima (largura toda), fonte embaixo: no celular o nome não fica espremido */
+.opcao-data.opcao-nome {
+	flex-direction: column;
+	align-items: flex-start;
+	justify-content: flex-start;
+	gap: 3px;
+}
+
+.opcao-nome b {
+	overflow-wrap: anywhere;
+}
+
 .opcao-nome small {
-	flex: none;
-	max-width: 42%;
+	max-width: 100%;
+	text-align: left;
+	overflow-wrap: anywhere;
 }
 
 .links-web {

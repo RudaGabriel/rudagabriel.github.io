@@ -192,7 +192,7 @@ const BASES = [
 			// Buscador fora do ar/bloqueado: não é "não encontrado" (não grava no cache)
 			if (!achado) return { status: 0 };
 			if (achado.vazio) return { status: 404 };
-			return { status: 200, nome: achado.nome, marca: achado.marca || "", foto: achado.foto || "", nomeFonte: achado.fonte, nomeFonteFoto: achado.fonteFoto || achado.fonte };
+			return { status: 200, nome: achado.nome, marca: achado.marca || "", foto: achado.foto || "", nomeFonte: achado.fonte, nomeFonteFoto: achado.fonteFoto || achado.fonte, alternativas: achado.alternativas || [] };
 		}
 	}
 ];
@@ -290,8 +290,15 @@ async function buscarPagina(url, limiteMs = 7000) {
 	}
 }
 
-/** Resultados de busca: [{ titulo, link }] (Bing RSS; reserva: DuckDuckGo HTML). */
-async function resultadosDaWeb(consulta) {
+/** O texto cita o código de barras (com ou sem zeros à esquerda)? */
+function citaCodigo(texto, gtin) {
+	const semZeros = String(gtin || "").replace(/\D/g, "").replace(/^0+/, "");
+	return !!semZeros && new RegExp(`(^|\\D)0*${semZeros}(\\D|$)`).test(String(texto || ""));
+}
+
+/** Resultados de busca: [{ titulo, link, citaCodigo }] (Bing RSS; reserva: DuckDuckGo HTML).
+ *  citaCodigo: o título, o link ou o trecho do resultado mostra o código procurado. */
+async function resultadosDaWeb(consulta, gtin = "") {
 	const q = encodeURIComponent(consulta);
 	// Os três ao mesmo tempo (um costuma bloquear o Worker; esperar um por um demorava demais)
 	const [bing, ddg, lite] = await Promise.all([
@@ -300,17 +307,25 @@ async function resultadosDaWeb(consulta) {
 		buscarPagina(`https://lite.duckduckgo.com/lite/?q=${q}&kl=br-pt`, 5000)
 	]);
 	const lista = [];
-	const juntar = (titulo, link) => {
+	const semTags = h => decodificarHtml(String(h || "").replace(/<[^>]+>/g, " "));
+	const juntar = (titulo, link, trecho = "") => {
 		const destino = link.match(/[?&]uddg=([^&]+)/);
 		if (destino) { try { link = decodeURIComponent(destino[1]); } catch { /* link quebrado */ } }
 		if (link.startsWith("//")) link = "https:" + link;
-		if (titulo && /^https?:/i.test(link) && !lista.some(x => x.link === link)) lista.push({ titulo, link });
+		if (titulo && /^https?:/i.test(link) && !lista.some(x => x.link === link)) {
+			lista.push({ titulo, link, citaCodigo: !!gtin && (citaCodigo(titulo, gtin) || citaCodigo(link, gtin) || citaCodigo(trecho, gtin)) });
+		}
 	};
 	for (const m of bing.html.matchAll(/<item>([\s\S]*?)<\/item>/gi)) {
-		juntar(decodificarHtml((m[1].match(/<title>([\s\S]*?)<\/title>/i) || [])[1]), decodificarHtml((m[1].match(/<link>([\s\S]*?)<\/link>/i) || [])[1]));
+		juntar(decodificarHtml((m[1].match(/<title>([\s\S]*?)<\/title>/i) || [])[1]), decodificarHtml((m[1].match(/<link>([\s\S]*?)<\/link>/i) || [])[1]), semTags((m[1].match(/<description>([\s\S]*?)<\/description>/i) || [])[1]));
 	}
-	for (const m of ddg.html.matchAll(/<a[^>]+class="[^"]*result__a[^"]*"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)) juntar(decodificarHtml(m[2]), decodificarHtml(m[1]));
-	for (const m of lite.html.matchAll(/<a[^>]+href="([^"]+)"[^>]*class=['"]result-link['"][^>]*>([\s\S]*?)<\/a>/gi)) juntar(decodificarHtml(m[2]), decodificarHtml(m[1]));
+	// DuckDuckGo: o trecho de cada resultado vai do link até o próximo resultado
+	const comTrechos = (html, re) => {
+		const achados = [...html.matchAll(re)];
+		achados.forEach((m, i) => juntar(semTags(m[2]), decodificarHtml(m[1]), semTags(html.slice(m.index + m[0].length, achados[i + 1]?.index ?? m.index + 4000))));
+	};
+	comTrechos(ddg.html, /<a[^>]+class="[^"]*result__a[^"]*"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi);
+	comTrechos(lite.html, /<a[^>]+href="([^"]+)"[^>]*class=['"]result-link['"][^>]*>([\s\S]*?)<\/a>/gi);
 	const respondeu = !!(bing.html || ddg.html || lite.html);
 	return { respondeu, lista: lista.filter(x => !SITES_IGNORADOS.test(x.link)).slice(0, 10) };
 }
@@ -366,7 +381,7 @@ const palavrasDe = t => limpar(t).toLowerCase().normalize("NFD").replace(/[\u030
 
 async function pesquisarNaWeb(gtin) {
 	// Páginas da web e imagens do DuckDuckGo ao mesmo tempo (o Bing costuma bloquear o Worker)
-	const [web, imagens] = await Promise.all([resultadosDaWeb(`"${gtin}"`), imagensDuckDuckGo(gtin)]);
+	const [web, imagens] = await Promise.all([resultadosDaWeb(`"${gtin}"`, gtin), imagensDuckDuckGo(gtin)]);
 	if (!web.respondeu && !imagens.respondeu) return null;
 	const resultados = web.lista;
 	// Abre as 3 primeiras páginas e procura uma que confirme o código de barras
@@ -375,26 +390,33 @@ async function pesquisarNaWeb(gtin) {
 		return p.html ? { ...dadosDaPagina(p.html, gtin), site: new URL(r.link).hostname.replace(/^www\./, "") } : null;
 	}));
 	const confirmada = paginas.find(p => p?.confirmado && p.nome);
+	// Outras páginas que confirmam o código também viram opções para a pessoa escolher
+	const confirmadas = paginas.filter(p => p?.confirmado && p.nome)
+		.map(p => ({ nome: limparTituloProduto(p.nome, gtin), fonte: `Pesquisa na web (${p.site})` }));
 	if (confirmada) {
 		const fotoConfirmada = paginas.find(p => p?.confirmado && p.foto);
-		return { nome: limparTituloProduto(confirmada.nome, gtin), marca: confirmada.marca, foto: fotoConfirmada?.foto || "", fonte: `Pesquisa na web (${confirmada.site})`, fonteFoto: fotoConfirmada ? `Pesquisa na web (${fotoConfirmada.site})` : "" };
+		return { nome: limparTituloProduto(confirmada.nome, gtin), marca: confirmada.marca, foto: fotoConfirmada?.foto || "", fonte: `Pesquisa na web (${confirmada.site})`, fonteFoto: fotoConfirmada ? `Pesquisa na web (${fotoConfirmada.site})` : "", alternativas: confirmadas.slice(1) };
 	}
-	// Consenso dos títulos (páginas + imagens): o nome cujas palavras mais aparecem nos outros
-	const candidatos = [
-		...resultados.map(r => ({ nome: limparTituloProduto(r.titulo, gtin), foto: "" })),
-		...imagens.lista.map(im => ({ nome: limparTituloProduto(im.titulo, gtin), foto: im.foto, site: (() => { try { return new URL(im.pagina).hostname.replace(/^www\./, ""); } catch { return ""; } })() }))
+	// Sem página confirmada: só valem títulos de resultados que CITAM o código (no título, link ou trecho).
+	// Quando o buscador não acha o código, ele devolve resultados aleatórios ("Brilho do visor do Windows 11"):
+	// esses não podem virar nome de produto, nem por consenso entre si.
+	const site = link => { try { return new URL(link).hostname.replace(/^www\./, ""); } catch { return ""; } };
+	// Imagens só apoiam (e dão a foto) — a não ser que o título ou a página da imagem cite o código
+	const daImagem = imagens.lista.map(im => ({ nome: limparTituloProduto(im.titulo, gtin), foto: im.foto, site: site(im.pagina), citaCodigo: citaCodigo(im.titulo, gtin) || citaCodigo(im.pagina, gtin) }))
+		.filter(c => palavrasDe(c.nome).length >= 2);
+	const doCodigo = [
+		...resultados.filter(r => r.citaCodigo).map(r => ({ nome: limparTituloProduto(r.titulo, gtin), foto: "", site: site(r.link) })),
+		...daImagem.filter(c => c.citaCodigo)
 	].filter(c => palavrasDe(c.nome).length >= 2);
-	if (!candidatos.length) return { vazio: true };
-	// Com muitos títulos, exige 2 apoios (evita nome de um produto qualquer que apareceu na busca)
-	const apoioMinimo = candidatos.length >= 5 ? 2 : 1;
-	let melhor = null;
-	candidatos.forEach((c, i) => {
+	if (!doCodigo.length) return { vazio: true };
+	const candidatos = [...doCodigo, ...daImagem];
+	// O nome (entre os que citam o código) com mais apoio dos outros títulos
+	const pontuados = doCodigo.map(c => {
 		const pt = new Set(palavrasDe(c.nome));
-		// Títulos iguais de sites diferentes também contam como apoio
-		const apoio = candidatos.filter((o, j) => j !== i && palavrasDe(o.nome).filter(p => pt.has(p)).length >= 2).length;
-		if (apoio >= apoioMinimo && (!melhor || apoio > melhor.apoio || (apoio === melhor.apoio && c.nome.length < melhor.nome.length))) melhor = { ...c, apoio };
-	});
-	if (!melhor) return { vazio: true };
+		const apoio = candidatos.filter(o => o !== c && palavrasDe(o.nome).filter(p => pt.has(p)).length >= 2).length;
+		return { ...c, apoio };
+	}).sort((a, b) => b.apoio - a.apoio || a.nome.length - b.nome.length);
+	const melhor = pontuados[0];
 	// Foto: a imagem cujo título mais se parece com o nome escolhido
 	const pm = new Set(palavrasDe(melhor.nome));
 	const comFoto = candidatos
@@ -404,8 +426,9 @@ async function pesquisarNaWeb(gtin) {
 		.sort((a, b) => b.n - a.n)[0]?.c;
 	return {
 		nome: melhor.nome, marca: "", foto: comFoto?.foto || "",
-		fonte: imagens.lista.length ? "Pesquisa na web (DuckDuckGo)" : "Pesquisa na web",
-		fonteFoto: comFoto ? `DuckDuckGo Imagens${comFoto.site ? ` (${comFoto.site})` : ""}` : ""
+		fonte: melhor.site ? `Pesquisa na web (${melhor.site})` : "Pesquisa na web",
+		fonteFoto: comFoto ? `DuckDuckGo Imagens${comFoto.site ? ` (${comFoto.site})` : ""}` : "",
+		alternativas: pontuados.slice(1, 5).map(c => ({ nome: c.nome, fonte: c.site ? `Pesquisa na web (${c.site})` : "Pesquisa na web" }))
 	};
 }
 
@@ -502,11 +525,24 @@ function nomeAbreviado(nome) {
 /* ---------- Rotas ---------- */
 const BASES_ABERTAS = new Set(["lojas", "upcitemdb", "cosmos-site", "web"]);
 
-async function rotaProduto(gtin, env, ctx, origemPedido, json) {
-	// "produto2/": resultados antigos (que podiam trazer nome abreviado havendo um completo) não valem mais
-	const emCache = await lerCache(`produto2/${gtin}`);
+/**
+ * /produto?gtin=…  → o melhor nome e foto (para quando a pessoa lê o código).
+ * /produto?gtin=…&todas=1 → também "nomes": todas as opções achadas em todas as bases e na web,
+ *   para a pessoa escolher (botão ✨). Gasta 1 consulta de cada base com chave.
+ */
+async function rotaProduto(gtin, env, ctx, origemPedido, json, todas = false) {
+	// "produto3/": resultados antigos (nome abreviado havendo um completo; nome da web sem citar o código) não valem mais
+	const chaveCache = `produto3${todas ? "t" : ""}/${gtin}`;
+	const emCache = await lerCache(chaveCache);
 	if (emCache) return json(emCache.status, await emCache.json());
-	const resultado = { gtin, nome: "", marca: "", foto: "", fonte: "", fonteFoto: "", fontes: [] };
+	const resultado = { gtin, nome: "", marca: "", foto: "", fonte: "", fonteFoto: "", fontes: [], nomes: [] };
+	const juntarNome = (nome, marca, fonte) => {
+		nome = limpar(nome);
+		if (!nome) return;
+		const chave = nome.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+		if (!chave || resultado.nomes.some(n => n.chave === chave)) return;
+		resultado.nomes.push({ chave, nome, marca: limpar(marca), fonte, abreviado: nomeAbreviado(nome) });
+	};
 	const tentativas = [];
 	let algumaRespondeu = false;
 	const aproveitar = (base, r) => {
@@ -519,6 +555,8 @@ async function rotaProduto(gtin, env, ctx, origemPedido, json) {
 		}
 		if (!resultado.foto && r.foto) { resultado.foto = r.foto; resultado.fonteFoto = r.nomeFonteFoto || r.nomeFonte || base.nome; }
 		if (r.nome || r.foto) resultado.fontes.push(r.nomeFonte || base.nome);
+		if (r.nome) juntarNome(r.nome, r.marca, r.nomeFonte || base.nome);
+		for (const alt of r.alternativas || []) juntarNome(alt.nome, "", alt.fonte || base.nome);
 	};
 	// Bases com chave (cota diária): uma de cada vez, e para assim que tiver nome e foto
 	for (const base of BASES.filter(b => !BASES_ABERTAS.has(b.id))) {
@@ -527,22 +565,25 @@ async function rotaProduto(gtin, env, ctx, origemPedido, json) {
 		const r = await base.consultar(gtin, env, ctx, origemPedido);
 		if (r.status === 429) { tentativas.push({ fonte: base.id, status: 429 }); await pausar(ctx, base.id); continue; }
 		aproveitar(base, r);
-		if (resultado.nome && !nomeAbreviado(resultado.nome) && resultado.foto) break;
+		if (!todas && resultado.nome && !nomeAbreviado(resultado.nome) && resultado.foto) break;
 	}
 	// Bases abertas (sem cota): todas ao mesmo tempo, na ordem da lista para escolher
 	// (também quando o nome achado é abreviado: alguma pode ter o nome completo)
-	if (!resultado.nome || nomeAbreviado(resultado.nome) || !resultado.foto) {
+	if (todas || !resultado.nome || nomeAbreviado(resultado.nome) || !resultado.foto) {
 		const abertas = BASES.filter(b => BASES_ABERTAS.has(b.id) && b.ativa(env));
 		const respostas = await Promise.all(abertas.map(b => b.consultar(gtin, env, ctx, origemPedido).catch(() => ({ status: 0 }))));
 		abertas.forEach((b, i) => aproveitar(b, respostas[i]));
 	}
+	// Opções: nomes completos primeiro (na ordem das bases), abreviados no fim
+	resultado.nomes = [...resultado.nomes.filter(n => !n.abreviado), ...resultado.nomes.filter(n => n.abreviado)]
+		.map(({ chave, ...n }) => n);
 	if (resultado.nome || resultado.foto) {
-		await gravarCache(ctx, `produto2/${gtin}`, new Response(JSON.stringify(resultado), { status: 200, headers: { "Content-Type": "application/json" } }), CACHE_ACHADO);
+		await gravarCache(ctx, chaveCache, new Response(JSON.stringify(resultado), { status: 200, headers: { "Content-Type": "application/json" } }), CACHE_ACHADO);
 		return json(200, resultado);
 	}
 	if (algumaRespondeu) {
 		const corpo = { erro: "não encontrado", gtin, tentativas };
-		await gravarCache(ctx, `produto2/${gtin}`, new Response(JSON.stringify(corpo), { status: 404, headers: { "Content-Type": "application/json" } }), CACHE_NAO_ACHADO);
+		await gravarCache(ctx, chaveCache, new Response(JSON.stringify(corpo), { status: 404, headers: { "Content-Type": "application/json" } }), CACHE_NAO_ACHADO);
 		return json(404, corpo);
 	}
 	// Nenhuma base respondeu (cotas, rede, chaves): o app tenta de novo mais tarde
@@ -779,7 +820,7 @@ export default {
 			}
 			if (url.pathname === "/produto") {
 				if (!/^\d{8,14}$/.test(gtin)) return json(400, { erro: "gtin inválido" });
-				return await rotaProduto(gtin, env, ctx, origemPedido, json);
+				return await rotaProduto(gtin, env, ctx, origemPedido, json, url.searchParams.get("todas") === "1");
 			}
 			if (url.pathname === "/busca") {
 				const q = limpar(url.searchParams.get("q")).slice(0, 80);
