@@ -2526,8 +2526,28 @@ input[type="number"]::-webkit-inner-spin-button {
 	animation: none !important;
 }
 
+/* O texto nunca passa por baixo/por cima do ✕: reserva a faixa do botão e quebra palavras longas (códigos) */
 .notyf__toast--dismissible .notyf__wrapper {
-	padding-right: 40px !important;
+	padding-right: 52px !important;
+}
+
+.notyf__wrapper {
+	min-width: 0;
+}
+
+.notyf__message {
+	flex: 1 1 auto;
+	min-width: 0;
+	max-width: 100%;
+	overflow-wrap: anywhere;
+	word-break: break-word;
+}
+
+/* Códigos longos quebram de preferência nos hífens; só cortam no meio se não couber */
+.notyf__message .codigo-convidado,
+.notyf__message code {
+	overflow-wrap: anywhere;
+	word-break: normal;
 }
 
 .notyf__dismiss-btn {
