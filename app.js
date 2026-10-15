@@ -16,6 +16,7 @@ import { chaveFoto, carregarFotos, guardarFoto, apagarFoto, precisaBuscar, busca
 import { iniciarAnuncios } from "./anuncios.js";
 
 const URL_AUTO_ANIMATE = "https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.10.0/index.mjs";
+const URL_FUSE = "https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.mjs";
 const URL_QRCODE = "https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js";
 
 const CHAVE = {
@@ -640,6 +641,7 @@ function render() {
 	});
 
 	const busca = normalizar(estado.busca);
+	const parecidos = busca ? produtosParecidos(calculados.map(c => c.item), busca) : null;
 	const visiveis = ordenar(calculados.filter(c => {
 		switch (estado.filtro) {
 			case "alerta": if (c.sit.estado !== "alerta") return false; break;
@@ -648,7 +650,7 @@ function render() {
 			case "mes": if (!c.esteMes) return false; break;
 		}
 		if (!busca) return true;
-		return normalizar(c.item.nome).includes(busca) || (c.item.codigoBarras || "").toLowerCase().includes(busca);
+		return combinaBusca(c.item, busca) || parecidos.has(c.item.id);
 	}), estado.ordenacao);
 
 	// Atualização por chave: só reescreve linhas que mudaram (anima bem e é rápido).
@@ -1480,6 +1482,46 @@ async function aplicarFotoPendente(item) {
 	fotoPendente = null;
 }
 
+/* ---------- Busca da lista: exata (todas as palavras, em qualquer ordem) + tolerante a erros (Fuse.js) ---------- */
+let Fuse = null, carregandoFuse = null;
+function carregarFuse() {
+	if (Fuse || carregandoFuse) return;
+	carregandoFuse = import(URL_FUSE)
+		.then(m => { Fuse = m.default || m.Fuse || null; if (Fuse && estado.busca) render(); })
+		.catch(e => console.warn("[busca] Fuse.js indisponível (segue a busca exata):", e))
+		.finally(() => { carregandoFuse = null; });
+}
+
+/** "moça leite" acha "Leite Condensado Moça": todas as palavras, em qualquer ordem; código pelo começo/meio. */
+function combinaBusca(item, busca) {
+	const nome = normalizar(item.nome);
+	const codigo = String(item.codigoBarras || "").toLowerCase();
+	if (nome.includes(busca) || codigo.includes(busca.replace(/\s+/g, ""))) return true;
+	const palavras = busca.split(/\s+/).filter(Boolean);
+	return palavras.length > 1 && palavras.every(p => nome.includes(p));
+}
+
+/** Ids dos produtos com nome parecido ("alcol" → "Álcool", "detergnte" → "Detergente"). */
+let indiceFuse = { chave: "", fuse: null };
+function produtosParecidos(itens, busca) {
+	const vazio = new Set();
+	if (busca.replace(/\d/g, "").trim().length < 3) return vazio; // códigos e buscas curtas: só exata
+	if (!Fuse) { carregarFuse(); return vazio; }
+	try {
+		const chave = itens.map(i => `${i.id}\u0001${i.nome}`).join("\u0002");
+		if (indiceFuse.chave !== chave) {
+			indiceFuse = {
+				chave,
+				fuse: new Fuse(itens, { keys: [{ name: "nome", getFn: i => normalizar(i.nome) }], threshold: 0.34, ignoreLocation: true, minMatchCharLength: 3, includeScore: false })
+			};
+		}
+		return new Set(indiceFuse.fuse.search(busca).map(r => r.item.id));
+	} catch (e) {
+		console.warn("[busca] Fuse.js:", e);
+		return vazio;
+	}
+}
+
 /** Fila da busca automática: um produto por vez, com folga entre as consultas. */
 /** Código de barras válido (EAN-8, UPC-A, EAN-13, GTIN-14, com dígito verificador certo). */
 function gtinValido(codigo) {
@@ -1610,7 +1652,7 @@ function fecharAmpliada() {
 	setTimeout(() => el.remove(), 160);
 }
 
-function abrirAmpliada(botao) {
+function abrirAmpliada(botao, legenda = botao.title || "") {
 	const img = botao.querySelector("img");
 	if (!img?.src || img.naturalWidth === 0) return;
 	if (ampliada?.dono === botao) return;
@@ -1618,7 +1660,7 @@ function abrirAmpliada(botao) {
 	const el = document.createElement("div");
 	el.className = "foto-ampliada";
 	el.setAttribute("aria-hidden", "true");
-	el.innerHTML = `<img src="${esc(img.currentSrc || img.src)}" alt="" referrerpolicy="no-referrer"><small>${esc(botao.title || "")}</small>`;
+	el.innerHTML = `<img src="${esc(img.currentSrc || img.src)}" alt="" referrerpolicy="no-referrer"><small>${esc(legenda)}</small>`;
 	// Fica fora do alerta (que tem animação/transform) para a posição "fixed" valer na tela toda
 	document.body.appendChild(el);
 	ampliada = { el, dono: botao };
@@ -1645,7 +1687,7 @@ async function dialogoFoto(produto, { pendente = false } = {}) {
 	const editavel = podeEditar();
 	if (!window.Swal) return undefined;
 	let resultado;
-	const html = `<div class="foto-dialogo">${editavel ? avisoExperimental("a foto encontrada na internet pode não ser exatamente deste produto.") : ""}
+	const html = `<div class="foto-dialogo${editavel ? "" : " so-ver"}">${editavel ? avisoExperimental("a foto encontrada na internet pode não ser exatamente deste produto.") : ""}
 		<figure class="foto-figura">
 			<div class="foto-grande">${temFoto ? `<img src="${esc(atual.src)}" alt="Foto de ${esc(produto.nome || "produto")}" referrerpolicy="no-referrer">` : `<span class="foto-vazia">${icone("Package")}<small>Sem foto</small></span>`}</div>
 			${temFoto ? `<figcaption class="ajuda">${esc(ROTULO_ORIGEM[atual.origem] || "")}${atual.fonte ? ` · ${esc(atual.fonte)}` : ""}</figcaption>` : ""}
@@ -2419,7 +2461,15 @@ async function pedirAcesso() {
 		});
 	} catch (e) {
 		console.warn("[pedido]", e);
-		toast("erro", explicarErro(e).tipo === "rede" ? "Sem conexão: tente de novo quando a internet voltar." : "Não foi possível enviar o pedido agora. Tente de novo.");
+		const codigoErro = String(e?.code || "");
+		if (codigoErro === "sem-identidade") {
+			dialogo({ titulo: "Não foi possível enviar o pedido", icone: "warning", html: "O servidor não conseguiu identificar este aparelho.<br><br><small>Dono da lista: no Firebase, ative <b>Authentication → Método de login → Anônimo</b>.</small>" });
+		} else if (/permission-denied|insufficient permissions/i.test(codigoErro + " " + (e?.message || ""))) {
+			// Regras antigas no Firebase (sem a parte dos pedidos): o servidor recusa a gravação
+			dialogo({ titulo: "O servidor recusou o pedido", icone: "warning", html: "As regras de segurança da nuvem estão desatualizadas e ainda não aceitam pedidos de acesso.<br><br><small>Dono da lista: publique de novo as regras no Firebase (<b>Firestore → Regras</b>) com o texto atual do arquivo <b>docs/CONFIGURACAO.md</b>. Depois disso, o pedido funciona na hora.</small>" });
+		} else {
+			toast("erro", explicarErro(e).tipo === "rede" ? "Sem conexão: tente de novo quando a internet voltar." : "Não foi possível enviar o pedido agora. Tente de novo.");
+		}
 	}
 }
 
@@ -4174,12 +4224,35 @@ function registrarEventos() {
 	});
 
 	// Ações da tabela (delegação)
+	// Computador: passar o mouse na miniatura da lista amplia a foto ao lado
+	el.lista.addEventListener("mouseover", e => {
+		const mini = e.target.closest(".miniatura");
+		if (!mini || mini.classList.contains("sem-foto") || !temMouse() || ampliada?.dono === mini) return;
+		abrirAmpliada(mini, mini.closest("tr[data-id]")?.querySelector(".nome-texto")?.firstChild?.textContent?.trim() || "");
+	});
+	el.lista.addEventListener("mouseout", e => {
+		const mini = e.target.closest(".miniatura");
+		if (mini && !mini.contains(e.relatedTarget)) fecharAmpliada();
+	});
+	// Rolou a lista/página: a ampliada ficaria fora do lugar
+	window.addEventListener("scroll", fecharAmpliada, { passive: true, capture: true });
+	// A lista foi redesenhada (ou o mouse saiu sem "mouseout"): fecha a ampliada que ficou sem dono
+	let checandoAmpliada = false;
+	document.addEventListener("mousemove", () => {
+		if (!ampliada || checandoAmpliada) return;
+		checandoAmpliada = true;
+		requestAnimationFrame(() => {
+			checandoAmpliada = false;
+			if (ampliada && (!ampliada.dono.isConnected || !ampliada.dono.matches(":hover"))) fecharAmpliada();
+		});
+	}, { passive: true });
 	el.lista.addEventListener("click", e => {
 		const linha = e.target.closest("tr[data-id]");
 		if (!linha) return;
 		const id = linha.dataset.id;
 		const botao = e.target.closest("button[data-acao]");
 		if (botao) {
+			fecharAmpliada();
 			const acao = botao.dataset.acao;
 			if (acao === "editar") iniciarEdicao(id);
 			else if (acao === "remover") removerItem(id);
@@ -4490,8 +4563,29 @@ function iniciar() {
 		.finally(() => processarLinkCompartilhado());
 }
 
+/* ---------- Service worker: abre sem internet e pega a versão nova quando há rede ---------- */
+function registrarServiceWorker() {
+	try {
+		if (!("serviceWorker" in navigator) || !window.isSecureContext) return;
+		// Testes automatizados (navegador controlado) só registram quando pedem (?sw=1)
+		if (navigator.webdriver && !new URLSearchParams(location.search).has("sw")) return;
+		const registrar = () => navigator.serviceWorker.register("./sw.js", { scope: "./" })
+			.then(reg => {
+				window.__swPronto = true;
+				// Confere atualização ao voltar para o app (PWA aberto por muito tempo)
+				document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") reg.update().catch(() => { }); });
+			})
+			.catch(e => console.warn("[sw]", e));
+		if (document.readyState === "complete") registrar();
+		else window.addEventListener("load", registrar, { once: true });
+	} catch (e) {
+		console.warn("[sw]", e);
+	}
+}
+
 try {
 	iniciar();
+	registrarServiceWorker();
 } catch (erro) {
 	console.error("Falha ao iniciar:", erro);
 	document.body.insertAdjacentHTML("afterbegin",
