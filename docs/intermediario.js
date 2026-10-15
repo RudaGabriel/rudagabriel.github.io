@@ -313,6 +313,19 @@ async function resultadosDaWeb(consulta) {
 			if (titulo && /^https?:/i.test(link) && !lista.some(x => x.link === link)) lista.push({ titulo, link });
 		}
 	}
+	if (lista.length < 3) {
+		// Reserva: DuckDuckGo "lite" (página simples, costuma responder quando a outra bloqueia)
+		const l = await buscarPagina(`https://lite.duckduckgo.com/lite/?q=${q}&kl=br-pt`);
+		if (l.html) respondeu = true;
+		for (const m of l.html.matchAll(/<a[^>]+href="([^"]+)"[^>]*class=['"]result-link['"][^>]*>([\s\S]*?)<\/a>/gi)) {
+			let link = decodificarHtml(m[1]);
+			const destino = link.match(/[?&]uddg=([^&]+)/);
+			if (destino) link = decodeURIComponent(destino[1]);
+			if (link.startsWith("//")) link = "https:" + link;
+			const titulo = decodificarHtml(m[2]);
+			if (titulo && /^https?:/i.test(link) && !lista.some(x => x.link === link)) lista.push({ titulo, link });
+		}
+	}
 	return { respondeu, lista: lista.filter(x => !SITES_IGNORADOS.test(x.link)).slice(0, 10) };
 }
 
@@ -365,9 +378,10 @@ async function imagensDaWeb(consulta) {
 const palavrasDe = t => limpar(t).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/).filter(p => p.length > 2 && !/^\d+$/.test(p));
 
 async function pesquisarNaWeb(gtin) {
-	const { respondeu, lista: resultados } = await resultadosDaWeb(`"${gtin}"`);
-	if (!respondeu) return null;
-	if (!resultados.length) return { vazio: true };
+	// Páginas da web e imagens do DuckDuckGo ao mesmo tempo (o Bing costuma bloquear o Worker)
+	const [web, imagens] = await Promise.all([resultadosDaWeb(`"${gtin}"`), imagensDuckDuckGo(gtin)]);
+	if (!web.respondeu && !imagens.respondeu) return null;
+	const resultados = web.lista;
 	// Abre as 3 primeiras páginas e procura uma que confirme o código de barras
 	const paginas = await Promise.all(resultados.slice(0, 3).map(async r => {
 		const p = await buscarPagina(r.link, 6000);
@@ -378,18 +392,34 @@ async function pesquisarNaWeb(gtin) {
 		const fotoConfirmada = paginas.find(p => p?.confirmado && p.foto);
 		return { nome: limparTituloProduto(confirmada.nome, gtin), marca: confirmada.marca, foto: fotoConfirmada?.foto || "", fonte: `Pesquisa na web (${confirmada.site})`, fonteFoto: fotoConfirmada ? `Pesquisa na web (${fotoConfirmada.site})` : "" };
 	}
-	// Consenso dos títulos: o nome cujas palavras mais aparecem nos outros resultados
-	const titulos = resultados.map(r => limparTituloProduto(r.titulo, gtin)).filter(t => palavrasDe(t).length >= 2);
+	// Consenso dos títulos (páginas + imagens): o nome cujas palavras mais aparecem nos outros
+	const candidatos = [
+		...resultados.map(r => ({ nome: limparTituloProduto(r.titulo, gtin), foto: "" })),
+		...imagens.lista.map(im => ({ nome: limparTituloProduto(im.titulo, gtin), foto: im.foto, site: (() => { try { return new URL(im.pagina).hostname.replace(/^www\./, ""); } catch { return ""; } })() }))
+	].filter(c => palavrasDe(c.nome).length >= 2);
+	if (!candidatos.length) return { vazio: true };
+	// Com muitos títulos, exige 2 apoios (evita nome de um produto qualquer que apareceu na busca)
+	const apoioMinimo = candidatos.length >= 5 ? 2 : 1;
 	let melhor = null;
-	titulos.forEach((t, i) => {
-		const pt = new Set(palavrasDe(t));
+	candidatos.forEach((c, i) => {
+		const pt = new Set(palavrasDe(c.nome));
 		// Títulos iguais de sites diferentes também contam como apoio
-		const apoio = titulos.filter((o, j) => j !== i && palavrasDe(o).filter(p => pt.has(p)).length >= 2).length;
-		if (apoio >= 1 && (!melhor || apoio > melhor.apoio || (apoio === melhor.apoio && t.length < melhor.nome.length))) melhor = { nome: t, apoio };
-
+		const apoio = candidatos.filter((o, j) => j !== i && palavrasDe(o.nome).filter(p => pt.has(p)).length >= 2).length;
+		if (apoio >= apoioMinimo && (!melhor || apoio > melhor.apoio || (apoio === melhor.apoio && c.nome.length < melhor.nome.length))) melhor = { ...c, apoio };
 	});
 	if (!melhor) return { vazio: true };
-	return { nome: melhor.nome, marca: "", foto: "", fonte: "Pesquisa na web" };
+	// Foto: a imagem cujo título mais se parece com o nome escolhido
+	const pm = new Set(palavrasDe(melhor.nome));
+	const comFoto = candidatos
+		.filter(c => c.foto)
+		.map(c => ({ c, n: palavrasDe(c.nome).filter(p => pm.has(p)).length }))
+		.filter(x => x.n >= 2)
+		.sort((a, b) => b.n - a.n)[0]?.c;
+	return {
+		nome: melhor.nome, marca: "", foto: comFoto?.foto || "",
+		fonte: imagens.lista.length ? "Pesquisa na web (DuckDuckGo)" : "Pesquisa na web",
+		fonteFoto: comFoto ? `DuckDuckGo Imagens${comFoto.site ? ` (${comFoto.site})` : ""}` : ""
+	};
 }
 
 /* ---------- Lojas com catálogo público (VTEX) ----------
