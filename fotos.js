@@ -294,15 +294,28 @@ export function termosNome(nome) {
 		.map(singular);
 }
 
-/** Semelhança (0–1) entre dois nomes: palavras em comum (ignorando tamanho, acento e plural). */
+/** Semelhança (0–1) entre o nome procurado (a) e o de um produto achado (b): palavras em comum
+ *  (ignorando tamanho, acento e plural; abreviações como "desod" valem pelo começo da palavra). */
+const casaPalavra = (t, lista) => lista.some(w => w === t || (t.length >= 3 && w.length >= 3 && (w.startsWith(t) || t.startsWith(w))));
+
+/** O produto achado é do mesmo tipo do procurado? (a 1ª palavra do nome procurado aparece nele) */
+export function mesmoTipoProduto(a, b) {
+	const pa = termosNome(a), pb = termosNome(b);
+	return !!pa.length && casaPalavra(pa[0], pb);
+}
+
 export function semelhancaNomes(a, b) {
-	const pa = new Set(termosNome(a)), pb = new Set(termosNome(b));
-	if (!pa.size || !pb.size) return 0;
-	let comuns = 0;
-	for (const p of pa) if (pb.has(p)) comuns++;
+	const pa = [...new Set(termosNome(a))], pb = [...new Set(termosNome(b))];
+	if (!pa.length || !pb.length) return 0;
+	const casa = t => casaPalavra(t, pb);
+	const comuns = pa.filter(casa).length;
+	const base = comuns / Math.min(pa.length, pb.length);
+	// A 1ª palavra costuma ser o tipo do produto ("Álcool", "Leite", "Biscoito"): se ela não aparece,
+	// é outro produto que só divide a marca ("Álcool Santa Cruz" ≠ "Sementes de Quiabo Santa Cruz")
+	if (!casa(pa[0])) return Math.min(0.3, base);
 	// Com 2+ palavras de cada lado, uma palavra só em comum ("integral") não basta
-	if (comuns < 2 && Math.min(pa.size, pb.size) >= 2) return Math.min(0.5, comuns / Math.min(pa.size, pb.size));
-	return comuns / Math.min(pa.size, pb.size);
+	if (comuns < 2 && Math.min(pa.length, pb.length) >= 2) return Math.min(0.5, base);
+	return Math.min(1, base);
 }
 
 /** A foto achada pelo nome é confiável o bastante para usar sozinha? */
@@ -369,7 +382,8 @@ export async function fotosPorNome(nome, { sinal, limite = 8, rapido = false } =
 		try { await etapa(); } catch (e) { if (sinal?.aborted) throw e; falhas++; }
 	}
 	if (!lista.length && falhas && falhas === tentativas) throw new FalhaBusca("busca por nome indisponível");
-	return lista.sort((a, b) => b.semelhanca - a.semelhanca).slice(0, limite);
+	// Só aparece como opção o que é do mesmo tipo de produto (nada de "sementes" para "álcool")
+	return lista.filter(f => mesmoTipoProduto(nome, f.nome)).sort((a, b) => b.semelhanca - a.semelhanca).slice(0, limite);
 }
 
 /**

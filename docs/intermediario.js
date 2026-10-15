@@ -474,6 +474,26 @@ async function rotaFoto(gtin, fonte, env, ctx, cors) {
 }
 
 /** Busca por nome: lojas (VTEX) + Open Food Facts mundial. */
+/* Relevância de um nome achado para o nome procurado (mesma regra do app, em fotos.js):
+   a 1ª palavra (tipo do produto) precisa aparecer; abreviações valem pelo começo da palavra. */
+const VAZIAS_BUSCA = new Set(["de", "da", "do", "das", "dos", "e", "com", "sem", "para", "a", "o", "as", "os", "em", "no", "na", "tipo", "un", "und", "c", "s", "produto"]);
+const termosBusca = t => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+	.replace(/\b\d+([.,]\d+)?\s*(ml|l|lt|g|gr|kg|mg|un|und|cm|m|mm|w|v)\b/g, " ")
+	.split(/[^a-z0-9]+/).filter(p => p.length > 1 && !VAZIAS_BUSCA.has(p) && !/^\d+$/.test(p))
+	.map(p => (p.length > 4 && /[^s]s$/.test(p) ? p.slice(0, -1) : p));
+function relevancia(procurado, achado) {
+	const pa = [...new Set(termosBusca(procurado))], pb = [...new Set(termosBusca(achado))];
+	if (!pa.length || !pb.length) return 0;
+	const casa = t => pb.some(w => w === t || (t.length >= 3 && w.length >= 3 && (w.startsWith(t) || t.startsWith(w))));
+	const comuns = pa.filter(casa).length;
+	const base = comuns / Math.min(pa.length, pb.length);
+	if (!casa(pa[0])) return Math.min(0.3, base);
+	if (comuns < 2 && Math.min(pa.length, pb.length) >= 2) return Math.min(0.5, base);
+	return Math.min(1, base);
+}
+const RELEVANTE = 0.5;
+const mesmoTipo = (procurado, achado) => { const pa = termosBusca(procurado), pb = termosBusca(achado); return !!pa.length && pb.some(w => w === pa[0] || (pa[0].length >= 3 && w.length >= 3 && (w.startsWith(pa[0]) || pa[0].startsWith(w)))); };
+
 async function rotaBusca(q, ctx, json) {
 	const chave = `busca/${q.toLowerCase()}`;
 	const emCache = await lerCache(chave);
@@ -483,14 +503,16 @@ async function rotaBusca(q, ctx, json) {
 		consultarLojas(`?ft=${termos}&_from=0&_to=9`, "", 7000),
 		buscar(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${termos}&search_simple=1&action=process&json=1&page_size=12&fields=product_name,product_name_pt,brands,image_front_url,image_url&lc=pt`, CABECALHO_LOJA, 9000)
 	]);
-	const produtos = lojas.flatMap(r => r.produtos.slice(0, 5));
+	let produtos = lojas.flatMap(r => r.produtos.slice(0, 5));
 	for (const p of Array.isArray(off.dados?.products) ? off.dados.products : []) {
 		const nome = limpar(p?.product_name_pt || p?.product_name);
 		const foto = urlHttps(p?.image_front_url) || urlHttps(p?.image_url);
 		if (nome && foto) produtos.push({ nome, marca: limpar(String(p?.brands || "").split(",")[0]), foto, fonte: "Open Food Facts" });
 	}
+	// Só conta o que tem a ver com o nome (as lojas devolvem qualquer item que divida uma palavra)
+	const relevantes = () => produtos.filter(x => relevancia(q, `${x.nome} ${x.marca || ""}`) >= RELEVANTE);
 	let webRespondeu = false;
-	if (produtos.length < 6) {
+	if (relevantes().length < 6) {
 		// Poucas fotos nas lojas: completa com páginas de produto achadas na pesquisa da web
 		const { respondeu, lista } = await resultadosDaWeb(`${q} produto`);
 		webRespondeu = respondeu;
@@ -504,6 +526,7 @@ async function rotaBusca(q, ctx, json) {
 	}
 	const algumaRespondeu = lojas.some(r => r.respondeu) || off.status === 200 || webRespondeu;
 	if (!algumaRespondeu) return json(502, { erro: "busca indisponível" });
+	produtos = produtos.filter(x => mesmoTipo(q, `${x.nome} ${x.marca || ""}`)).sort((a, b) => relevancia(q, `${b.nome} ${b.marca || ""}`) - relevancia(q, `${a.nome} ${a.marca || ""}`));
 	const corpo = { produtos: produtos.slice(0, 40) };
 	await gravarCache(ctx, chave, new Response(JSON.stringify(corpo), { headers: { "Content-Type": "application/json" } }), produtos.length ? CACHE_ACHADO : CACHE_NAO_ACHADO);
 	return json(200, corpo);
