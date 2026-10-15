@@ -196,14 +196,29 @@ const TIPOS_TOAST = { sucesso: "success", erro: "error", info: "info", aviso: "a
 /** Mensagens de alerta sempre por cima de tudo, inclusive dos diálogos abertos (camada superior do navegador). */
 function alertasPorCima() {
 	const caixa = document.querySelector(".notyf");
-	if (!caixa || typeof caixa.showPopover !== "function") return; // sem Popover API: vale o z-index máximo do CSS
+	if (!caixa) return;
 	try {
+		// Com um diálogo aberto (modal), o navegador bloqueia o toque em tudo que está fora dele —
+		// inclusive no ✕ das mensagens. Por isso a caixa das mensagens vai para dentro do diálogo
+		// aberto mais recente (e volta para a página quando ele fecha).
+		const destino = [...document.querySelectorAll("dialog[open]")].pop() || document.body;
+		const aberta = typeof caixa.showPopover === "function" && caixa.matches(":popover-open");
+		if (caixa.parentElement !== destino) {
+			if (aberta) caixa.hidePopover();
+			destino.appendChild(caixa);
+		}
+		if (typeof caixa.showPopover !== "function") return; // sem Popover API: vale o z-index máximo do CSS
 		if (!caixa.hasAttribute("popover")) caixa.setAttribute("popover", "manual");
 		// Reabrir coloca a camada das mensagens acima do diálogo aberto mais recente
 		if (caixa.matches(":popover-open")) caixa.hidePopover();
 		caixa.showPopover();
 	} catch { /* ignora: o z-index máximo continua valendo */ }
 }
+// Diálogo fechou com mensagens na tela: a caixa volta para a página (senão some junto com ele)
+document.addEventListener("close", e => {
+	const caixa = document.querySelector(".notyf");
+	if (e.target instanceof HTMLDialogElement && caixa && e.target.contains(caixa)) alertasPorCima();
+}, true);
 
 function toast(tipo, html, duracao) {
 	if (notyf) {
