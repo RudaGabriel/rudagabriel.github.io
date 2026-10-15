@@ -492,10 +492,28 @@ function relevancia(procurado, achado) {
 	return Math.min(1, base);
 }
 const RELEVANTE = 0.5;
-const mesmoTipo = (procurado, achado) => { const pa = termosBusca(procurado), pb = termosBusca(achado); return !!pa.length && pb.some(w => w === pa[0] || (pa[0].length >= 3 && w.length >= 3 && (w.startsWith(pa[0]) || pa[0].startsWith(w)))); };
+const casaTermo = (t, w) => w === t || (t.length >= 3 && w.length >= 3 && (w.startsWith(t) || t.startsWith(w)));
+const QUALIFICADORES = new Set(["sem", "com", "c", "p", "para", "porta", "anti", "contra", "livre"]);
+/** Mesmo tipo de produto: a 1ª palavra procurada aparece como o produto, não como detalhe ("Enxaguante Sem Álcool"). */
+function mesmoTipo(procurado, achado) {
+	const pa = termosBusca(procurado);
+	if (!pa.length) return false;
+	const bruto = String(achado || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/).filter(Boolean);
+	return bruto.some((w, i) => casaTermo(pa[0], w.length > 4 && /[^s]s$/.test(w) ? w.slice(0, -1) : w) && !QUALIFICADORES.has(bruto[i - 1] || ""));
+}
+/** Ordem: relevância; empate → tipo logo no começo, mesmos números ("96"), nome mais curto. */
+function pontuacao(procurado, achado) {
+	const numeros = t => new Set(String(t || "").match(/\d+/g) || []);
+	const na = numeros(procurado), nb = numeros(achado);
+	let mesmos = 0;
+	for (const n of na) if (nb.has(n)) mesmos++;
+	const pa = termosBusca(procurado), pb = termosBusca(achado);
+	const noComeco = pa.length && pb.slice(0, 2).some(w => casaTermo(pa[0], w)) ? 1 : 0;
+	return relevancia(procurado, achado) + noComeco * 0.08 + Math.min(mesmos, 2) * 0.05 - Math.min(pb.length, 12) * 0.002;
+}
 
 async function rotaBusca(q, ctx, json) {
-	const chave = `busca2/${q.toLowerCase()}`; // "2": regra nova de relevância (não reaproveita o cache antigo)
+	const chave = `busca3/${q.toLowerCase()}`; // muda o número quando a regra de relevância muda (ignora o cache antigo)
 	const emCache = await lerCache(chave);
 	if (emCache) return json(200, await emCache.json());
 	const termos = encodeURIComponent(q);
@@ -511,7 +529,7 @@ async function rotaBusca(q, ctx, json) {
 	}
 	// Só conta o que tem a ver com o nome (as lojas devolvem qualquer item que divida uma palavra)
 	const relevantes = () => produtos.filter(x => relevancia(q, `${x.nome} ${x.marca || ""}`) >= RELEVANTE);
-	let webRespondeu = false, lojas2 = [];
+	let webRespondeu = false, lojas2 = [], webLinks = 0, webPaginas = 0;
 	if (relevantes().length < 6) {
 		// Pouca coisa que preste: ao mesmo tempo, (1) as lojas de novo só pelo tipo do produto
 		// ("álcool" em vez de "álcool santa cruz 96", que as lojas confundem com "sementes santa cruz")
@@ -527,20 +545,33 @@ async function rotaBusca(q, ctx, json) {
 				const pg = await buscarPagina(r.link, 6000);
 				return pg.html ? { ...dadosDaPagina(pg.html, ""), site: new URL(r.link).hostname.replace(/^www\./, "") } : null;
 			}));
-			return { respondeu, paginas };
+			return { respondeu, paginas, links: lista.length };
 		})();
 		const [r1, r2] = await Promise.all([porTipo, porWeb]);
 		lojas2 = r1;
 		for (const x of lojas2.flatMap(r => r.produtos)) if (!produtos.some(p => p.foto === x.foto)) produtos.push(x);
 		webRespondeu = r2.respondeu;
+		webLinks = r2.links;
+		webPaginas = r2.paginas.filter(pg => pg?.foto).length;
 		for (const pg of r2.paginas) {
 			if (pg?.foto && pg.nome && !produtos.some(x => x.foto === pg.foto)) produtos.push({ nome: limparTituloProduto(pg.nome, ""), marca: pg.marca || "", foto: pg.foto, fonte: `Pesquisa na web (${pg.site})` });
 		}
 	}
 	const algumaRespondeu = lojas.some(r => r.respondeu) || lojas2.some(r => r.respondeu) || off.status === 200 || webRespondeu;
 	if (!algumaRespondeu) return json(502, { erro: "busca indisponível" });
-	produtos = produtos.filter(x => mesmoTipo(q, `${x.nome} ${x.marca || ""}`)).sort((a, b) => relevancia(q, `${b.nome} ${b.marca || ""}`) - relevancia(q, `${a.nome} ${a.marca || ""}`));
-	const corpo = { produtos: produtos.slice(0, 40) };
+	// Só o mesmo tipo de produto, do mais parecido para o menos, um por nome (várias lojas vendem o mesmo)
+	const vistos = new Set();
+	produtos = produtos
+		.filter(x => x.foto && mesmoTipo(q, x.nome))
+		.map(x => ({ x, p: pontuacao(q, `${x.nome} ${x.marca || ""}`) }))
+		.sort((a, b) => b.p - a.p)
+		.map(({ x }) => x)
+		.filter(x => { const k = termosBusca(x.nome).join(" "); if (vistos.has(k)) return false; vistos.add(k); return true; });
+	// "consultas": só para conferir de onde veio cada coisa (o app ignora)
+	const corpo = {
+		produtos: produtos.slice(0, 40),
+		consultas: { lojas: lojas.filter(r => r.respondeu).length, lojasPeloTipo: lojas2.filter(r => r.respondeu).length, web: webRespondeu ? `${webLinks} links, ${webPaginas} páginas com foto` : "não respondeu", openFoodFacts: off.status }
+	};
 	await gravarCache(ctx, chave, new Response(JSON.stringify(corpo), { headers: { "Content-Type": "application/json" } }), produtos.length ? CACHE_ACHADO : CACHE_NAO_ACHADO);
 	return json(200, corpo);
 }
