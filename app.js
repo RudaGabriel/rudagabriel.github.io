@@ -1675,7 +1675,7 @@ async function dialogoFoto(produto, { pendente = false } = {}) {
 				botao.disabled = false;
 				if (!popup.isConnected) return;
 				if (!opcoes.length) {
-					resultados.innerHTML = `<p class="ajuda">${navigator.onLine === false ? "Sem internet agora." : falhou ? "As bases de fotos não responderam agora. Tente de novo em alguns minutos, ou tire/escolha uma foto." : "Nenhuma foto encontrada. Tire ou escolha uma foto."}</p>`;
+					resultados.innerHTML = `<p class="ajuda">${navigator.onLine === false ? "Sem internet agora." : falhou ? "As bases de fotos não responderam agora. Tente de novo em alguns minutos, ou tire/escolha uma foto." : (produto.nome ? "Nenhuma foto de produto com nome parecido. Confira o nome ou tire/escolha uma foto." : "Nenhuma foto encontrada. Tire ou escolha uma foto.")}</p>`;
 					mostrarResultados();
 					return;
 				}
