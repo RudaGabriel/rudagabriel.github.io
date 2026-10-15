@@ -509,7 +509,7 @@ function relevancia(procurado, achado) {
 }
 const RELEVANTE = 0.6; // com 2+ palavras procuradas, só o tipo em comum (0,5) não basta: outra marca não conta
 const casaTermo = (t, w) => w === t || (t.length >= 3 && w.length >= 3 && (w.startsWith(t) || t.startsWith(w)));
-const QUALIFICADORES = new Set(["sem", "com", "c", "p", "para", "porta", "anti", "contra", "livre", "de", "do", "da", "dos", "das"]); // "Vinagre de Álcool" não é álcool
+const QUALIFICADORES = new Set(["sem", "com", "c", "p", "para", "porta", "anti", "contra", "livre", "de", "do", "da", "dos", "das", "s", "zero"]); // "Vinagre de Álcool" não é álcool
 /** Mesmo tipo de produto: a 1ª palavra procurada aparece como o produto, não como detalhe ("Enxaguante Sem Álcool"). */
 function mesmoTipo(procurado, achado) {
 	const pa = termosBusca(procurado);
@@ -529,7 +529,7 @@ function pontuacao(procurado, achado) {
 }
 
 async function rotaBusca(q, ctx, json) {
-	const chave = `busca4/${q.toLowerCase()}`; // muda o número quando a regra de relevância muda (ignora o cache antigo)
+	const chave = `busca5/${q.toLowerCase()}`; // muda o número quando a regra de relevância muda (ignora o cache antigo)
 	const emCache = await lerCache(chave);
 	if (emCache) return json(200, await emCache.json());
 	const termos = encodeURIComponent(q);
@@ -545,7 +545,7 @@ async function rotaBusca(q, ctx, json) {
 	}
 	// Só conta o que tem a ver com o nome (as lojas devolvem qualquer item que divida uma palavra)
 	const relevantes = () => produtos.filter(x => relevancia(q, `${x.nome} ${x.marca || ""}`) >= RELEVANTE);
-	let webRespondeu = false, lojas2 = [], webLinks = 0, webPaginas = 0, imagensRespondeu = false, imagensAchadas = 0;
+	let webRespondeu = false, lojas2 = [], webLinks = 0, webPaginas = 0, imagensRespondeu = false, imagensAchadas = 0, amostra = [];
 	if (relevantes().length < 6) {
 		// Pouca coisa que preste: ao mesmo tempo, (1) as lojas de novo só pelo tipo do produto
 		// ("álcool" em vez de "álcool santa cruz 96", que as lojas confundem com "sementes santa cruz")
@@ -571,6 +571,7 @@ async function rotaBusca(q, ctx, json) {
 		webPaginas = r2.paginas.filter(pg => pg?.foto).length;
 		imagensRespondeu = r3.respondeu;
 		imagensAchadas = r3.lista.length;
+		amostra = [...r3.lista.slice(0, 6).map(i => `imagem: ${i.titulo}`), ...r2.paginas.filter(Boolean).map(pg => `página: ${pg.nome || "(sem nome)"}${pg.foto ? "" : " (sem foto)"}`)];
 		for (const im of r3.lista) {
 			if (produtos.some(x => x.foto === im.foto)) continue;
 			let site = "";
@@ -594,7 +595,7 @@ async function rotaBusca(q, ctx, json) {
 	// "consultas": só para conferir de onde veio cada coisa (o app ignora)
 	const corpo = {
 		produtos: produtos.slice(0, 40),
-		consultas: { lojas: lojas.filter(r => r.respondeu).length, lojasPeloTipo: lojas2.filter(r => r.respondeu).length, web: webRespondeu ? `${webLinks} links, ${webPaginas} páginas com foto` : "não respondeu", imagens: imagensRespondeu ? `${imagensAchadas} imagens` : "não respondeu", openFoodFacts: off.status }
+		consultas: { lojas: lojas.filter(r => r.respondeu).length, lojasPeloTipo: lojas2.filter(r => r.respondeu).length, web: webRespondeu ? `${webLinks} links, ${webPaginas} páginas com foto` : "não respondeu", imagens: imagensRespondeu ? `${imagensAchadas} imagens` : "não respondeu", openFoodFacts: off.status, amostra }
 	};
 	await gravarCache(ctx, chave, new Response(JSON.stringify(corpo), { headers: { "Content-Type": "application/json" } }), produtos.length ? CACHE_ACHADO : CACHE_NAO_ACHADO);
 	return json(200, corpo);

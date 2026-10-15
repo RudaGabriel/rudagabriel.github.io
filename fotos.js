@@ -309,7 +309,7 @@ export function mesmoTipoProduto(a, b) {
 	const posicoes = bruto.map((w, i) => (casaPalavra(tipo, [singular(w)]) ? i : -1)).filter(i => i >= 0);
 	return posicoes.some(i => !QUALIFICADORES.has(bruto[i - 1] || ""));
 }
-const QUALIFICADORES = new Set(["sem", "com", "c", "p", "para", "porta", "anti", "contra", "livre", "de", "do", "da", "dos", "das"]); // "Vinagre de Álcool" não é álcool
+const QUALIFICADORES = new Set(["sem", "com", "c", "p", "para", "porta", "anti", "contra", "livre", "de", "do", "da", "dos", "das", "s", "zero"]); // "Vinagre de Álcool" não é álcool
 
 /** Ordem das opções: mais palavras em comum; empate → tipo logo no começo, mesmos números ("96"), nome mais curto. */
 function pontuacaoOpcao(procurado, f) {
