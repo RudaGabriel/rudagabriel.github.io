@@ -932,7 +932,8 @@ function registrarEventosLayout() {
 function atualizarEstadoFormulario() {
 	const editavel = podeEditar();
 	el.avisoLeitura.hidden = editavel;
-	[el.codigo, el.nome, el.quantidade, el.vencimento, el.btnSalvar, el.btnEscanear, el.btnLerValidade, el.btnSugerirNome].forEach(c => { if (c) c.disabled = !editavel; });
+	[el.codigo, el.nome, el.quantidade, el.vencimento, el.btnSalvar, el.btnEscanear, el.btnLerValidade].forEach(c => { if (c) c.disabled = !editavel; });
+	atualizarBotoesCampos();
 	const editando = !!estado.editandoId;
 	el.cartaoForm?.classList.toggle("editando", editando);
 	el.tituloForm.textContent = editando ? "Editando produto" : "Novo produto";
@@ -1003,7 +1004,7 @@ function lerFormulario() {
 
 function limparFormulario() {
 	el.form.reset();
-	definirFotoPendente(null);
+	definirFotoPendente(null); // também atualiza os botões ✨ e foto
 	[el.nome, el.quantidade, el.vencimento].forEach(c => c.removeAttribute("aria-invalid"));
 	// Formulário limpo: nenhum campo continua verde
 	[el.codigo, el.nome, el.vencimento].forEach(c => temposRealce.get(c)?.limpar() ?? c.classList.remove("sugerido", "sugerido-saindo"));
@@ -1187,6 +1188,7 @@ function autoPreencherPorCodigo() {
 	}
 	el.nome.value = conhecido.nome;
 	el.nome.removeAttribute("aria-invalid");
+	atualizarBotoesCampos();
 	toast("info", `Produto reconhecido: <b>${esc(conhecido.nome)}</b>`, 2500);
 	return true;
 }
@@ -1240,6 +1242,7 @@ async function sugerirNomeOnline(codigo) {
 		el.nome.value = resultado.nome;
 		el.nome.removeAttribute("aria-invalid");
 		marcarSugerido(el.nome);
+		atualizarBotoesCampos();
 		toast("info", `Nome sugerido: <b>${esc(resultado.nome)}</b>. Confira e ajuste se precisar <small>(função experimental)</small>.`, 5000);
 	} catch (e) {
 		console.warn("[nome sugerido]", e);
@@ -1260,6 +1263,7 @@ function aplicarNomeSugerido(nome) {
 	el.nome.value = nome;
 	el.nome.removeAttribute("aria-invalid");
 	marcarSugerido(el.nome);
+	atualizarBotoesCampos();
 }
 
 /**
@@ -1398,6 +1402,7 @@ async function sugerirNomeManual() {
 		el.nome.value = resultado.nome;
 		el.nome.removeAttribute("aria-invalid");
 		marcarSugerido(el.nome);
+		atualizarBotoesCampos();
 		el.quantidade.focus();
 	} catch (e) {
 		console.warn("[sugerir nome]", e);
@@ -1406,6 +1411,7 @@ async function sugerirNomeManual() {
 		sugerindoManual = false;
 		el.btnSugerirNome?.classList.remove("carregando");
 		el.btnSugerirNome?.removeAttribute("aria-busy");
+		atualizarBotoesCampos();
 	}
 }
 
@@ -1425,7 +1431,25 @@ function definirFotoPendente(registro) {
 	if (!b) return;
 	b.classList.toggle("com-foto", !!registro);
 	b.innerHTML = registro ? `<img src="${esc(registro.src)}" alt="" referrerpolicy="no-referrer">` : icone("ImagePlus");
-	b.title = registro ? "Foto escolhida (toque para trocar)" : "Foto do produto";
+	atualizarBotoesCampos();
+}
+
+/** ✨ e foto do formulário só ficam clicáveis quando há algo para procurar (código e/ou nome). */
+function atualizarBotoesCampos() {
+	const editavel = podeEditar();
+	const codigo = (el.codigo?.value || "").replace(/\s+/g, "");
+	const nome = (el.nome?.value || "").trim();
+	if (el.btnSugerirNome && !el.btnSugerirNome.classList.contains("carregando")) {
+		el.btnSugerirNome.disabled = !editavel || !codigo;
+		el.btnSugerirNome.title = !editavel ? "Somente leitura" : codigo ? "Sugerir o nome pelo código de barras" : "Leia ou digite o código de barras primeiro";
+	}
+	const b = el.btnFotoForm;
+	if (b) {
+		// Com foto já escolhida ou editando um produto, sempre dá para abrir (trocar/remover)
+		const temReferencia = !!codigo || !!nome || !!fotoPendente || !!estado.editandoId;
+		b.disabled = !editavel || !temReferencia;
+		b.title = !editavel ? "Somente leitura" : fotoPendente ? "Foto escolhida (toque para trocar)" : temReferencia ? "Foto do produto" : "Digite o código de barras ou o nome do produto primeiro";
+	}
 }
 
 async function aplicarFotoPendente(item) {
@@ -1582,11 +1606,13 @@ async function dialogoFoto(produto, { pendente = false } = {}) {
 	if (!window.Swal) return undefined;
 	let resultado;
 	const html = `<div class="foto-dialogo">${editavel ? avisoExperimental("a foto encontrada na internet pode não ser exatamente deste produto.") : ""}
-		<div class="foto-grande">${temFoto ? `<img src="${esc(atual.src)}" alt="Foto de ${esc(produto.nome || "produto")}" referrerpolicy="no-referrer">` : `<span class="foto-vazia">${icone("Package")}<small>Sem foto</small></span>`}</div>
-		${temFoto ? `<p class="ajuda">${esc(ROTULO_ORIGEM[atual.origem] || "")}${atual.fonte ? ` · ${esc(atual.fonte)}` : ""}</p>` : ""}
+		<figure class="foto-figura">
+			<div class="foto-grande">${temFoto ? `<img src="${esc(atual.src)}" alt="Foto de ${esc(produto.nome || "produto")}" referrerpolicy="no-referrer">` : `<span class="foto-vazia">${icone("Package")}<small>Sem foto</small></span>`}</div>
+			${temFoto ? `<figcaption class="ajuda">${esc(ROTULO_ORIGEM[atual.origem] || "")}${atual.fonte ? ` · ${esc(atual.fonte)}` : ""}</figcaption>` : ""}
+		</figure>
 		${editavel ? `<div class="foto-acoes">
 			<button type="button" class="btn btn-primario btn-bloco" data-f="arquivo">${icone("Camera")}Tirar ou escolher foto</button>
-			<button type="button" class="btn btn-secundario btn-bloco" data-f="buscar">${icone("Search")}Buscar na internet</button>
+			${produto.codigoBarras || produto.nome ? `<button type="button" class="btn btn-secundario btn-bloco" data-f="buscar">${icone("Search")}Buscar na internet</button>` : ""}
 			${temFoto ? `<button type="button" class="btn btn-fantasma btn-bloco" data-f="remover">${icone("Trash2")}Remover foto</button>` : ""}
 		</div>
 		<div class="foto-resultados" hidden></div>` : ""}
@@ -1654,7 +1680,10 @@ async function dialogoFoto(produto, { pendente = false } = {}) {
 					return;
 				}
 				opcoes = opcoes.slice(0, 9);
-				resultados.innerHTML = `<p class="ajuda">Toque na foto do produto:</p><div class="grade-fotos">${opcoes.map((f, i) =>
+				// Com fotos para escolher: a foto atual encolhe e o "Buscar" sai, para tudo caber na tela
+				popup.classList.add("com-resultados");
+				botao.hidden = true;
+				resultados.innerHTML = `<p class="ajuda">Toque na foto do produto <small>(confira se é o mesmo)</small>:</p><div class="grade-fotos">${opcoes.map((f, i) =>
 					`<button type="button" class="opcao-foto" data-i="${i}" title="${esc(f.nome || f.fonte)}"><img src="${esc(f.src)}" alt="${esc(f.nome || "Foto encontrada")}" loading="lazy" referrerpolicy="no-referrer"><small>${f.origem === "codigo" ? "pelo código" : esc(f.nome || "pelo nome")}</small></button>`).join("")}</div>`;
 				// Rola até as fotos assim que a primeira carregar (a altura da grade muda com as imagens)
 				let rolou = false;
@@ -3051,6 +3080,7 @@ function leituraOk(codigo) {
 	el.leitorArea.classList.add("lido");
 	el.leitorStatus.textContent = `Lido: ${limpo}`;
 	el.codigo.value = limpo;
+	atualizarBotoesCampos();
 	// Pequena pausa para a pessoa ver a confirmação verde
 	setTimeout(() => {
 		pararLeitor();
@@ -4001,6 +4031,10 @@ function registrarEventos() {
 
 	// Sugerir o nome sob demanda
 	el.btnSugerirNome?.addEventListener("click", sugerirNomeManual);
+	// ✨ e foto acompanham o que está digitado (inclui preenchimento automático do navegador)
+	[el.codigo, el.nome].forEach(c => c?.addEventListener("input", atualizarBotoesCampos));
+	el.form?.addEventListener("reset", () => setTimeout(atualizarBotoesCampos, 0));
+	atualizarBotoesCampos();
 
 	// Ler a validade (câmera com moldura, ou foto)
 	el.btnLerValidade?.addEventListener("click", abrirLeitorValidade);
