@@ -327,7 +327,8 @@ export function semelhancaNomes(a, b) {
 	if (!pa.length || !pb.length) return 0;
 	const casa = t => casaPalavra(t, pb);
 	const comuns = pa.filter(casa).length;
-	const base = comuns / Math.min(pa.length, pb.length);
+	// Nome achado com 1 palavra ("Álcool 96%") não vale nota cheia para uma busca com marca
+	const base = comuns / Math.min(pa.length, Math.max(pb.length, 2));
 	// A 1ª palavra costuma ser o tipo do produto ("Álcool", "Leite", "Biscoito"): se ela não aparece,
 	// é outro produto que só divide a marca ("Álcool Santa Cruz" ≠ "Sementes de Quiabo Santa Cruz")
 	if (!casa(pa[0])) return Math.min(0.3, base);

@@ -202,7 +202,7 @@ const BASES = [
    2) Abre as primeiras páginas de loja e lê os dados do produto (JSON-LD/og:image).
       Nome e foto confirmados só quando a página traz o MESMO código de barras.
    3) Sem confirmação, usa o nome que mais se repete nos títulos (consenso de 2+ sites). */
-const SITES_IGNORADOS = /(google\.|bing\.|duckduckgo\.|youtube\.|facebook\.|instagram\.|twitter\.|x\.com|tiktok\.|pinterest\.|wikipedia\.|reclameaqui\.|\.pdf($|\?))/i;
+const SITES_IGNORADOS = /(google\.|bing\.|duckduckgo\.|youtube\.|scribd\.|slideshare\.|issuu\.|facebook\.|instagram\.|twitter\.|x\.com|tiktok\.|pinterest\.|wikipedia\.|reclameaqui\.|\.pdf($|\?))/i;
 const PALAVRAS_LOJA = /\b(compre|comprar|oferta|ofertas|promo[cç][aã]o|pre[cç]o|menor pre[cç]o|frete gr[aá]tis|em at[eé]|parcelado|loja|site oficial|entrega|delivery|cupom)\b/i;
 
 function decodificarHtml(t) {
@@ -346,19 +346,6 @@ async function imagensDuckDuckGo(consulta) {
 		fonte: "DuckDuckGo Imagens"
 	})).filter(x => x.titulo && x.foto && !SITES_IGNORADOS.test(x.pagina));
 	return { respondeu: r.status === 200, lista };
-}
-
-/** Anúncios do Mercado Livre (API pública): título + foto do produto. */
-async function mercadoLivre(consulta) {
-	const r = await buscar(`https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(consulta)}&limit=20`, { ...CABECALHO_LOJA, Accept: "application/json" }, 7000);
-	const lista = (Array.isArray(r.dados?.results) ? r.dados.results : []).map(x => ({
-		titulo: limpar(x?.title),
-		// Miniatura "-I" → versão maior "-O"
-		foto: urlHttps(String(x?.thumbnail || "").replace(/^http:\/\//i, "https://").replace(/-I\.(jpe?g|webp|png)$/i, "-O.$1")),
-		pagina: String(x?.permalink || ""),
-		fonte: "Mercado Livre"
-	})).filter(x => x.titulo && x.foto);
-	return { respondeu: r.status === 200, status: r.status, lista };
 }
 
 /** Fotos pelo nome em buscadores de imagem: Bing (rápido e completo); vazio → DuckDuckGo. */
@@ -545,7 +532,8 @@ function relevancia(procurado, achado) {
 	if (!pa.length || !pb.length) return 0;
 	const casa = t => pb.some(w => w === t || (t.length >= 3 && w.length >= 3 && (w.startsWith(t) || t.startsWith(w))));
 	const comuns = pa.filter(casa).length;
-	const base = comuns / Math.min(pa.length, pb.length);
+	// Nome achado com 1 palavra ("Álcool 96%") não vale nota cheia para uma busca com marca
+	const base = comuns / Math.min(pa.length, Math.max(pb.length, 2));
 	if (!casa(pa[0])) return Math.min(0.3, base);
 	if (comuns < 2 && Math.min(pa.length, pb.length) >= 2) return Math.min(0.5, base);
 	return Math.min(1, base);
@@ -572,7 +560,7 @@ function pontuacao(procurado, achado) {
 }
 
 async function rotaBusca(q, ctx, json) {
-	const chave = `busca6/${q.toLowerCase()}`; // muda o número quando a regra de relevância muda (ignora o cache antigo)
+	const chave = `busca7/${q.toLowerCase()}`; // muda o número quando a regra de relevância muda (ignora o cache antigo)
 	const emCache = await lerCache(chave);
 	if (emCache) return json(200, await emCache.json());
 	const termos = encodeURIComponent(q);
@@ -588,7 +576,7 @@ async function rotaBusca(q, ctx, json) {
 	}
 	// Só conta o que tem a ver com o nome (as lojas devolvem qualquer item que divida uma palavra)
 	const relevantes = () => produtos.filter(x => relevancia(q, `${x.nome} ${x.marca || ""}`) >= RELEVANTE);
-	let webRespondeu = false, lojas2 = [], webLinks = 0, webPaginas = 0, imagensRespondeu = false, imagensAchadas = 0, amostra = [], mercadoLivreStatus = "não consultado";
+	let webRespondeu = false, lojas2 = [], webLinks = 0, webPaginas = 0, imagensRespondeu = false, imagensAchadas = 0, amostra = [];
 	if (relevantes().length < 6) {
 		// Pouca coisa que preste: ao mesmo tempo, (1) as lojas de novo só pelo tipo do produto
 		// ("álcool" em vez de "álcool santa cruz 96", que as lojas confundem com "sementes santa cruz")
@@ -608,7 +596,7 @@ async function rotaBusca(q, ctx, json) {
 			}));
 			return { respondeu, paginas, links: lista.length };
 		})();
-		const [r1, r2, r3, r4] = await Promise.all([porTipo, porWeb, imagensDaWeb(q), mercadoLivre(q)]);
+		const [r1, r2, r3] = await Promise.all([porTipo, porWeb, imagensDaWeb(q)]);
 		lojas2 = r1;
 		for (const x of lojas2.flatMap(r => r.produtos)) if (!produtos.some(p => p.foto === x.foto)) produtos.push(x);
 		webRespondeu = r2.respondeu;
@@ -616,11 +604,7 @@ async function rotaBusca(q, ctx, json) {
 		webPaginas = r2.paginas.filter(pg => pg?.foto).length;
 		imagensRespondeu = r3.respondeu;
 		imagensAchadas = r3.lista.length;
-		mercadoLivreStatus = r4.respondeu ? `${r4.lista.length} anúncios` : `não respondeu (${r4.status || 0})`;
-		amostra = [...r3.lista.slice(0, 4).map(i => `${i.fonte}: ${i.titulo}`), ...r4.lista.slice(0, 3).map(i => `Mercado Livre: ${i.titulo}`), ...r2.paginas.filter(Boolean).map(pg => `página: ${pg.nome || "(sem nome)"}${pg.foto ? "" : " (sem foto)"}`)];
-		for (const im of r4.lista) {
-			if (!produtos.some(x => x.foto === im.foto)) produtos.push({ nome: im.titulo, marca: "", foto: im.foto, fonte: "Mercado Livre" });
-		}
+		amostra = [...r3.lista.slice(0, 4).map(i => `${i.fonte}: ${i.titulo}`), ...r2.paginas.filter(Boolean).map(pg => `página: ${pg.nome || "(sem nome)"}${pg.foto ? "" : " (sem foto)"}`)];
 		for (const im of r3.lista) {
 			if (produtos.some(x => x.foto === im.foto)) continue;
 			let site = "";
@@ -644,7 +628,7 @@ async function rotaBusca(q, ctx, json) {
 	// "consultas": só para conferir de onde veio cada coisa (o app ignora)
 	const corpo = {
 		produtos: produtos.slice(0, 40),
-		consultas: { lojas: lojas.filter(r => r.respondeu).length, lojasPeloTipo: lojas2.filter(r => r.respondeu).length, web: webRespondeu ? `${webLinks} links, ${webPaginas} páginas com foto` : "não respondeu", imagens: imagensRespondeu ? `${imagensAchadas} imagens` : "não respondeu", mercadoLivre: mercadoLivreStatus, openFoodFacts: off.status, amostra }
+		consultas: { lojas: lojas.filter(r => r.respondeu).length, lojasPeloTipo: lojas2.filter(r => r.respondeu).length, web: webRespondeu ? `${webLinks} links, ${webPaginas} páginas com foto` : "não respondeu", imagens: imagensRespondeu ? `${imagensAchadas} imagens` : "não respondeu", openFoodFacts: off.status, amostra }
 	};
 	await gravarCache(ctx, chave, new Response(JSON.stringify(corpo), { headers: { "Content-Type": "application/json" } }), produtos.length ? CACHE_ACHADO : CACHE_NAO_ACHADO);
 	return json(200, corpo);
