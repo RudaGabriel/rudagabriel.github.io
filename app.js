@@ -2530,7 +2530,8 @@ function desenharConvidados() {
 		<li class="convidado${c.codigo === convidadoSelecionado ? " selecionado" : ""}" data-convidado="${esc(c.codigo)}">
 			<div class="convidado-info">
 				<strong title="${esc(titulo)}">${esc(titulo)}</strong>
-				<small>Código <b class="codigo-convidado">${esc(formatarCodigoConvidado(c.codigo))}</b> · ${c.podeEditar ? "pode editar" : "só visualizar"} · ${c.visto ? `visto ${esc(fmtRelativoCurto(c.visto))}` : "ainda não entrou"}</small>
+				<small class="convite-completo">Código de convite: <b class="codigo-convidado">${esc(estado.sync?.codigo ? codigoDeConvite(estado.sync.codigo, c.codigo) : formatarCodigoConvidado(c.codigo))}</b></small>
+				<small>${c.podeEditar ? "pode editar" : "só visualizar"} · ${c.visto ? `visto ${esc(fmtRelativoCurto(c.visto))}` : "ainda não entrou"}</small>
 			</div>
 			<label class="mini-interruptor" title="Pode editar">
 				<input type="checkbox" data-c="permissao" ${c.podeEditar ? "checked" : ""} aria-label="${esc(c.nome)} pode editar">
