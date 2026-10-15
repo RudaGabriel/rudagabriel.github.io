@@ -4485,3 +4485,65 @@ input.sugerido.sugerido-saindo {
 .swal2-popup.sw-popup.sw-foto:has(.foto-dialogo.so-ver) {
 	width: min(600px, calc(100vw - 24px));
 }
+
+/* Buscando fotos: aviso bem visível para a pessoa aguardar */
+.aviso-buscando {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	padding: 14px 16px;
+	border-radius: var(--raio);
+	border: 2px solid var(--primaria);
+	background: color-mix(in srgb, var(--primaria) 14%, var(--superficie));
+	color: var(--texto);
+	font-size: .92rem;
+	line-height: 1.45;
+	text-align: left;
+	animation: pulsar-busca 1.6s ease-in-out infinite;
+}
+
+.aviso-buscando b {
+	color: var(--texto);
+	font-size: 1rem;
+}
+
+.aviso-buscando-icone {
+	flex: none;
+	display: grid;
+	place-items: center;
+	width: 32px;
+	height: 32px;
+	color: var(--primaria);
+}
+
+.aviso-buscando-icone svg {
+	width: 28px;
+	height: 28px;
+	animation: girar 900ms linear infinite;
+}
+
+.aviso-buscando-tempo {
+	color: var(--texto-suave);
+	font-variant-numeric: tabular-nums;
+}
+
+.foto-acoes .btn.buscando {
+	opacity: 1;
+	border-color: var(--primaria);
+	color: var(--texto);
+}
+
+.foto-acoes .btn.buscando svg {
+	animation: girar 900ms linear infinite;
+}
+
+@keyframes pulsar-busca {
+	0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primaria) 45%, transparent); }
+	50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--primaria) 0%, transparent); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.aviso-buscando { animation: none; }
+	.aviso-buscando-icone svg,
+	.foto-acoes .btn.buscando svg { animation-duration: 2.4s; }
+}
