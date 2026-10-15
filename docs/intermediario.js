@@ -481,11 +481,30 @@ async function tokenOscbr(env, ctx) {
 	}
 }
 
+/* ---------- Nome abreviado (mesma regra do app, em produtos.js) ----------
+   "DES BOM AR AER EMB ECON", "Cr Trat Novex", "Desod. Rexona": cadastros de ERP.
+   Fica de reserva — outra base pode ter o nome completo. */
+const CURTAS_REAIS = new Set(["bom", "boa", "ar", "pao", "sal", "cha", "mel", "gas", "gel", "kit", "uva", "rum", "gin", "ovo", "po", "mao", "pe", "lar", "sol", "mar", "cor", "air", "oil", "max", "top", "pet", "sem", "com", "de", "da", "do", "e", "em", "no", "na", "kg", "ml", "lt", "un", "und", "g", "l", "x",
+	"omo", "ype", "bic", "lux", "axe", "tio", "rei", "uau", "zero", "diet", "light"]);
+const ABREVIACOES = new Set(["desod", "shamp", "cond", "refrig", "refri", "bisc", "achoc", "choc", "deterg", "amac", "desinf", "tradic", "trad", "integ", "orig", "trat", "sabon", "lavand", "alim", "past", "emb", "econ", "pct", "unid", "bdj", "sach", "lamin", "absorv", "hidrat", "protet", "antitransp"]);
+function nomeAbreviado(nome) {
+	const bruto = String(nome || "");
+	if (/\b[a-zà-ú]{2,7}\.(?=\s|$)/i.test(bruto)) return true;
+	const temMinusculas = /[a-zà-ú]/.test(bruto);
+	const palavras = bruto.split(/[^A-Za-zÀ-ú]+/)
+		.filter(p => p && !(temMinusculas && p.length >= 2 && p === p.toUpperCase()))
+		.map(p => p.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase())
+		.filter(p => p && !CURTAS_REAIS.has(p));
+	const curtas = palavras.filter(p => p.length <= 3 || ABREVIACOES.has(p)).length;
+	return curtas >= 2 || (curtas >= 1 && palavras.length >= 3 && curtas / palavras.length >= 0.34);
+}
+
 /* ---------- Rotas ---------- */
 const BASES_ABERTAS = new Set(["lojas", "upcitemdb", "cosmos-site", "web"]);
 
 async function rotaProduto(gtin, env, ctx, origemPedido, json) {
-	const emCache = await lerCache(`produto/${gtin}`);
+	// "produto2/": resultados antigos (que podiam trazer nome abreviado havendo um completo) não valem mais
+	const emCache = await lerCache(`produto2/${gtin}`);
 	if (emCache) return json(emCache.status, await emCache.json());
 	const resultado = { gtin, nome: "", marca: "", foto: "", fonte: "", fonteFoto: "", fontes: [] };
 	const tentativas = [];
@@ -494,7 +513,10 @@ async function rotaProduto(gtin, env, ctx, origemPedido, json) {
 		tentativas.push({ fonte: base.id, status: r.status });
 		if (r.status === 200 || r.status === 404 || r.status === 204) algumaRespondeu = true;
 		if (r.status !== 200) return;
-		if (!resultado.nome && r.nome) { resultado.nome = r.nome; resultado.marca = r.marca; resultado.fonte = r.nomeFonte || base.nome; }
+		// Nome completo tem prioridade; o abreviado só fica se nenhuma base tiver outro
+		if (r.nome && (!resultado.nome || (nomeAbreviado(resultado.nome) && !nomeAbreviado(r.nome)))) {
+			resultado.nome = r.nome; resultado.marca = r.marca; resultado.fonte = r.nomeFonte || base.nome;
+		}
 		if (!resultado.foto && r.foto) { resultado.foto = r.foto; resultado.fonteFoto = r.nomeFonteFoto || r.nomeFonte || base.nome; }
 		if (r.nome || r.foto) resultado.fontes.push(r.nomeFonte || base.nome);
 	};
@@ -505,21 +527,22 @@ async function rotaProduto(gtin, env, ctx, origemPedido, json) {
 		const r = await base.consultar(gtin, env, ctx, origemPedido);
 		if (r.status === 429) { tentativas.push({ fonte: base.id, status: 429 }); await pausar(ctx, base.id); continue; }
 		aproveitar(base, r);
-		if (resultado.nome && resultado.foto) break;
+		if (resultado.nome && !nomeAbreviado(resultado.nome) && resultado.foto) break;
 	}
 	// Bases abertas (sem cota): todas ao mesmo tempo, na ordem da lista para escolher
-	if (!resultado.nome || !resultado.foto) {
+	// (também quando o nome achado é abreviado: alguma pode ter o nome completo)
+	if (!resultado.nome || nomeAbreviado(resultado.nome) || !resultado.foto) {
 		const abertas = BASES.filter(b => BASES_ABERTAS.has(b.id) && b.ativa(env));
 		const respostas = await Promise.all(abertas.map(b => b.consultar(gtin, env, ctx, origemPedido).catch(() => ({ status: 0 }))));
 		abertas.forEach((b, i) => aproveitar(b, respostas[i]));
 	}
 	if (resultado.nome || resultado.foto) {
-		await gravarCache(ctx, `produto/${gtin}`, new Response(JSON.stringify(resultado), { status: 200, headers: { "Content-Type": "application/json" } }), CACHE_ACHADO);
+		await gravarCache(ctx, `produto2/${gtin}`, new Response(JSON.stringify(resultado), { status: 200, headers: { "Content-Type": "application/json" } }), CACHE_ACHADO);
 		return json(200, resultado);
 	}
 	if (algumaRespondeu) {
 		const corpo = { erro: "não encontrado", gtin, tentativas };
-		await gravarCache(ctx, `produto/${gtin}`, new Response(JSON.stringify(corpo), { status: 404, headers: { "Content-Type": "application/json" } }), CACHE_NAO_ACHADO);
+		await gravarCache(ctx, `produto2/${gtin}`, new Response(JSON.stringify(corpo), { status: 404, headers: { "Content-Type": "application/json" } }), CACHE_NAO_ACHADO);
 		return json(404, corpo);
 	}
 	// Nenhuma base respondeu (cotas, rede, chaves): o app tenta de novo mais tarde

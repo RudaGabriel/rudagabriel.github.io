@@ -103,8 +103,8 @@ Não é preciso criar conta. Se quiser guardar na nuvem, veja [Salvar na nuvem](
 | **Vencimento** | Sim | Data de validade do lote. Toque no ícone ao lado para **ler a data por foto**. |
 
 - **Nome automático:** se você ler um código de barras que já está na lista, o nome do produto é preenchido sozinho.
-- **Nome sugerido:** depois de ler ou digitar o código, toque no botão **✨** do campo *Produto*. O app procura o produto em bases públicas (**Open Food Facts** — versão Brasil, em português — e outras) e mostra o nome encontrado, com marca e tamanho (ex.: *Leite UHT Integral Piracanjuba 1 L*) e a fonte. Você escolhe **Usar este nome** ou **Cancelar**.
-- **Código não encontrado?** O app procura os **nomes mais plausíveis**: produtos do **mesmo fabricante** com código vizinho (os fabricantes numeram os itens em sequência, então costumam ser o mesmo produto em outra versão) e produtos parecidos da sua própria lista. Mostra até 8 opções, da mais provável para a menos, para você **escolher** e ajustar. Se não houver nada parecido, aparecem atalhos para **pesquisar no Google** ou no **Cosmos (Bluesoft)**.
+- **Nome sugerido:** depois de ler ou digitar o código, toque no botão **✨** do campo *Produto*. O app procura o produto em bases públicas (**Open Food Facts** — versão Brasil, em português — e outras) e mostra o nome encontrado, com marca e tamanho (ex.: *Leite UHT Integral Piracanjuba 1 L*) e a fonte. **Nomes completos têm prioridade:** se uma base devolve um nome abreviado de cadastro (ex.: *CR TRAT NOVEX BABOSAO 1KG*), o app continua procurando nas outras bases e prefere o nome por extenso (*Creme de Tratamento Novex Babosão 1 kg*); o abreviado só é usado se não houver outro. Você escolhe **Usar este nome** ou **Cancelar**.
+- **Código não encontrado?** O app procura os **nomes mais plausíveis**: produtos do **mesmo fabricante** com código vizinho (os fabricantes numeram os itens em sequência, então costumam ser o mesmo produto em outra versão) e produtos parecidos da sua própria lista. Mostra até 8 opções — **nomes completos primeiro**, da mais provável para a menos, e os abreviados no fim — para você **escolher** e ajustar. Se não houver nada parecido, aparecem atalhos para **pesquisar no Google** ou no **Cosmos (Bluesoft)**.
 - **Sugestão automática (opcional):** no menu **⋮**, ligue **Sugerir nome automaticamente** para o nome ser preenchido sozinho ao ler um código novo. Vem **desligada**. Funciona com códigos de produtos (EAN/UPC) e precisa de internet.
 - **Produto repetido:** ao cadastrar o mesmo produto com o mesmo vencimento, o app pergunta se você quer **somar** as quantidades ou **substituir** pela nova.
 - Leitores de código de barras **USB ou Bluetooth** também funcionam: basta clicar no campo do código e ler.
@@ -134,7 +134,7 @@ Cada produto da lista mostra uma **miniatura** ao lado do nome.
 
 - Entende os formatos usados no Brasil:
   - **dia/mês/ano:** *15/03/2027*, *15.03.27*, *15-03-27*, *15 03 27*, *2027-03-15*;
-  - **mês/ano** (usa o último dia do mês): *03/2027*, *03/27*, *VENC: MAR/27*, *FEV/28*, *MARÇO/2027*, *FEVEREIRO DE 2028*;
+  - **mês/ano** (usa o último dia do mês): *03/2027*, *03/27*, *VENC: MAR/27*, *FEV/28*, *MARÇO/2027*, *FEVEREIRO DE 2028*, e **mês colado no ano**: *FAB: DEZ25 VAL: DEZ27* (validade 31/12/2027) — inclusive com as trocas comuns da impressão de pontinhos (*DE227*, *DFEZ27*, *UAL*/*WAL* no lugar de *VAL*);
   - **mês por extenso:** *15 MAR 2027*, *15/MAR/27*, *15MAR27*, *15 DE MARÇO DE 2027* (também em inglês: *FEB*, *APR*, *MAY*, *AUG*, *SEP*, *OCT*, *DEC*);
   - **números colados** logo após o rótulo: *VAL 150327*, *VENC:15032027*;
   - **prazo:** *FAB: 12/05/2026 – VALIDADE: 12 MESES* (calcula a data);

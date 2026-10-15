@@ -411,19 +411,6 @@ export function semelhancaNomes(a, b) {
 	return Math.min(1, base);
 }
 
-/* Palavras curtas de verdade (não são abreviação) */
-const CURTAS_REAIS = new Set(["bom", "boa", "ar", "pao", "sal", "cha", "mel", "gas", "gel", "kit", "uva", "rum", "gin", "ovo", "po", "mao", "pe", "lar", "sol", "mar", "cor", "air", "oil", "max", "top", "pet", "sem", "com", "de", "da", "do", "e", "em", "no", "na", "kg", "ml", "lt", "un", "und", "g", "l", "x"]);
-
-/** Nome abreviado ("Des Bom Ar Aer Emb Econ", "Sab Liq Dove", "Desod. Rexona")? Aí o código de barras
- *  identifica melhor o produto do que o nome. */
-export function nomeAbreviado(nome) {
-	const bruto = String(nome || "");
-	if (/\b[a-zà-ú]{2,7}\.(?=\s|$)/i.test(bruto)) return true; // "Desod.", "Liq."
-	const palavras = semAcento(bruto).toLowerCase().split(/[^a-z]+/).filter(p => p && !CURTAS_REAIS.has(p));
-	const curtas = palavras.filter(p => p.length <= 3).length;
-	return curtas >= 2 || (curtas >= 1 && palavras.length >= 3 && curtas / palavras.length >= 0.34);
-}
-
 /** A foto achada pelo nome é confiável o bastante para usar sozinha? */
 export const NOME_CONFIAVEL = 0.67;
 
