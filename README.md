@@ -247,14 +247,15 @@ Todos veem as alterações **em tempo real**.
 
 - **Dono** é a **conta que criou a lista** (Google ou e-mail) — e o aparelho onde ela foi criada. Em outro aparelho, entre com essa conta: o acesso completo é liberado sozinho.
 - **Código da lista:** fica **escondido** em **Salvar e compartilhar** (toque no 👁 para revelar). Quem digitar o código **só visualiza** — nunca edita. Para outras pessoas editarem, use **convidados**.
-- **Pedido de acesso:** quem entrou só com o código vê **Pedir acesso para editar**: informa o nome (e o telefone, se quiser) e o app envia junto o tipo de aparelho/navegador. Os dois veem o mesmo **código de confirmação** de 4 números para conferir entre si. O pedido aparece para o dono em **Solicitações pendentes** (com aviso e uma bolinha no botão da nuvem): **Aprovar** transforma a pessoa em convidado com "pode editar"; **Recusar** a mantém só visualizando.
+- **Pedido de acesso:** quem entrou só com o código vê **Pedir acesso para editar**: informa o nome (e o telefone, se quiser) e o app envia junto o tipo de aparelho/navegador. Os dois veem o mesmo **código de confirmação** de 4 números para conferir entre si. O pedido aparece para o dono em **Solicitações pendentes** (com aviso e uma bolinha no botão da nuvem): **Aprovar** transforma a pessoa em convidado com "pode editar"; **Recusar** a mantém só visualizando. Tudo chega **na hora**, dos dois lados, sem recarregar a página — se a internet cair ou o app ficar em segundo plano, ele se reconecta sozinho ao voltar.
 - **Código de convite:** em cada convidado, o botão de copiar gera um código (lista + convidado) que a pessoa pode digitar em **Já tem um código?** no lugar de abrir o link.
 - Em **Novo convidado**, o dono cria um convite para cada pessoa/aparelho: cada um tem um **código único** e um **link/QR Code próprio**.
 - O dono vê a **lista de convidados**: nome, nome do aparelho, código, permissão e quando cada um foi visto pela última vez; muda a qualquer momento se cada um **pode editar** ou **só visualizar**, e pode **remover** um convidado.
 - Quem garante isso é o **servidor da nuvem** (regras do Firebase), não só o app: convidado "só visualizar" não consegue gravar nada, mesmo mexendo no navegador; quem só tem o código da lista, sem convite, não lê nem grava; convidado removido perde o acesso na hora.
 - O aparelho do convidado recebe a mudança **na hora** (ou ao abrir o app, se estava offline) e mostra *"agora você pode editar"* ou *"agora você só pode visualizar"*.
 - Ao entrar, o convidado **precisa informar o nome** (obrigatório) — é o nome que o dono vê na lista de convidados. Dá para trocar depois em **Salvar e compartilhar → Seu nome nesta lista**.
-- **Dono:** toque no nome de um convidado para ver os **detalhes** (nome que ele informou, aparelho, quando foi visto, telefone/navegador se entrou por pedido) e para **renomear** o nome que você deu a ele.
+- **Nome da loja:** só o **dono** muda. Convidado, mesmo com "pode editar", não altera (o servidor também recusa).
+- **Dono:** toque no nome de um convidado (ou no **›** ao lado dele) para ver os **detalhes** (nome que ele informou, aparelho, quando foi visto, telefone/navegador se entrou por pedido) e para **renomear** o nome que você deu a ele.
 - Listas criadas antes desta versão passam a ser protegidas assim que o dono abre o app; links antigos (sem convite) deixam de funcionar — envie um convite novo para cada pessoa.
 
 ## Backup e planilha
@@ -292,7 +293,7 @@ O nome passa a aparecer:
 
 Para tirar o nome da loja, abra **Nome da loja** de novo e toque em **Usar nome padrão**.
 
-**Com a nuvem ativa**, o nome da loja vai junto com a lista: ao definir, trocar ou remover o nome em um aparelho, **todos os aparelhos conectados à mesma lista** mudam também. Com Google ou lista com código, a mudança aparece na hora; com e-mail ou Dropbox, em poucos segundos. Aparelhos no modo **Só visualizar** mostram o nome da lista, mas não podem alterá-lo. Sem nuvem, o nome fica salvo só no aparelho.
+**Com a nuvem ativa**, o nome da loja vai junto com a lista: ao definir, trocar ou remover o nome em um aparelho, **todos os aparelhos conectados à mesma lista** mudam também. Com Google ou lista com código, a mudança aparece na hora; com e-mail ou Dropbox, em poucos segundos. Só o **dono da lista** pode alterá-lo: convidados (mesmo com "pode editar") e aparelhos no modo **Só visualizar** mostram o nome, mas não o mudam. Sem nuvem, o nome fica salvo só no aparelho.
 
 ## Instalar como aplicativo
 
@@ -330,13 +331,15 @@ O app é um site estático, rápido e sem instalação. As bibliotecas abaixo s�
 
 | Biblioteca | O que faz por você |
 |---|---|
-| [Firebase](https://firebase.google.com/) (Google) | Login com Google ou link no e-mail e a nuvem principal, com sincronização em tempo real e funcionamento offline. |
+| [Firebase](https://firebase.google.com/) (Google) | Login com Google ou link no e-mail e a nuvem principal, com sincronização em tempo real e funcionamento offline. Convidados, pedidos de acesso e permissões também chegam na hora — e, se a conexão cair ou o app ficar em segundo plano, ele se reconecta sozinho, sem precisar recarregar. As [regras de segurança](docs/CONFIGURACAO.md) garantem no servidor quem pode editar (e que só o dono muda o nome da loja). |
 | [Supabase](https://supabase.com/) | Servidor alternativo de login por e-mail e de listas com código. |
 | [Dropbox API](https://www.dropbox.com/developers) | Guarda sua lista em um arquivo dentro do **seu** Dropbox. |
 | [barcode-detector](https://github.com/Sec-ant/barcode-detector) · [ZXing-C++](https://github.com/zxing-cpp/zxing-cpp) | Leitura rápida de códigos de barras (WebAssembly), inclusive no iPhone. |
 | [ZXing JS](https://github.com/zxing-js/library) | Leitor reserva para aparelhos e navegadores mais antigos. |
 | [Tesseract.js](https://tesseract.projectnaptha.com/) | Lê a data de validade de uma foto, no próprio aparelho (OCR). |
-| [Open Food Facts](https://world.openfoodfacts.org/) · [UPCitemdb](https://www.upcitemdb.com/) · [Wikidata](https://www.wikidata.org/) · pesquisa na web (Bing/DuckDuckGo, pelo intermediário) | Bases públicas usadas para sugerir o nome do produto pelo código de barras (só quando você pede ou liga a sugestão automática). |
+| [Open Food Facts](https://world.openfoodfacts.org/) (e as bases irmãs de produtos, beleza e pet) · [UPCitemdb](https://www.upcitemdb.com/) · [Wikidata](https://www.wikidata.org/) · catálogos públicos de lojas (plataforma VTEX: Cobasi, Carrefour, drogarias…) · pesquisa na web (Bing/DuckDuckGo) | Bases públicas usadas para encontrar o **nome** e a **foto** do produto pelo código de barras ou pelo nome. |
+| [SI5 Global](https://si5.com.br/) · [Kodebar](https://kodebar.korvensistemas.com.br/) · [Cosmos (Bluesoft)](https://cosmos.bluesoft.com.br/) · OSCBR (API GTIN) | Bases brasileiras com chave, consultadas **só pelo intermediário** (cada uma só entra se a chave estiver configurada). |
+| [Cloudflare Workers](https://workers.cloudflare.com/) (intermediário) | Consulta as bases de produtos **guardando as chaves em segredo** (nunca aparecem no site), junta os resultados num formato único, guarda em cache por 7 dias e libera as fotos para o app guardar uma cópia no aparelho. Código em [`docs/intermediario.js`](docs/intermediario.js). |
 | [SweetAlert2](https://sweetalert2.github.io/) | Janelas de confirmação claras e acessíveis. |
 | [Notyf](https://carlosroso.com/notyf/) | Avisos rápidos, como "Produto adicionado" e "Desfazer". |
 | [Lucide](https://lucide.dev/) | Ícones nítidos em qualquer tela. |

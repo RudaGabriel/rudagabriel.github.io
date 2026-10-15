@@ -2482,7 +2482,9 @@ async function pedirAcesso() {
 	const confirmacao = String(Math.floor(1000 + Math.random() * 9000));
 	try {
 		await prov.enviarPedido(s.codigo, { nome, telefone, confirmacao, aparelho: limparNomeConvidado(await detectarAparelho().catch(() => "")) || "Aparelho", navegador: infoNavegador() });
-		if (!pararMeuPedido) pararMeuPedido = prov.ouvirMeuPedido(s.codigo, pedido => receberMeuPedido(s, pedido));
+		// Sempre religa o acompanhamento depois de enviar (garante que a aprovação chegue sem recarregar)
+		try { pararMeuPedido?.(); } catch { /* ignora */ }
+		pararMeuPedido = prov.ouvirMeuPedido(s.codigo, pedido => receberMeuPedido(s, pedido));
 		dialogo({
 			titulo: "Pedido enviado",
 			html: `O dono da lista vai ver seu pedido.<br><br>Código de confirmação:<br><b class="codigo-confirmacao">${confirmacao}</b><br><br><small>O dono vê o mesmo código — confirmem entre vocês (ligação ou mensagem) antes da aprovação.</small>`,
@@ -2503,12 +2505,20 @@ async function pedirAcesso() {
 }
 
 /** Quem pediu: acompanha a resposta do dono. */
+const respostasTratadas = new Set(); // a mesma resposta pode chegar mais de uma vez (ouvinte religado)
 async function receberMeuPedido(s, pedido) {
 	if (!estado.sync || idSync(estado.sync) !== idSync(s)) return;
 	estado.meuPedido = pedido?.existe ? pedido : null;
 	atualizarDialogoSync();
 	if (!pedido?.existe) return;
 	const prov = provAtual();
+	if (pedido.status === "aprovado" || pedido.status === "recusado") {
+		const chave = `${s.codigo}|${pedido.status}|${pedido.convite || ""}|${pedido.criadoEm || ""}`;
+		if (respostasTratadas.has(chave)) return;
+		respostasTratadas.add(chave);
+		// Se falhar, deixa tentar de novo na próxima vez que a resposta chegar
+		setTimeout(() => respostasTratadas.delete(chave), 15000);
+	}
 	if (pedido.status === "aprovado" && RE_CONVIDADO.test(String(pedido.convite || ""))) {
 		// Vira convidado com o convite criado pelo dono (a permissão segue o convite)
 		const novo = { provedor: s.provedor, codigo: s.codigo, papel: "convidado", convidado: pedido.convite, modo: "leitura", confirmado: false };
@@ -2698,7 +2708,7 @@ function desenharConvidados() {
 		return `
 		<li class="convidado${c.codigo === convidadoSelecionado ? " selecionado" : ""}" data-convidado="${esc(c.codigo)}">
 			<div class="convidado-info" data-c="detalhes" role="button" tabindex="0" title="Ver detalhes e renomear" aria-label="Detalhes de ${esc(c.nome)}">
-				<strong title="${esc(titulo)}">${esc(titulo)} <span class="convidado-mais">${icone("ChevronRight")}</span></strong>
+				<strong class="convidado-titulo" title="${esc(titulo)}"><span class="convidado-nome">${esc(titulo)}</span><span class="convidado-mais" aria-hidden="true">${icone("ChevronRight")}</span></strong>
 				<small class="convite-completo">Código de convite: <b class="codigo-convidado">${esc(estado.sync?.codigo ? codigoDeConvite(estado.sync.codigo, c.codigo) : formatarCodigoConvidado(c.codigo))}</b></small>
 				<small>${c.podeEditar ? "pode editar" : "só visualizar"} · ${c.visto ? `visto ${esc(fmtRelativoCurto(c.visto))}` : "ainda não entrou"}</small>
 			</div>

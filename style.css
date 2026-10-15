@@ -4602,10 +4602,35 @@ input.sugerido.sugerido-saindo {
 	outline-offset: 3px;
 }
 
+/* Nome + ícone de detalhes sempre na mesma linha: o nome encolhe (reticências), o ícone nunca desce */
+.convidado-info strong.convidado-titulo {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	min-width: 0;
+	max-width: 100%;
+	overflow: visible;
+	white-space: nowrap;
+}
+
+.convidado-nome {
+	flex: 0 1 auto;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.convidado-mais {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+}
+
 .convidado-mais svg {
+	display: block;
 	width: 14px;
 	height: 14px;
-	vertical-align: -2px;
 	color: var(--texto-suave);
 }
 
