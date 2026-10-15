@@ -316,20 +316,63 @@ async function resultadosDaWeb(consulta) {
 	return { respondeu, lista: lista.filter(x => !SITES_IGNORADOS.test(x.link)).slice(0, 10) };
 }
 
-/** Busca de imagens do Bing: [{ titulo, foto, pagina }] — a foto vem direto, com o título da página. */
-async function imagensDaWeb(consulta) {
-	const r = await buscarPagina(`https://www.bing.com/images/search?q=${encodeURIComponent(consulta)}&form=HDRSC2&first=1&setlang=pt-BR&cc=BR`);
+/** Lê os itens de imagem do Bing (atributo m="{...}" com murl/t/purl). */
+function lerImagensBing(html) {
 	const lista = [];
-	for (const m of r.html.matchAll(/\sm="(\{[^"]*\})"/g)) {
+	for (const m of String(html || "").matchAll(/\sm="(\{[^"]*\})"/g)) {
 		try {
 			const d = JSON.parse(m[1].replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&"));
 			const foto = urlHttps(String(d.murl || "").replace(/^http:\/\//i, "https://"));
 			const titulo = decodificarHtml(String(d.t || "").replace(/[\ue000-\ue001]/g, ""));
-			if (foto && titulo && !SITES_IGNORADOS.test(d.purl || "")) lista.push({ titulo, foto, pagina: String(d.purl || "") });
+			if (foto && titulo && !SITES_IGNORADOS.test(d.purl || "")) lista.push({ titulo, foto, pagina: String(d.purl || ""), fonte: "Bing Imagens" });
 		} catch { /* item com JSON quebrado: ignora */ }
 		if (lista.length >= 30) break;
 	}
-	return { respondeu: !!r.html, lista };
+	return lista;
+}
+
+/** Imagens do DuckDuckGo (precisa do "vqd" da página de busca). */
+async function imagensDuckDuckGo(consulta) {
+	const q = encodeURIComponent(consulta);
+	const pagina = await buscarPagina(`https://duckduckgo.com/?q=${q}&iax=images&ia=images&kl=br-pt`);
+	const vqd = (pagina.html.match(/vqd=["']?([0-9a-z_-]+)["']?/i) || [])[1];
+	if (!vqd) return { respondeu: false, lista: [] };
+	const r = await buscar(`https://duckduckgo.com/i.js?l=br-pt&o=json&q=${q}&vqd=${encodeURIComponent(vqd)}&f=,,,,,&p=1`, { ...CABECALHO_NAVEGADOR, Accept: "application/json", Referer: "https://duckduckgo.com/" }, 7000);
+	const resultados = Array.isArray(r.dados?.results) ? r.dados.results : [];
+	const lista = resultados.slice(0, 30).map(x => ({
+		titulo: decodificarHtml(x?.title || ""),
+		foto: urlHttps(String(x?.image || "").replace(/^http:\/\//i, "https://")),
+		pagina: String(x?.url || ""),
+		fonte: "DuckDuckGo Imagens"
+	})).filter(x => x.titulo && x.foto && !SITES_IGNORADOS.test(x.pagina));
+	return { respondeu: r.status === 200, lista };
+}
+
+/** Anúncios do Mercado Livre (API pública): título + foto do produto. */
+async function mercadoLivre(consulta) {
+	const r = await buscar(`https://api.mercadolibre.com/sites/MLB/search?q=${encodeURIComponent(consulta)}&limit=20`, { ...CABECALHO_LOJA, Accept: "application/json" }, 7000);
+	const lista = (Array.isArray(r.dados?.results) ? r.dados.results : []).map(x => ({
+		titulo: limpar(x?.title),
+		// Miniatura "-I" → versão maior "-O"
+		foto: urlHttps(String(x?.thumbnail || "").replace(/^http:\/\//i, "https://").replace(/-I\.(jpe?g|webp|png)$/i, "-O.$1")),
+		pagina: String(x?.permalink || ""),
+		fonte: "Mercado Livre"
+	})).filter(x => x.titulo && x.foto);
+	return { respondeu: r.status === 200, status: r.status, lista };
+}
+
+/** Fotos pelo nome em buscadores de imagem: Bing (rápido e completo); vazio → DuckDuckGo. */
+async function imagensDaWeb(consulta) {
+	const q = encodeURIComponent(consulta);
+	let r = await buscarPagina(`https://www.bing.com/images/async?q=${q}&first=0&count=35&mmasync=1&setlang=pt-BR&cc=BR`);
+	let lista = lerImagensBing(r.html);
+	let respondeu = !!r.html;
+	if (!lista.length) {
+		const d = await imagensDuckDuckGo(consulta);
+		lista = d.lista;
+		respondeu = respondeu || d.respondeu;
+	}
+	return { respondeu, lista };
 }
 
 const palavrasDe = t => limpar(t).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/).filter(p => p.length > 2 && !/^\d+$/.test(p));
@@ -529,7 +572,7 @@ function pontuacao(procurado, achado) {
 }
 
 async function rotaBusca(q, ctx, json) {
-	const chave = `busca5/${q.toLowerCase()}`; // muda o número quando a regra de relevância muda (ignora o cache antigo)
+	const chave = `busca6/${q.toLowerCase()}`; // muda o número quando a regra de relevância muda (ignora o cache antigo)
 	const emCache = await lerCache(chave);
 	if (emCache) return json(200, await emCache.json());
 	const termos = encodeURIComponent(q);
@@ -545,7 +588,7 @@ async function rotaBusca(q, ctx, json) {
 	}
 	// Só conta o que tem a ver com o nome (as lojas devolvem qualquer item que divida uma palavra)
 	const relevantes = () => produtos.filter(x => relevancia(q, `${x.nome} ${x.marca || ""}`) >= RELEVANTE);
-	let webRespondeu = false, lojas2 = [], webLinks = 0, webPaginas = 0, imagensRespondeu = false, imagensAchadas = 0, amostra = [];
+	let webRespondeu = false, lojas2 = [], webLinks = 0, webPaginas = 0, imagensRespondeu = false, imagensAchadas = 0, amostra = [], mercadoLivreStatus = "não consultado";
 	if (relevantes().length < 6) {
 		// Pouca coisa que preste: ao mesmo tempo, (1) as lojas de novo só pelo tipo do produto
 		// ("álcool" em vez de "álcool santa cruz 96", que as lojas confundem com "sementes santa cruz")
@@ -557,13 +600,15 @@ async function rotaBusca(q, ctx, json) {
 			: Promise.resolve([]);
 		const porWeb = (async () => {
 			const { respondeu, lista } = await resultadosDaWeb(`${q} produto`);
-			const paginas = await Promise.all(lista.slice(0, 4).map(async r => {
+			// Só abre links cujo título já tem a ver com o nome (o buscador às vezes devolve qualquer coisa)
+			const uteis = lista.filter(r => mesmoTipo(q, r.titulo)).slice(0, 3);
+			const paginas = await Promise.all(uteis.map(async r => {
 				const pg = await buscarPagina(r.link, 6000);
 				return pg.html ? { ...dadosDaPagina(pg.html, ""), site: new URL(r.link).hostname.replace(/^www\./, "") } : null;
 			}));
 			return { respondeu, paginas, links: lista.length };
 		})();
-		const [r1, r2, r3] = await Promise.all([porTipo, porWeb, imagensDaWeb(q)]);
+		const [r1, r2, r3, r4] = await Promise.all([porTipo, porWeb, imagensDaWeb(q), mercadoLivre(q)]);
 		lojas2 = r1;
 		for (const x of lojas2.flatMap(r => r.produtos)) if (!produtos.some(p => p.foto === x.foto)) produtos.push(x);
 		webRespondeu = r2.respondeu;
@@ -571,12 +616,16 @@ async function rotaBusca(q, ctx, json) {
 		webPaginas = r2.paginas.filter(pg => pg?.foto).length;
 		imagensRespondeu = r3.respondeu;
 		imagensAchadas = r3.lista.length;
-		amostra = [...r3.lista.slice(0, 6).map(i => `imagem: ${i.titulo}`), ...r2.paginas.filter(Boolean).map(pg => `página: ${pg.nome || "(sem nome)"}${pg.foto ? "" : " (sem foto)"}`)];
+		mercadoLivreStatus = r4.respondeu ? `${r4.lista.length} anúncios` : `não respondeu (${r4.status || 0})`;
+		amostra = [...r3.lista.slice(0, 4).map(i => `${i.fonte}: ${i.titulo}`), ...r4.lista.slice(0, 3).map(i => `Mercado Livre: ${i.titulo}`), ...r2.paginas.filter(Boolean).map(pg => `página: ${pg.nome || "(sem nome)"}${pg.foto ? "" : " (sem foto)"}`)];
+		for (const im of r4.lista) {
+			if (!produtos.some(x => x.foto === im.foto)) produtos.push({ nome: im.titulo, marca: "", foto: im.foto, fonte: "Mercado Livre" });
+		}
 		for (const im of r3.lista) {
 			if (produtos.some(x => x.foto === im.foto)) continue;
 			let site = "";
 			try { site = new URL(im.pagina).hostname.replace(/^www\./, ""); } catch { /* sem página */ }
-			produtos.push({ nome: limparTituloProduto(im.titulo, ""), marca: "", foto: im.foto, fonte: `Imagens da web${site ? ` (${site})` : ""}` });
+			produtos.push({ nome: limparTituloProduto(im.titulo, ""), marca: "", foto: im.foto, fonte: `${im.fonte || "Imagens da web"}${site ? ` (${site})` : ""}` });
 		}
 		for (const pg of r2.paginas) {
 			if (pg?.foto && pg.nome && !produtos.some(x => x.foto === pg.foto)) produtos.push({ nome: limparTituloProduto(pg.nome, ""), marca: pg.marca || "", foto: pg.foto, fonte: `Pesquisa na web (${pg.site})` });
@@ -595,7 +644,7 @@ async function rotaBusca(q, ctx, json) {
 	// "consultas": só para conferir de onde veio cada coisa (o app ignora)
 	const corpo = {
 		produtos: produtos.slice(0, 40),
-		consultas: { lojas: lojas.filter(r => r.respondeu).length, lojasPeloTipo: lojas2.filter(r => r.respondeu).length, web: webRespondeu ? `${webLinks} links, ${webPaginas} páginas com foto` : "não respondeu", imagens: imagensRespondeu ? `${imagensAchadas} imagens` : "não respondeu", openFoodFacts: off.status, amostra }
+		consultas: { lojas: lojas.filter(r => r.respondeu).length, lojasPeloTipo: lojas2.filter(r => r.respondeu).length, web: webRespondeu ? `${webLinks} links, ${webPaginas} páginas com foto` : "não respondeu", imagens: imagensRespondeu ? `${imagensAchadas} imagens` : "não respondeu", mercadoLivre: mercadoLivreStatus, openFoodFacts: off.status, amostra }
 	};
 	await gravarCache(ctx, chave, new Response(JSON.stringify(corpo), { headers: { "Content-Type": "application/json" } }), produtos.length ? CACHE_ACHADO : CACHE_NAO_ACHADO);
 	return json(200, corpo);
