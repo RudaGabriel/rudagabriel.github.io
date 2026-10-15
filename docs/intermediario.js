@@ -574,6 +574,15 @@ const QUALIFICADORES = new Set(["sem", "com", "c", "p", "para", "porta", "anti",
 function mesmoTipo(procurado, achado) {
 	const pa = termosBusca(procurado);
 	if (!pa.length) return false;
+	// 1ª palavra abreviada ("Des"): casa com "Descascado", "Desinfetante"… sem ela escrita igual, exige
+	// mais palavras do nome em comum
+	if (pa[0].length <= 3 && pa.length >= 2) {
+		const pb = termosBusca(achado);
+		if (!pb.includes(pa[0])) {
+			const outras = [...new Set(pa.slice(1))].filter(t => pb.some(w => casaTermo(t, w))).length;
+			return outras >= Math.min(2, pa.length - 1);
+		}
+	}
 	const bruto = String(achado || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/).filter(Boolean);
 	return bruto.some((w, i) => casaTermo(pa[0], w.length > 4 && /[^s]s$/.test(w) ? w.slice(0, -1) : w) && !QUALIFICADORES.has(bruto[i - 1] || ""));
 }
@@ -589,7 +598,7 @@ function pontuacao(procurado, achado) {
 }
 
 async function rotaBusca(q, ctx, json) {
-	const chave = `busca8/${q.toLowerCase()}`; // muda o número quando a regra de relevância muda (ignora o cache antigo)
+	const chave = `busca9/${q.toLowerCase()}`; // muda o número quando a regra de relevância muda (ignora o cache antigo)
 	const emCache = await lerCache(chave);
 	if (emCache) return json(200, await emCache.json());
 	const termos = encodeURIComponent(q);

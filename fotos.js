@@ -304,8 +304,16 @@ const casaPalavra = (t, lista) => lista.some(w => w === t || (t.length >= 3 && w
  *  como o próprio produto, não como detalhe: "Enxaguante Sem Álcool" e "Sachê c/ álcool" não são álcool. */
 export function mesmoTipoProduto(a, b) {
 	const pa = termosNome(a), pb = termosNome(b);
-	if (!pa.length || !casaPalavra(pa[0], pb)) return false;
+	if (!pa.length) return false;
 	const tipo = pa[0];
+	// 1ª palavra abreviada ("Des", "Sab"): o começo casa com muita coisa ("Descascado", "Desinfetante")
+	// e o achado costuma ter a palavra inteira ("Aromatizador"); sem ela escrita igual, valem as outras
+	// palavras do nome: pelo menos 2 em comum
+	if (tipo.length <= 3 && !pb.includes(tipo) && pa.length >= 2) {
+		const outras = [...new Set(pa.slice(1))].filter(t => casaPalavra(t, pb)).length;
+		return outras >= Math.min(2, pa.length - 1);
+	}
+	if (!casaPalavra(tipo, pb)) return false;
 	// Palavras do achado, na ordem, para ver o que vem logo antes do tipo
 	const bruto = normalizarNome(String(b || "").toLowerCase()).split(" ").filter(Boolean);
 	const posicoes = bruto.map((w, i) => (casaPalavra(tipo, [singular(w)]) ? i : -1)).filter(i => i >= 0);
