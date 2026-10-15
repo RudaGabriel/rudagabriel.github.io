@@ -12,7 +12,7 @@ import { criarLeitor } from "./leitor.js";
 import { buscarNomeProduto, buscarNomesParecidos, codigoConsultavel, linksPesquisaCodigo } from "./produtos.js";
 import { lerDatas, criarCameraValidade } from "./validade.js";
 import { ligarInterfaceFoco } from "./foco.js";
-import { chaveFoto, carregarFotos, guardarFoto, apagarFoto, precisaBuscar, buscarFotoAutomatica, fotosPorCodigo, fotosPorNome, prepararFotoDaPessoa, aoCopiarFoto, copiarFotosPendentes } from "./fotos.js";
+import { chaveFoto, carregarFotos, guardarFoto, apagarFoto, precisaBuscar, buscarFotoAutomatica, fotosPorCodigo, fotosPorNome, nomeAbreviado, prepararFotoDaPessoa, aoCopiarFoto, copiarFotosPendentes } from "./fotos.js";
 import { iniciarAnuncios } from "./anuncios.js";
 
 const URL_AUTO_ANIMATE = "https://cdn.jsdelivr.net/npm/@formkit/auto-animate@0.10.0/index.mjs";
@@ -1695,17 +1695,27 @@ async function dialogoFoto(produto, { pendente = false } = {}) {
 				let opcoes = [];
 				let falhou = false;
 				try {
-					// Cada busca vale sozinha: se uma base falhar, mostra o que as outras acharam
-					const [rCodigo, rNome] = await Promise.allSettled([
-						produto.codigoBarras ? fotosPorCodigo(produto.codigoBarras) : [],
-						produto.nome ? fotosPorNome(produto.nome, { limite: 8 }) : []
-					]);
+					// Nome abreviado ("Des Bom Ar Aer…"): o código de barras manda; o nome só se o código não achar nada
+					const codigoPrimeiro = !!produto.codigoBarras && nomeAbreviado(produto.nome);
+					let rCodigo, rNome;
+					if (codigoPrimeiro) {
+						[rCodigo] = await Promise.allSettled([fotosPorCodigo(produto.codigoBarras)]);
+						const achouPeloCodigo = rCodigo.status === "fulfilled" && rCodigo.value.length > 0;
+						[rNome] = await Promise.allSettled([!achouPeloCodigo && produto.nome ? fotosPorNome(produto.nome, { limite: 8 }) : []]);
+					} else {
+						// Cada busca vale sozinha: se uma base falhar, mostra o que as outras acharam
+						[rCodigo, rNome] = await Promise.allSettled([
+							produto.codigoBarras ? fotosPorCodigo(produto.codigoBarras) : [],
+							produto.nome ? fotosPorNome(produto.nome, { limite: 8 }) : []
+						]);
+					}
 					falhou = rCodigo.status === "rejected" || rNome.status === "rejected";
 					const porCodigo = rCodigo.status === "fulfilled" ? rCodigo.value : [];
 					const porNome = rNome.status === "fulfilled" ? rNome.value : [];
 					const vistas = new Set();
-					// Mesma ordem da busca automática: primeiro as do nome, depois as do código
-					for (const f of [...porNome.map(f => ({ ...f, origem: "nome" })), ...porCodigo.map(f => ({ ...f, origem: "codigo" }))]) {
+					// Mesma ordem da busca automática: nome abreviado → código primeiro; senão, nome primeiro
+					const doNome = porNome.map(f => ({ ...f, origem: "nome" })), doCodigo = porCodigo.map(f => ({ ...f, origem: "codigo" }));
+					for (const f of codigoPrimeiro ? [...doCodigo, ...doNome] : [...doNome, ...doCodigo]) {
 						if (vistas.has(f.src)) continue;
 						vistas.add(f.src);
 						opcoes.push(f);

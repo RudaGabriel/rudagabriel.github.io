@@ -347,6 +347,19 @@ export function semelhancaNomes(a, b) {
 	return Math.min(1, base);
 }
 
+/* Palavras curtas de verdade (não são abreviação) */
+const CURTAS_REAIS = new Set(["bom", "boa", "ar", "pao", "sal", "cha", "mel", "gas", "gel", "kit", "uva", "rum", "gin", "ovo", "po", "mao", "pe", "lar", "sol", "mar", "cor", "air", "oil", "max", "top", "pet", "sem", "com", "de", "da", "do", "e", "em", "no", "na", "kg", "ml", "lt", "un", "und", "g", "l", "x"]);
+
+/** Nome abreviado ("Des Bom Ar Aer Emb Econ", "Sab Liq Dove", "Desod. Rexona")? Aí o código de barras
+ *  identifica melhor o produto do que o nome. */
+export function nomeAbreviado(nome) {
+	const bruto = String(nome || "");
+	if (/\b[a-zà-ú]{2,7}\.(?=\s|$)/i.test(bruto)) return true; // "Desod.", "Liq."
+	const palavras = semAcento(bruto).toLowerCase().split(/[^a-z]+/).filter(p => p && !CURTAS_REAIS.has(p));
+	const curtas = palavras.filter(p => p.length <= 3).length;
+	return curtas >= 2 || (curtas >= 1 && palavras.length >= 3 && curtas / palavras.length >= 0.34);
+}
+
 /** A foto achada pelo nome é confiável o bastante para usar sozinha? */
 export const NOME_CONFIAVEL = 0.67;
 
@@ -430,6 +443,17 @@ export async function fotosPorNome(nome, { sinal, limite = 8, rapido = false } =
  */
 export async function buscarFotoAutomatica(item, { sinal } = {}) {
 	let falhou = null;
+	// Nome abreviado: o código de barras vem primeiro; o nome só se o código não achar nada
+	const codigoPrimeiro = !!item?.codigoBarras && nomeAbreviado(item?.nome);
+	if (codigoPrimeiro) {
+		try {
+			const porCodigo = await fotosPorCodigo(item.codigoBarras, { sinal });
+			if (porCodigo[0]) return { ...porCodigo[0], origem: "codigo" };
+		} catch (e) {
+			if (sinal?.aborted) throw e;
+			falhou = e;
+		}
+	}
 	if (item?.nome) {
 		try {
 			const porNome = await fotosPorNome(item.nome, { sinal, limite: 4, rapido: true });
@@ -440,7 +464,7 @@ export async function buscarFotoAutomatica(item, { sinal } = {}) {
 			falhou = e;
 		}
 	}
-	if (item?.codigoBarras) {
+	if (item?.codigoBarras && !codigoPrimeiro) {
 		try {
 			const porCodigo = await fotosPorCodigo(item.codigoBarras, { sinal });
 			if (porCodigo[0]) return { ...porCodigo[0], origem: "codigo" };
