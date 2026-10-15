@@ -1713,9 +1713,9 @@ async function dialogoFoto(produto, { pendente = false } = {}) {
 					const porCodigo = rCodigo.status === "fulfilled" ? rCodigo.value : [];
 					const porNome = rNome.status === "fulfilled" ? rNome.value : [];
 					const vistas = new Set();
-					// Mesma ordem da busca automática: nome abreviado → código primeiro; senão, nome primeiro
+					// As fotos achadas pelo código de barras vêm sempre primeiro (são do produto exato)
 					const doNome = porNome.map(f => ({ ...f, origem: "nome" })), doCodigo = porCodigo.map(f => ({ ...f, origem: "codigo" }));
-					for (const f of codigoPrimeiro ? [...doCodigo, ...doNome] : [...doNome, ...doCodigo]) {
+					for (const f of [...doCodigo, ...doNome]) {
 						if (vistas.has(f.src)) continue;
 						vistas.add(f.src);
 						opcoes.push(f);
