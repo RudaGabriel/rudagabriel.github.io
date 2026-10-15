@@ -42,20 +42,55 @@ export function chaveFoto(item) {
 	return nome ? `n:${nome}` : "";
 }
 
-/* ---------- Armazenamento (IndexedDB, com memória como reserva) ---------- */
+/* ---------- Armazenamento (IndexedDB via Dexie; reserva: IndexedDB direto; por fim, memória) ----------
+   O Dexie trata as manias do IndexedDB no Safari (transações que fecham sozinhas, banco "bloqueado").
+   Se ele não carregar (sem internet na 1ª vez, CDN fora), o app usa o IndexedDB direto, no mesmo banco. */
+const URL_DEXIE = "https://cdn.jsdelivr.net/npm/dexie@4.0.10/dist/dexie.mjs";
 const memoria = new Map();
+let tabelaPromessa = null;
 let bancoPromessa = null;
 
+/** Tabela das fotos pelo Dexie (chave fora do objeto, como o banco já existente), ou null. */
+function abrirTabela() {
+	if (tabelaPromessa) return tabelaPromessa;
+	tabelaPromessa = (async () => {
+		try {
+			if (!("indexedDB" in window)) return null;
+			const modulo = await import(URL_DEXIE);
+			const Dexie = modulo.default || modulo.Dexie;
+			const db = new Dexie(BANCO);
+			db.version(1).stores({ [LOJA]: "" }); // "" = chave informada no put (igual ao banco antigo)
+			// Outra aba com versão antiga aberta pode travar a abertura: não espera para sempre
+			await Promise.race([db.open(), new Promise((_, rejeitar) => setTimeout(() => rejeitar(new Error("banco ocupado")), 5000))]);
+			return db.table(LOJA);
+		} catch (e) {
+			console.warn("[fotos] Dexie indisponível; usando o IndexedDB direto:", e?.message || e);
+			return null;
+		}
+	})();
+	return tabelaPromessa;
+}
+
+/** Reserva: IndexedDB direto (abre na versão que existir; cria a loja se faltar). */
 function abrirBanco() {
 	if (bancoPromessa) return bancoPromessa;
 	bancoPromessa = new Promise(resolver => {
 		try {
 			if (!("indexedDB" in window)) return resolver(null);
-			const pedido = indexedDB.open(BANCO, 1);
-			pedido.onupgradeneeded = () => { try { pedido.result.createObjectStore(LOJA); } catch { /* já existe */ } };
-			pedido.onsuccess = () => resolver(pedido.result);
-			pedido.onerror = () => resolver(null);
-			pedido.onblocked = () => resolver(null);
+			const abrir = versao => {
+				const pedido = versao ? indexedDB.open(BANCO, versao) : indexedDB.open(BANCO);
+				pedido.onupgradeneeded = () => { try { if (!pedido.result.objectStoreNames.contains(LOJA)) pedido.result.createObjectStore(LOJA); } catch { /* já existe */ } };
+				pedido.onsuccess = () => {
+					const banco = pedido.result;
+					if (banco.objectStoreNames.contains(LOJA)) return resolver(banco);
+					const proxima = banco.version + 1;
+					banco.close();
+					abrir(proxima);
+				};
+				pedido.onerror = () => resolver(null);
+				pedido.onblocked = () => resolver(null);
+			};
+			abrir(0);
 		} catch {
 			resolver(null);
 		}
@@ -80,18 +115,47 @@ async function transacao(modo, fazer) {
 	});
 }
 
+/** Grava/apaga uma foto no aparelho (Dexie; reserva: IndexedDB direto). */
+async function gravarNoBanco(chave, valor) {
+	const tabela = await abrirTabela();
+	if (tabela) {
+		try { await tabela.put(valor, chave); return; } catch (e) { console.warn("[fotos] gravar:", e?.message || e); }
+	}
+	await transacao("readwrite", loja => loja.put(valor, chave));
+}
+
+async function apagarDoBanco(chave) {
+	const tabela = await abrirTabela();
+	if (tabela) {
+		try { await tabela.delete(chave); return; } catch (e) { console.warn("[fotos] apagar:", e?.message || e); }
+	}
+	await transacao("readwrite", loja => loja.delete(chave));
+}
+
 /** Todas as fotos guardadas: Map(chave → { src, origem, fonte, quando }). */
 export async function carregarFotos() {
 	const mapa = new Map(memoria);
-	await transacao("readonly", (loja, devolver) => {
-		const pedido = loja.openCursor();
-		pedido.onsuccess = () => {
-			const cursor = pedido.result;
-			if (!cursor) return devolver(mapa);
-			if (cursor.value && typeof cursor.value === "object") mapa.set(String(cursor.key), cursor.value);
-			cursor.continue();
-		};
-	});
+	const tabela = await abrirTabela();
+	let leu = false;
+	if (tabela) {
+		try {
+			await tabela.each((valor, cursor) => { if (valor && typeof valor === "object") mapa.set(String(cursor.primaryKey), valor); });
+			leu = true;
+		} catch (e) {
+			console.warn("[fotos] ler:", e?.message || e);
+		}
+	}
+	if (!leu) {
+		await transacao("readonly", (loja, devolver) => {
+			const pedido = loja.openCursor();
+			pedido.onsuccess = () => {
+				const cursor = pedido.result;
+				if (!cursor) return devolver(mapa);
+				if (cursor.value && typeof cursor.value === "object") mapa.set(String(cursor.key), cursor.value);
+				cursor.continue();
+			};
+		});
+	}
 	for (const [k, v] of mapa) memoria.set(k, v);
 	return mapa;
 }
@@ -100,7 +164,7 @@ export async function guardarFoto(chave, registro) {
 	if (!chave) return;
 	const valor = { ...registro, quando: Date.now() };
 	memoria.set(chave, valor);
-	await transacao("readwrite", loja => loja.put(valor, chave));
+	await gravarNoBanco(chave, valor);
 	if (ehRemota(valor.src)) agendarCopia(chave);
 }
 
@@ -169,7 +233,7 @@ async function copiarParaAparelho(chave) {
 	if (local) { novo.src = local; novo.original = atual.src; delete novo.semCopiaEm; }
 	else novo.semCopiaEm = Date.now();
 	memoria.set(chave, novo);
-	await transacao("readwrite", loja => loja.put(novo, chave));
+	await gravarNoBanco(chave, novo);
 	if (local) { try { ouvinteCopia?.(chave, novo); } catch (e) { console.error(e); } }
 }
 
@@ -181,7 +245,7 @@ export function copiarFotosPendentes(mapa) {
 export async function apagarFoto(chave) {
 	if (!chave) return;
 	memoria.delete(chave);
-	await transacao("readwrite", loja => loja.delete(chave));
+	await apagarDoBanco(chave);
 }
 
 /** A busca automática deve tentar esta chave? (sem foto, ou "não achei" antigo) */

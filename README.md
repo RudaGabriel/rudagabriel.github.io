@@ -73,7 +73,7 @@ Por padrão, tudo fica salvo **no seu próprio aparelho**. Nada é enviado para 
 | 🧭 | **Resumo com filtros** (vencendo, vencidos, do mês, em dia) | Visão do estoque em um toque. |
 | ☁️ | **Nuvem com Google, e-mail ou Dropbox** | A mesma lista no celular, no computador e na equipe. |
 | 🔗 | **Compartilhamento por link ou QR Code** | A equipe entra sem criar conta, com acesso de edição ou só leitura. |
-| 📶 | **Funciona sem internet** | Continue usando; tudo sincroniza quando a conexão voltar. |
+| 📶 | **Funciona sem internet** | Depois da primeira visita o app abre mesmo offline; tudo sincroniza quando a conexão voltar. |
 | 🏪 | **Nome da sua loja** no topo do app, sincronizado na nuvem | O app com a cara do seu negócio, em todos os aparelhos. |
 | 💾 | **Backup e planilha** (.json e .csv) | Seus dados sempre com você, abrindo no Excel ou no Google Planilhas. |
 | 🌗 | **Tema claro e escuro**, layout responsivo | Confortável em qualquer tela, de 320 px a monitores largos. |
@@ -192,7 +192,7 @@ Em **"Alertar com N dias/meses de antecedência"**, escolha com quanto tempo de 
 Sempre que você abrir o app, ele avisa quais produtos estão perto do vencimento. Para **não ser avisado** de um produto específico, toque no **sino** da linha dele. Toque de novo para voltar a receber o aviso.
 
 ### Busca e ordenação
-- **Buscar:** digite parte do nome ou do código. A busca ignora acentos e maiúsculas ("pao" encontra "Pão").
+- **Buscar:** digite parte do nome ou do código. A busca ignora acentos e maiúsculas ("pao" encontra "Pão"), aceita as palavras em qualquer ordem ("moça leite") e tolera erros de digitação ("alcol" encontra "Álcool").
 - **Ordenar por:** Prioridade (vencidos e vencendo primeiro), Vencimento ↑ ou ↓, Nome (A–Z), Quantidade ou Mais recentes.
 
 As cores ajudam a ler a lista de relance: **vermelho** = vencido, **amarelo** = vencendo, **verde** = em dia.
@@ -341,6 +341,9 @@ O app é um site estático, rápido e sem instalação. As bibliotecas abaixo s�
 | [Lucide](https://lucide.dev/) | Ícones nítidos em qualquer tela. |
 | [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) | QR Code para compartilhar a lista com a equipe. |
 | [AutoAnimate](https://auto-animate.formkit.com/) | Animações suaves ao adicionar, remover e reordenar produtos. |
+| [Fuse.js](https://www.fusejs.io/) | Busca da lista tolerante a erros de digitação. |
+| [Dexie.js](https://dexie.org/) | Guarda as fotos dos produtos no aparelho (IndexedDB) com segurança. |
+| Service worker | Faz o app abrir sem internet e sempre pegar a versão nova quando há conexão. |
 | [Inter](https://rsms.me/inter/) · [JetBrains Mono](https://www.jetbrains.com/lp/mono/) | Tipografia legível para nomes e códigos de barras. |
 
 Recursos modernos do navegador também entram em ação: **BarcodeDetector** (leitor nativo do aparelho), **View Transitions** (troca de tema suave), **container queries** (layout que se ajusta a cada cartão) e **PWA** (instalação na tela inicial).

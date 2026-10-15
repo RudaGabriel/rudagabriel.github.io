@@ -12,7 +12,7 @@
 import { carregarScript } from "./nuvem/comum.js";
 import { criarFoco } from "./foco.js";
 
-const URL_TESSERACT = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+const URL_TESSERACT = "https://cdn.jsdelivr.net/npm/tesseract.js@6.0.1/dist/tesseract.min.js";
 
 /* =========================================================
    Interpretação do texto
