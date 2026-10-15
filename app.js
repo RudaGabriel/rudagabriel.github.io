@@ -1598,6 +1598,46 @@ function escolherArquivoFoto() {
  * @param {{ pendente?: boolean }} opcoes pendente: foto do formulário (o produto ainda não existe)
  * @returns {Promise<object|null|undefined>} o registro escolhido, null se removeu, undefined se nada mudou
  */
+/* ---------- Foto ampliada ao passar o mouse (só no computador) ---------- */
+const temMouse = () => !!window.matchMedia?.("(hover: hover) and (pointer: fine)").matches;
+let ampliada = null; // { el, dono }
+
+function fecharAmpliada() {
+	if (!ampliada) return;
+	const { el } = ampliada;
+	ampliada = null;
+	el.classList.remove("visivel");
+	setTimeout(() => el.remove(), 160);
+}
+
+function abrirAmpliada(botao) {
+	const img = botao.querySelector("img");
+	if (!img?.src || img.naturalWidth === 0) return;
+	if (ampliada?.dono === botao) return;
+	fecharAmpliada();
+	const el = document.createElement("div");
+	el.className = "foto-ampliada";
+	el.setAttribute("aria-hidden", "true");
+	el.innerHTML = `<img src="${esc(img.currentSrc || img.src)}" alt="" referrerpolicy="no-referrer"><small>${esc(botao.title || "")}</small>`;
+	// Fica fora do alerta (que tem animação/transform) para a posição "fixed" valer na tela toda
+	document.body.appendChild(el);
+	ampliada = { el, dono: botao };
+	const r = botao.getBoundingClientRect();
+	const vw = document.documentElement.clientWidth, vh = window.innerHeight, margem = 12;
+	const lado = Math.min(320, vw - margem * 2, vh - margem * 2 - 40);
+	el.style.width = `${lado}px`;
+	// À direita da miniatura; sem espaço, à esquerda; sempre dentro da tela
+	let x = r.right + margem;
+	if (x + lado > vw - margem) x = r.left - margem - lado;
+	x = Math.max(margem, Math.min(x, vw - margem - lado));
+	const alto = lado + 40;
+	let y = r.top + r.height / 2 - alto / 2;
+	y = Math.max(margem, Math.min(y, vh - margem - alto));
+	el.style.left = `${Math.round(x)}px`;
+	el.style.top = `${Math.round(y)}px`;
+	requestAnimationFrame(() => el.classList.add("visivel"));
+}
+
 async function dialogoFoto(produto, { pendente = false } = {}) {
 	const chave = chaveFoto(produto);
 	const atual = pendente ? fotoPendente : estado.fotos.get(chave);
@@ -1618,6 +1658,7 @@ async function dialogoFoto(produto, { pendente = false } = {}) {
 		<div class="foto-resultados" hidden></div>` : ""}
 	</div>`;
 	const executar = () => window.Swal.fire({
+		willClose: () => fecharAmpliada(),
 		title: produto.nome || "Foto do produto",
 		html,
 		showConfirmButton: false,
@@ -1689,10 +1730,20 @@ async function dialogoFoto(produto, { pendente = false } = {}) {
 				let rolou = false;
 				const rolarUmaVez = () => { if (!rolou) { rolou = true; mostrarResultados(); } };
 				mostrarResultados();
+				// Rolou a grade: a ampliada ficaria fora do lugar
+				resultados.querySelector(".grade-fotos")?.addEventListener("scroll", fecharAmpliada, { passive: true });
 				resultados.querySelectorAll(".opcao-foto").forEach(b => {
 					b.querySelector("img").addEventListener("load", rolarUmaVez, { once: true });
-					b.querySelector("img").addEventListener("error", () => b.remove(), { once: true });
+					b.querySelector("img").addEventListener("error", () => { if (ampliada?.dono === b) fecharAmpliada(); b.remove(); }, { once: true });
+					// Computador: passar o mouse amplia a foto ao lado; tirar o mouse volta ao normal
+					if (temMouse()) {
+						b.addEventListener("mouseenter", () => abrirAmpliada(b));
+						b.addEventListener("mouseleave", fecharAmpliada);
+						b.addEventListener("focus", () => { if (b.matches(":focus-visible")) abrirAmpliada(b); });
+						b.addEventListener("blur", fecharAmpliada);
+					}
 					b.addEventListener("click", () => {
+						fecharAmpliada();
 						const f = opcoes[Number(b.dataset.i)];
 						resultado = { src: f.src, origem: f.origem, fonte: f.fonte };
 						window.Swal.close();
