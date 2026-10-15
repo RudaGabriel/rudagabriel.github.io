@@ -1483,6 +1483,13 @@ input[type="number"]::-webkit-inner-spin-button {
 	letter-spacing: .03em;
 }
 
+/* O código de convite (lista + convidado) é longo: quebra em qualquer ponto no celular */
+.convite-completo .codigo-convidado {
+	overflow-wrap: anywhere;
+	word-break: break-all;
+	color: var(--texto);
+}
+
 .convidado-vazio {
 	font-size: .82rem;
 	color: var(--texto-suave);
