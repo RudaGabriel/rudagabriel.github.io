@@ -200,18 +200,15 @@ function alertasPorCima() {
 	try {
 		// Com um diálogo aberto (modal), o navegador bloqueia o toque em tudo que está fora dele —
 		// inclusive no ✕ das mensagens. Por isso a caixa das mensagens vai para dentro do diálogo
-		// aberto mais recente (e volta para a página quando ele fecha).
-		const destino = [...document.querySelectorAll("dialog[open]")].pop() || document.body;
-		const aberta = typeof caixa.showPopover === "function" && caixa.matches(":popover-open");
-		if (caixa.parentElement !== destino) {
-			if (aberta) caixa.hidePopover();
-			destino.appendChild(caixa);
+		// aberto mais recente (e volta para a página quando ele fecha). Ali ela é um elemento comum,
+		// fixo e com z-index máximo: fica por cima de tudo e o toque não atravessa para trás
+		// (a "camada do topo"/popover fazia o toque atravessar no Safari do iPhone).
+		if (caixa.hasAttribute("popover")) {
+			try { if (caixa.matches(":popover-open")) caixa.hidePopover(); } catch { /* ignora */ }
+			caixa.removeAttribute("popover");
 		}
-		if (typeof caixa.showPopover !== "function") return; // sem Popover API: vale o z-index máximo do CSS
-		if (!caixa.hasAttribute("popover")) caixa.setAttribute("popover", "manual");
-		// Reabrir coloca a camada das mensagens acima do diálogo aberto mais recente
-		if (caixa.matches(":popover-open")) caixa.hidePopover();
-		caixa.showPopover();
+		const destino = [...document.querySelectorAll("dialog[open]")].pop() || document.body;
+		if (caixa.parentElement !== destino) destino.appendChild(caixa);
 	} catch { /* ignora: o z-index máximo continua valendo */ }
 }
 // Diálogo fechou com mensagens na tela: a caixa volta para a página (senão some junto com ele)

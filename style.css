@@ -2513,6 +2513,29 @@ input[type="number"]::-webkit-inner-spin-button {
 	box-shadow: var(--sombra-flutuante) !important;
 }
 
+/* A mensagem recebe o toque (nada passa para o que está atrás) e o ✕ tem área de toque grande */
+.notyf__toast {
+	pointer-events: auto !important;
+	touch-action: manipulation;
+}
+
+.notyf__dismiss {
+	width: 48px !important;
+	min-height: 44px;
+	opacity: 1 !important;
+	animation: none !important;
+}
+
+.notyf__toast--dismissible .notyf__wrapper {
+	padding-right: 40px !important;
+}
+
+.notyf__dismiss-btn {
+	opacity: .6 !important;
+	cursor: pointer;
+	touch-action: manipulation;
+}
+
 .notyf__message {
 	font-family: var(--fonte);
 	font-size: .88rem;
