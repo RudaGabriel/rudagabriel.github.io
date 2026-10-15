@@ -22,6 +22,7 @@ import { intermediario, pausar } from "./produtos.js";
 const BANCO = "cv2-fotos";
 const LOJA = "fotos";
 const TEMPO_LIMITE_MS = 7000;
+const TEMPO_INTERMEDIARIO_MS = 25000;
 const REPETIR_BUSCA_MS = 2 * 24 * 60 * 60 * 1000; // "não achei" vale 2 dias (as bases crescem)
 const REPETIR_ERRO_IMAGEM_MS = 60 * 60 * 1000;      // foto achada que não abriu: tenta outra em 1 hora
 const LADO_FOTO = 480;          // foto da pessoa: lado maior em px (pequena e nítida)
@@ -198,7 +199,8 @@ export class FalhaBusca extends Error { }
 /** Consulta o intermediário; "sem cota" (429) pausa aquele uso por um tempo. */
 async function buscarIntermediario(uso, caminho, sinal) {
 	try {
-		return await buscarJson(`${intermediario(uso)}${caminho}`, sinal);
+		// O intermediário consulta lojas, buscadores e imagens antes de responder: espera mais por ele
+		return await buscarJson(`${intermediario(uso)}${caminho}`, sinal, "application/json", TEMPO_INTERMEDIARIO_MS);
 	} catch (e) {
 		if (/HTTP 429/.test(String(e?.message))) pausar(uso);
 		throw e;
@@ -217,10 +219,10 @@ async function aguardarVezBuscaTexto(sinal) {
 	if (sinal?.aborted) throw new FalhaBusca("cancelada");
 }
 
-async function buscarJson(url, sinal, aceitar = "application/json") {
+async function buscarJson(url, sinal, aceitar = "application/json", limiteMs = TEMPO_LIMITE_MS) {
 	const controle = new AbortController();
 	const cancelar = () => controle.abort();
-	const tempo = setTimeout(cancelar, TEMPO_LIMITE_MS);
+	const tempo = setTimeout(cancelar, limiteMs);
 	sinal?.addEventListener("abort", cancelar, { once: true });
 	try {
 		const r = await fetch(url, { signal: controle.signal, headers: { Accept: aceitar } });
