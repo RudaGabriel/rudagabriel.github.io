@@ -495,7 +495,7 @@ const RELEVANTE = 0.5;
 const mesmoTipo = (procurado, achado) => { const pa = termosBusca(procurado), pb = termosBusca(achado); return !!pa.length && pb.some(w => w === pa[0] || (pa[0].length >= 3 && w.length >= 3 && (w.startsWith(pa[0]) || pa[0].startsWith(w)))); };
 
 async function rotaBusca(q, ctx, json) {
-	const chave = `busca/${q.toLowerCase()}`;
+	const chave = `busca2/${q.toLowerCase()}`; // "2": regra nova de relevância (não reaproveita o cache antigo)
 	const emCache = await lerCache(chave);
 	if (emCache) return json(200, await emCache.json());
 	const termos = encodeURIComponent(q);
@@ -511,20 +511,33 @@ async function rotaBusca(q, ctx, json) {
 	}
 	// Só conta o que tem a ver com o nome (as lojas devolvem qualquer item que divida uma palavra)
 	const relevantes = () => produtos.filter(x => relevancia(q, `${x.nome} ${x.marca || ""}`) >= RELEVANTE);
-	let webRespondeu = false;
+	let webRespondeu = false, lojas2 = [];
 	if (relevantes().length < 6) {
-		// Poucas fotos nas lojas: completa com páginas de produto achadas na pesquisa da web
-		const { respondeu, lista } = await resultadosDaWeb(`${q} produto`);
-		webRespondeu = respondeu;
-		const paginas = await Promise.all(lista.slice(0, 4).map(async r => {
-			const pg = await buscarPagina(r.link, 6000);
-			return pg.html ? { ...dadosDaPagina(pg.html, ""), site: new URL(r.link).hostname.replace(/^www\./, "") } : null;
-		}));
-		for (const pg of paginas) {
+		// Pouca coisa que preste: ao mesmo tempo, (1) as lojas de novo só pelo tipo do produto
+		// ("álcool" em vez de "álcool santa cruz 96", que as lojas confundem com "sementes santa cruz")
+		// e (2) a pesquisa na web com páginas de produto
+		const termos = termosBusca(q);
+		const tipo = termos[0] || "";
+		const porTipo = termos.length >= 2 && tipo.length >= 3
+			? consultarLojas(`?ft=${encodeURIComponent(tipo)}&_from=0&_to=19`, "", 7000)
+			: Promise.resolve([]);
+		const porWeb = (async () => {
+			const { respondeu, lista } = await resultadosDaWeb(`${q} produto`);
+			const paginas = await Promise.all(lista.slice(0, 4).map(async r => {
+				const pg = await buscarPagina(r.link, 6000);
+				return pg.html ? { ...dadosDaPagina(pg.html, ""), site: new URL(r.link).hostname.replace(/^www\./, "") } : null;
+			}));
+			return { respondeu, paginas };
+		})();
+		const [r1, r2] = await Promise.all([porTipo, porWeb]);
+		lojas2 = r1;
+		for (const x of lojas2.flatMap(r => r.produtos)) if (!produtos.some(p => p.foto === x.foto)) produtos.push(x);
+		webRespondeu = r2.respondeu;
+		for (const pg of r2.paginas) {
 			if (pg?.foto && pg.nome && !produtos.some(x => x.foto === pg.foto)) produtos.push({ nome: limparTituloProduto(pg.nome, ""), marca: pg.marca || "", foto: pg.foto, fonte: `Pesquisa na web (${pg.site})` });
 		}
 	}
-	const algumaRespondeu = lojas.some(r => r.respondeu) || off.status === 200 || webRespondeu;
+	const algumaRespondeu = lojas.some(r => r.respondeu) || lojas2.some(r => r.respondeu) || off.status === 200 || webRespondeu;
 	if (!algumaRespondeu) return json(502, { erro: "busca indisponível" });
 	produtos = produtos.filter(x => mesmoTipo(q, `${x.nome} ${x.marca || ""}`)).sort((a, b) => relevancia(q, `${b.nome} ${b.marca || ""}`) - relevancia(q, `${a.nome} ${a.marca || ""}`));
 	const corpo = { produtos: produtos.slice(0, 40) };
