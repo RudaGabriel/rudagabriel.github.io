@@ -2410,7 +2410,8 @@ function iniciarOuvintesConvidados() {
 		let vistos = null;
 		pararPedidos = prov.ouvirPedidos(s.codigo, pedidos => {
 			if (estado.sync !== s && idSync(estado.sync || {}) !== idSync(s)) return;
-			estado.pedidos = pedidos.sort((a, b) => (a.criadoEm || 0) - (b.criadoEm || 0));
+			estado.pedidosAprovados = pedidos.filter(p => p.status === "aprovado" && p.convite);
+			estado.pedidos = pedidos.filter(p => p.status === "pendente").sort((a, b) => (a.criadoEm || 0) - (b.criadoEm || 0));
 			const novos = vistos ? estado.pedidos.filter(p => !vistos.has(p.uid)) : [];
 			if (!vistos && estado.pedidos.length) toast("info", `🔔 Você tem <b>${estado.pedidos.length}</b> pedido(s) de acesso pendente(s). Veja em <b>Salvar e compartilhar</b>.`, 8000);
 			vistos = new Set(estado.pedidos.map(p => p.uid));
@@ -2696,8 +2697,8 @@ function desenharConvidados() {
 		const titulo = aparelhos.length ? `${c.nome} · ${aparelhos.join(", ")}` : c.nome;
 		return `
 		<li class="convidado${c.codigo === convidadoSelecionado ? " selecionado" : ""}" data-convidado="${esc(c.codigo)}">
-			<div class="convidado-info">
-				<strong title="${esc(titulo)}">${esc(titulo)}</strong>
+			<div class="convidado-info" data-c="detalhes" role="button" tabindex="0" title="Ver detalhes e renomear" aria-label="Detalhes de ${esc(c.nome)}">
+				<strong title="${esc(titulo)}">${esc(titulo)} <span class="convidado-mais">${icone("ChevronRight")}</span></strong>
 				<small class="convite-completo">Código de convite: <b class="codigo-convidado">${esc(estado.sync?.codigo ? codigoDeConvite(estado.sync.codigo, c.codigo) : formatarCodigoConvidado(c.codigo))}</b></small>
 				<small>${c.podeEditar ? "pode editar" : "só visualizar"} · ${c.visto ? `visto ${esc(fmtRelativoCurto(c.visto))}` : "ainda não entrou"}</small>
 			</div>
@@ -2789,6 +2790,90 @@ async function novoConvidado() {
 	}
 }
 
+/** Detalhes do convidado (quem é, aparelho, quando entrou/foi visto) e opção de renomear. */
+async function detalhesConvidado(c) {
+	if (!window.Swal) return;
+	const quando = t => (t ? new Date(Number(t)).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) + ` (${fmtRelativoCurto(Number(t))})` : "—");
+	const pedido = (estado.pedidosAprovados || []).find(p => p.convite === c.codigo);
+	const linha = (rotulo, valor) => `<div class="det-linha"><span>${rotulo}</span><b>${valor}</b></div>`;
+	const aparelhos = (c.aparelhos || []).slice().sort((a, b) => (Number(b.visto) || 0) - (Number(a.visto) || 0));
+	const blocosAparelhos = aparelhos.length
+		? aparelhos.map((m, i) => `<div class="det-bloco"><div class="det-titulo">${aparelhos.length > 1 ? `Aparelho ${i + 1}` : "Aparelho conectado"}</div>
+			${linha("Nome que ele informou", esc(limparNomeConvidado(m.nome) || "—"))}
+			${linha("Aparelho", esc(limparNomeConvidado(m.aparelho) || "—"))}
+			${linha("Visto por último", esc(quando(m.visto)))}</div>`).join("")
+		: `<p class="ajuda">Este convidado <b>ainda não entrou</b>. Os dados do aparelho aparecem aqui assim que ele conectar.</p>`;
+	const blocoPedido = pedido ? `<div class="det-bloco"><div class="det-titulo">Pedido de acesso</div>
+		${linha("Telefone", esc(pedido.telefone || "—"))}
+		${linha("Navegador", esc(pedido.navegador || "—"))}
+		${linha("Pedido em", esc(quando(pedido.criadoEm)))}</div>` : "";
+	const html = `<div class="det-convidado">
+		<div class="det-bloco">
+			${linha("Nome que você deu", esc(c.nome))}
+			${linha("Permissão", c.podeEditar ? "pode editar" : "só visualizar")}
+			${linha("Código de convite", `<span class="codigo-convidado">${esc(codigoDeConvite(estado.sync.codigo, c.codigo))}</span>`)}
+			${linha("Criado em", esc(quando(c.criadoEm)))}
+		</div>
+		${blocosAparelhos}${blocoPedido}
+	</div>`;
+	const abrir = () => window.Swal.fire({
+		title: "Detalhes do convidado",
+		html,
+		showConfirmButton: true,
+		confirmButtonText: "Renomear",
+		showCancelButton: true,
+		cancelButtonText: "Fechar",
+		buttonsStyling: false,
+		heightAuto: false,
+		target: document.querySelector("dialog[open]") || "body",
+		customClass: { popup: "sw-popup", confirmButton: "btn btn-secundario", cancelButton: "btn btn-fantasma" }
+	});
+	const promessa = filaDialogos.then(abrir, abrir);
+	filaDialogos = promessa.catch(() => { });
+	const r = await promessa;
+	if (r?.isConfirmed) renomearConvidado(c);
+}
+
+/** Dono muda o nome que ele mesmo deu ao convidado (o nome que o convidado escolheu não muda). */
+async function renomearConvidado(c) {
+	if (!window.Swal || !ehDono() || !emNuvem()) return;
+	const abrir = () => window.Swal.fire({
+		title: "Renomear convidado",
+		html: `<p>Este é o nome que <b>você</b> vê na lista de convidados. O nome que o convidado escolheu para ele continua aparecendo ao lado.</p>`,
+		input: "text",
+		inputValue: c.nome,
+		inputAttributes: { maxlength: "40", autocapitalize: "words", enterkeyhint: "done" },
+		showCancelButton: true,
+		confirmButtonText: "Salvar",
+		cancelButtonText: "Cancelar",
+		buttonsStyling: false,
+		heightAuto: false,
+		target: document.querySelector("dialog[open]") || "body",
+		customClass: { popup: "sw-popup", input: "sw-input", confirmButton: "btn btn-primario", cancelButton: "btn btn-fantasma" },
+		preConfirm: valor => {
+			const nome = limparNomeConvidado(valor);
+			if (nome.length < 2) { window.Swal.showValidationMessage("Digite um nome (pelo menos 2 letras)."); return false; }
+			return nome;
+		}
+	});
+	const promessa = filaDialogos.then(abrir, abrir);
+	filaDialogos = promessa.catch(() => { });
+	const r = await promessa;
+	const nome = limparNomeConvidado(r?.value);
+	if (!r?.isConfirmed || nome.length < 2 || nome === c.nome) return;
+	const antes = c.nome;
+	c.nome = nome;
+	desenharConvidados();
+	try {
+		await provAtual().salvarConvite(estado.sync.codigo, c.codigo, { nome, editar: c.podeEditar, criadoEm: c.criadoEm });
+		toast("sucesso", `Convidado renomeado para <b>${esc(nome)}</b>.`, 3000);
+	} catch (e) {
+		c.nome = antes;
+		desenharConvidados();
+		erroConvite(e);
+	}
+}
+
 async function acaoConvidado(evento) {
 	const alvo = evento.target.closest("[data-c]");
 	const linha = evento.target.closest("[data-convidado]");
@@ -2810,6 +2895,8 @@ async function acaoConvidado(evento) {
 			desenharConvidados();
 			erroConvite(e);
 		}
+	} else if (tipo === "detalhes") {
+		detalhesConvidado(c);
 	} else if (tipo === "copiar") {
 		// Código de convite = código da lista + código do convidado (dá para digitar em vez de abrir o link)
 		const codigoConvite = codigoDeConvite(estado.sync.codigo, c.codigo);
@@ -4510,6 +4597,9 @@ function registrarEventos() {
 	el.nomeConvidado.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); salvarNomeConvidado(); } });
 	el.listaConvidados.addEventListener("click", acaoConvidado);
 	el.listaConvidados.addEventListener("change", acaoConvidado);
+	el.listaConvidados.addEventListener("keydown", e => {
+		if ((e.key === "Enter" || e.key === " ") && e.target.matches?.('[data-c="detalhes"]')) { e.preventDefault(); acaoConvidado(e); }
+	});
 	el.btnCopiarLink.addEventListener("click", async () => feedbackBotao(el.btnCopiarLink, await copiarTexto(el.linkCompartilhar.value)));
 	el.linkCompartilhar.addEventListener("focus", () => el.linkCompartilhar.select());
 	if (navigator.share) {

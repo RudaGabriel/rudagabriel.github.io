@@ -410,7 +410,8 @@ export function criarFirebase(configBruta, { aoReceber, aoStatus, aoErro, aoUsua
 	function ouvirPedidos(codigo, aoMudar) {
 		if (!db) return () => { };
 		return fb.onSnapshot(fb.collection(db, "listas", codigo, "pedidos"), snap => {
-			seguro(aoMudar, snap.docs.map(d => ({ uid: d.id, ...d.data() })).filter(p => p.status === "pendente"));
+			// Todos os pedidos (pendentes e respondidos): o app separa; os aprovados mostram telefone/navegador nos detalhes do convidado
+			seguro(aoMudar, snap.docs.map(d => ({ uid: d.id, ...d.data() })));
 		}, e => console.warn("[firebase] pedidos:", e?.code || e));
 	}
 

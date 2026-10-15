@@ -4570,3 +4570,65 @@ input.sugerido.sugerido-saindo {
 	.aviso-buscando-icone svg,
 	.foto-acoes .btn.buscando svg { animation-duration: 2.4s; }
 }
+
+/* Convidado: tocar no nome abre os detalhes */
+.convidado-info[data-c="detalhes"] {
+	cursor: pointer;
+	border-radius: var(--raio-sm);
+}
+
+.convidado-info[data-c="detalhes"]:focus-visible {
+	outline: 2px solid var(--primaria);
+	outline-offset: 3px;
+}
+
+.convidado-mais svg {
+	width: 14px;
+	height: 14px;
+	vertical-align: -2px;
+	color: var(--texto-suave);
+}
+
+.det-convidado {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	text-align: left;
+}
+
+.det-bloco {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	padding: 10px 12px;
+	border-radius: var(--raio-sm);
+	border: 1px solid var(--borda);
+	background: var(--superficie-2);
+}
+
+.det-titulo {
+	font-size: .76rem;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: .03em;
+	color: var(--texto-suave);
+	margin-bottom: 2px;
+}
+
+.det-linha {
+	display: flex;
+	justify-content: space-between;
+	gap: 12px;
+	font-size: .86rem;
+}
+
+.det-linha span {
+	color: var(--texto-suave);
+	flex: none;
+}
+
+.det-linha b {
+	text-align: right;
+	overflow-wrap: anywhere;
+	min-width: 0;
+}

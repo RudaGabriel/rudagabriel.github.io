@@ -254,6 +254,7 @@ Todos veem as alterações **em tempo real**.
 - Quem garante isso é o **servidor da nuvem** (regras do Firebase), não só o app: convidado "só visualizar" não consegue gravar nada, mesmo mexendo no navegador; quem só tem o código da lista, sem convite, não lê nem grava; convidado removido perde o acesso na hora.
 - O aparelho do convidado recebe a mudança **na hora** (ou ao abrir o app, se estava offline) e mostra *"agora você pode editar"* ou *"agora você só pode visualizar"*.
 - Ao entrar, o convidado **precisa informar o nome** (obrigatório) — é o nome que o dono vê na lista de convidados. Dá para trocar depois em **Salvar e compartilhar → Seu nome nesta lista**.
+- **Dono:** toque no nome de um convidado para ver os **detalhes** (nome que ele informou, aparelho, quando foi visto, telefone/navegador se entrou por pedido) e para **renomear** o nome que você deu a ele.
 - Listas criadas antes desta versão passam a ser protegidas assim que o dono abre o app; links antigos (sem convite) deixam de funcionar — envie um convite novo para cada pessoa.
 
 ## Backup e planilha
