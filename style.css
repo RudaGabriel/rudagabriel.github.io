@@ -4705,3 +4705,72 @@ input.sugerido.sugerido-saindo {
 	overflow-wrap: anywhere;
 	min-width: 0;
 }
+
+/* =========================================================
+   Modo leve (aparelhos mais fracos)
+   ---------------------------------------------------------
+   Ligado sozinho em aparelhos lentos (ou pelo menu ⋮). O app
+   continua igual e completo, só que sem o que custa caro para
+   desenhar: animações, transições, desfoques de fundo, brilhos
+   e sombras grandes. Os indicadores de "carregando" continuam
+   girando — eles avisam que é para esperar.
+   ========================================================= */
+html.modo-leve {
+	--fundo-brilho: none;
+	--sombra: 0 1px 2px rgba(0, 0, 0, .18);
+	--sombra-flutuante: 0 6px 18px -8px rgba(0, 0, 0, .45), 0 0 0 1px var(--borda-forte);
+	scroll-behavior: auto !important;
+}
+
+html.modo-leve *,
+html.modo-leve *::before,
+html.modo-leve *::after {
+	/* 1 ms (e não "none"): avisos e janelas que esperam o fim da animação continuam fechando */
+	animation-duration: 1ms !important;
+	animation-delay: 0s !important;
+	animation-iteration-count: 1 !important;
+	transition-duration: 0s !important;
+	transition-delay: 0s !important;
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
+}
+
+/* Sem o desfoque, o topo e os botões flutuantes ficam com fundo sólido (texto legível) */
+html.modo-leve .topo {
+	background: var(--fundo);
+}
+
+html.modo-leve .btn-redondo,
+html.modo-leve .leitor-zoom {
+	background: rgba(0, 0, 0, .7);
+}
+
+html.modo-leve .dialogo::backdrop,
+html.modo-leve .swal2-container.swal2-backdrop-show {
+	background: rgba(5, 7, 12, .72);
+}
+
+/* Indicadores de carregamento: os únicos que continuam animando */
+html.modo-leve .btn-anexo.carregando svg,
+html.modo-leve .aviso-buscando-icone svg,
+html.modo-leve .foto-acoes .btn.buscando svg {
+	animation: girar 900ms linear infinite !important;
+}
+
+/* Sem "pulinho" ao tocar e sem a troca de tema animada */
+html.modo-leve .miniatura:active,
+html.modo-leve .btn:active {
+	transform: none;
+}
+
+html.modo-leve::view-transition-old(root),
+html.modo-leve::view-transition-new(root) {
+	animation: none !important;
+}
+
+/* Detalhe "(automático)" ao lado de "Modo leve" no menu */
+.menu-detalhe {
+	font-size: .75rem;
+	color: var(--texto-suave);
+	font-weight: 400;
+}

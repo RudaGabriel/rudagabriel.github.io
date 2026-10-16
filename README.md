@@ -277,6 +277,9 @@ No menu **⋮** (canto superior direito):
 - **Tema claro ou escuro:** toque no ícone de sol/lua no topo. Na primeira visita, o app segue o tema do seu aparelho.
 - **Prazo de alerta** e **ordenação** ficam salvos para a próxima vez.
 - **Avisos silenciados** (sino) ficam salvos por produto.
+- **Modo leve (aparelhos mais fracos):** em celulares, notebooks e computadores mais lentos, o app liga sozinho uma versão mais leve — **sem animações, transições, desfoques e brilhos**, para não travar. Tudo continua funcionando igual; só os efeitos visuais saem (os indicadores de "carregando" continuam girando, para você saber quando esperar).
+  - **Como o app reconhece:** pouca memória (até 2 GB), poucos núcleos de processador, "economia de dados" ligada, ou um teste rápido de velocidade (alguns milissegundos, feito quando o app está parado e repetido a cada 7 dias).
+  - **Você decide:** no menu **⋮ → Modo leve** dá para ligar ou desligar quando quiser; a sua escolha vale mais que a detecção automática.
 
 ## Nome da sua loja
 
@@ -349,6 +352,8 @@ O app é um site estático, rápido e sem instalação. As bibliotecas abaixo s�
 | [Dexie.js](https://dexie.org/) | Guarda as fotos dos produtos no aparelho (IndexedDB) com segurança. |
 | Service worker | Faz o app abrir sem internet e sempre pegar a versão nova quando há conexão. |
 | [Inter](https://rsms.me/inter/) · [JetBrains Mono](https://www.jetbrains.com/lp/mono/) | Tipografia legível para nomes e códigos de barras. |
+
+Em aparelhos mais fracos, o **modo leve** desliga as animações, as transições de tema e os desfoques para manter tudo fluido (veja *Personalizar*).
 
 Recursos modernos do navegador também entram em ação: **BarcodeDetector** (leitor nativo do aparelho), **View Transitions** (troca de tema suave), **container queries** (layout que se ajusta a cada cartão) e **PWA** (instalação na tela inicial).
 
