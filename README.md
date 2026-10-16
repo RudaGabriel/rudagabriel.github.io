@@ -342,7 +342,7 @@ O app é um site estático, rápido e sem instalação. As bibliotecas abaixo s�
 | [Cloudflare Workers](https://workers.cloudflare.com/) (intermediário) | Consulta as bases de produtos **guardando as chaves em segredo** (nunca aparecem no site), junta os resultados num formato único, guarda em cache por 7 dias e libera as fotos para o app guardar uma cópia no aparelho. Código em [`docs/intermediario.js`](docs/intermediario.js). |
 | [SweetAlert2](https://sweetalert2.github.io/) | Janelas de confirmação claras e acessíveis. |
 | [Notyf](https://carlosroso.com/notyf/) | Avisos rápidos, como "Produto adicionado" e "Desfazer". |
-| [Lucide](https://lucide.dev/) | Ícones nítidos em qualquer tela. |
+| [Lucide](https://lucide.dev/) | Ícones SVG nítidos e padronizados em qualquer tela — inclusive dentro dos avisos e mensagens, no lugar de emojis (que mudam de desenho em cada aparelho). |
 | [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) | QR Code para compartilhar a lista com a equipe. |
 | [AutoAnimate](https://auto-animate.formkit.com/) | Animações suaves ao adicionar, remover e reordenar produtos. |
 | [Fuse.js](https://www.fusejs.io/) | Busca da lista tolerante a erros de digitação. |

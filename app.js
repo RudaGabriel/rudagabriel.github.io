@@ -159,6 +159,9 @@ function icone(nome, classe = "") {
 	return svg;
 }
 
+/** Ícone SVG dentro de um texto (avisos, mensagens): no lugar de emoji, com tamanho e alinhamento padronizados. */
+const iconeTexto = (nome, classe = "") => `<span class="ico-texto${classe ? ` ${classe}` : ""}">${icone(nome)}</span>`;
+
 const paraPascal = nome => nome.split("-").map(p => p.charAt(0).toUpperCase() + p.slice(1)).join("");
 
 function aplicarIconesEstaticos(raiz = document) {
@@ -1505,7 +1508,7 @@ async function aplicarFotoPendente(item) {
 	// Produto só com nome: a foto não é buscada sozinha — avisa uma vez como buscar
 	if (!fotoPendente && estado.fotosAuto && !gtinValido(item?.codigoBarras) && !estado.fotos.get(chave)?.src && !armazenamento.lerTexto("cv2:avisoFotoNome")) {
 		armazenamento.gravarTexto("cv2:avisoFotoNome", "1");
-		toast("info", "📷 A foto automática só é buscada com <b>código de barras válido</b> (digitado ou lido pelo leitor). Produto só com nome: toque na <b>miniatura</b> dele para buscar a foto.", 9000);
+		toast("info", `${iconeTexto("Camera")} A foto automática só é buscada com <b>código de barras válido</b> (digitado ou lido pelo leitor). Produto só com nome: toque na <b>miniatura</b> dele para buscar a foto.`, 9000);
 	}
 	if (!fotoPendente) {
 		// Produto adicionado/salvo agora: um "não achei" antigo não impede uma busca nova
@@ -1918,7 +1921,7 @@ function alternarSugestaoAuto() {
 	aplicarSugestaoAuto();
 	toast("info", estado.sugestaoAuto
 		? "Sugestão automática <b>ligada</b>: ao ler um código novo, o nome é preenchido sozinho (confira sempre)."
-		: "Sugestão automática <b>desligada</b>. Use o botão ✨ no campo Produto quando quiser uma sugestão.", 5000);
+		: `Sugestão automática <b>desligada</b>. Use o botão ${iconeTexto("Sparkles")} no campo Produto quando quiser uma sugestão.`, 5000);
 	// Ligou com um código já digitado e sem nome: sugere agora
 	if (estado.sugestaoAuto && el.codigo.value.trim() && !el.nome.value.trim()) autoPreencherPorCodigo();
 }
@@ -2447,9 +2450,9 @@ function iniciarOuvintesConvidados() {
 			estado.pedidosAprovados = pedidos.filter(p => p.status === "aprovado" && p.convite);
 			estado.pedidos = pedidos.filter(p => p.status === "pendente").sort((a, b) => (a.criadoEm || 0) - (b.criadoEm || 0));
 			const novos = vistos ? estado.pedidos.filter(p => !vistos.has(p.uid)) : [];
-			if (!vistos && estado.pedidos.length) toast("info", `🔔 Você tem <b>${estado.pedidos.length}</b> pedido(s) de acesso pendente(s). Veja em <b>Salvar e compartilhar</b>.`, 8000);
+			if (!vistos && estado.pedidos.length) toast("info", `${iconeTexto("BellRing")} Você tem <b>${estado.pedidos.length}</b> pedido(s) de acesso pendente(s). Veja em <b>Salvar e compartilhar</b>.`, 8000);
 			vistos = new Set(estado.pedidos.map(p => p.uid));
-			for (const p of novos) toast("info", `🔔 <b>${esc(limparNomeConvidado(p.nome))}</b> pediu acesso para editar a lista. Veja em <b>Salvar e compartilhar</b>.`, 8000);
+			for (const p of novos) toast("info", `${iconeTexto("BellRing")} <b>${esc(limparNomeConvidado(p.nome))}</b> pediu acesso para editar a lista. Veja em <b>Salvar e compartilhar</b>.`, 8000);
 			atualizarSeloPedidos();
 			if (el.dlgSync.open) atualizarCompartilhamento();
 		});
@@ -2558,7 +2561,7 @@ async function receberMeuPedido(s, pedido) {
 		const novo = { provedor: s.provedor, codigo: s.codigo, papel: "convidado", convidado: pedido.convite, modo: "leitura", confirmado: false };
 		if (await conectarNuvem(novo)) {
 			prov.cancelarPedido?.(s.codigo).catch(() => { });
-			toast("sucesso", "✅ O dono <b>aprovou</b> seu pedido: agora você pode editar a lista.", 8000);
+			toast("sucesso", `${iconeTexto("CircleCheck")} O dono <b>aprovou</b> seu pedido: agora você pode editar a lista.`, 8000);
 		}
 	} else if (pedido.status === "recusado") {
 		await prov.cancelarPedido?.(s.codigo).catch(() => { });
@@ -2579,7 +2582,7 @@ function desenharPedidos() {
 		<li class="convidado pedido" data-pedido="${esc(p.uid)}">
 			<div class="convidado-info">
 				<strong>${esc(limparNomeConvidado(p.nome) || "Sem nome")}</strong>
-				<small>${tel ? `📞 <a href="tel:${esc(tel)}">${esc(p.telefone)}</a> · ` : ""}${esc(p.aparelho || "Aparelho")} · pediu ${esc(fmtRelativoCurto(Number(p.criadoEm) || Date.now()))}</small>
+				<small>${tel ? `${iconeTexto("Phone")} <a href="tel:${esc(tel)}">${esc(p.telefone)}</a> · ` : ""}${esc(p.aparelho || "Aparelho")} · pediu ${esc(fmtRelativoCurto(Number(p.criadoEm) || Date.now()))}</small>
 				<small>${esc(p.navegador || "")}</small>
 				<small>Código de confirmação <b class="codigo-convidado">${esc(p.confirmacao || "—")}</b></small>
 			</div>
@@ -3000,8 +3003,8 @@ function aplicarPermissaoConvidado(info = {}) {
 			: "Convite confirmado: você pode <b>somente visualizar</b> esta lista.", 6000);
 	} else if (mudou) {
 		toast(modo === "edicao" ? "sucesso" : "aviso", modo === "edicao"
-			? "✏️ O dono da lista liberou: agora você <b>pode editar</b>."
-			: "👁️ O dono da lista mudou sua permissão: agora você <b>só pode visualizar</b>.", 8000);
+			? `${iconeTexto("Pencil")} O dono da lista liberou: agora você <b>pode editar</b>.`
+			: `${iconeTexto("Eye")} O dono da lista mudou sua permissão: agora você <b>só pode visualizar</b>.`, 8000);
 	}
 }
 
@@ -3877,7 +3880,7 @@ async function atualizarCompartilhamento() {
 	el.avisoConvidados.innerHTML = !comConvidados
 		? "Convidados ficam disponíveis nas listas do <b>Google</b> ou <b>com código</b>."
 		: estado.sync.protecao === "sem-protecao"
-			? "⚠️ A proteção do servidor ainda não está ativa. O dono do site precisa <b>publicar as regras novas</b> do Firestore e <b>ativar o login Anônimo</b> no Firebase (veja <i>docs/CONFIGURACAO.md</i>). Até lá, não é possível criar convidados."
+			? `${iconeTexto("TriangleAlert")} A proteção do servidor ainda não está ativa. O dono do site precisa <b>publicar as regras novas</b> do Firestore e <b>ativar o login Anônimo</b> no Firebase (veja <i>docs/CONFIGURACAO.md</i>). Até lá, não é possível criar convidados.`
 			: "Ativando a proteção da lista no servidor… (se demorar, confira a internet)";
 	desenharConvidados();
 	desenharPedidos();
@@ -3946,7 +3949,7 @@ function atualizarDialogoSync() {
 			const pendente = p?.status === "pendente";
 			el.btnPedirAcesso.hidden = pendente;
 			el.statusPedido.innerHTML = pendente
-				? `⏳ Pedido enviado ${esc(fmtRelativoCurto(Number(p.criadoEm) || Date.now()))}. Código de confirmação <b class="codigo-convidado">${esc(p.confirmacao || "")}</b>. Aguardando o dono.`
+				? `${iconeTexto("Hourglass")} Pedido enviado ${esc(fmtRelativoCurto(Number(p.criadoEm) || Date.now()))}. Código de confirmação <b class="codigo-convidado">${esc(p.confirmacao || "")}</b>. Aguardando o dono.`
 				: estado.sync.protecao === "protegida" ? "O dono recebe seu pedido e decide se você pode editar." : "Pedidos ficam disponíveis quando o dono proteger a lista.";
 		}
 		// Convidado com código: mostra o código dele e deixa escolher o nome que o dono vê
@@ -4254,7 +4257,9 @@ async function entrarPorCodigo() {
 
 async function feedbackBotao(botao, ok) {
 	const original = botao.innerHTML;
-	botao.innerHTML = ok ? icone("Check") || "✓" : icone("X") || "✕";
+	// Reserva sem a biblioteca de ícones: o mesmo desenho em SVG embutido
+	const svgReserva = d => `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+	botao.innerHTML = ok ? icone("Check") || svgReserva("M20 6 9 17l-5-5") : icone("X") || svgReserva("M18 6 6 18M6 6l12 12");
 	botao.disabled = true;
 	setTimeout(() => { botao.innerHTML = original; botao.disabled = false; }, 1400);
 }
@@ -4276,7 +4281,7 @@ function processarComando(valor) {
 	} else {
 		estado.sync = { ...estado.sync, modo: autorizar ? "edicao" : "leitura" };
 		armazenamento.gravar(CHAVE.sync, estado.sync);
-		toast(autorizar ? "sucesso" : "info", autorizar ? "✅ Este aparelho agora pode editar a lista." : "❌ Este aparelho agora é somente leitura.");
+		toast(autorizar ? "sucesso" : "info", autorizar ? `${iconeTexto("CircleCheck")} Este aparelho agora pode editar a lista.` : `${iconeTexto("CircleX")} Este aparelho agora é somente leitura.`);
 		atualizarIndicadorSync();
 		atualizarDialogoSync();
 	}
