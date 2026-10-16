@@ -25,6 +25,19 @@
 			} catch (e) { /* armazenamento indisponível: mantém escuro */ }
 			document.documentElement.setAttribute("data-tema", escuro ? "escuro" : "claro");
 			try {
+				// Modo leve (aparelho fraco): menos efeitos, decidido antes de desenhar (sem "piscar").
+				// cv2:modoLeve = "ligado" | "desligado" | (vazio = automático)
+				var preferencia = localStorage.getItem("cv2:modoLeve");
+				var medido = null;
+				try { medido = JSON.parse(localStorage.getItem("cv2:modoLeveMedido") || "null"); } catch (e) { medido = null; }
+				var nav = navigator, memoria = nav.deviceMemory || 0, nucleos = nav.hardwareConcurrency || 0, conexao = nav.connection || {};
+				var fraco = (medido && medido.fraco === true)
+					|| (memoria > 0 && memoria <= 2) || (nucleos > 0 && nucleos <= 2)
+					|| (memoria > 0 && memoria <= 3 && nucleos > 0 && nucleos <= 4)
+					|| conexao.saveData === true;
+				if (preferencia === "ligado" || (preferencia !== "desligado" && fraco)) document.documentElement.classList.add("modo-leve");
+			} catch (e) { /* armazenamento indisponível: modo normal */ }
+			try {
 				// Nome da loja no título da aba desde o primeiro instante
 				var loja = (localStorage.getItem("cv2:loja") || "").replace(/\s+/g, " ").trim().slice(0, 60);
 				if (loja) document.title = loja + " - Controle de Vencimento";
@@ -41,7 +54,7 @@
 	<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3.10.0/notyf.min.css">
-	<link rel="stylesheet" href="style.css?v=20261016-01">
+	<link rel="stylesheet" href="style.css?v=20261016-02">
 
 	<!-- Bibliotecas (carregadas sem bloquear a página) -->
 	<script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11.26.25/dist/sweetalert2.all.min.js"></script>
@@ -52,24 +65,24 @@
 	<script type="importmap">
 	{
 		"imports": {
-			"./app.js": "./app.js?v=20261016-01",
-			"./config-nuvem.js": "./config-nuvem.js?v=20261016-01",
-			"./config-anuncios.js": "./config-anuncios.js?v=20261016-01",
-			"./config-busca.js": "./config-busca.js?v=20261016-01",
-			"./anuncios.js": "./anuncios.js?v=20261016-01",
-			"./leitor.js": "./leitor.js?v=20261016-01",
-			"./produtos.js": "./produtos.js?v=20261016-01",
-			"./validade.js": "./validade.js?v=20261016-01",
-			"./foco.js": "./foco.js?v=20261016-01",
-			"./fotos.js": "./fotos.js?v=20261016-01",
-			"./nuvem/comum.js": "./nuvem/comum.js?v=20261016-01",
-			"./nuvem/firebase.js": "./nuvem/firebase.js?v=20261016-01",
-			"./nuvem/supabase.js": "./nuvem/supabase.js?v=20261016-01",
-			"./nuvem/dropbox.js": "./nuvem/dropbox.js?v=20261016-01"
+			"./app.js": "./app.js?v=20261016-02",
+			"./config-nuvem.js": "./config-nuvem.js?v=20261016-02",
+			"./config-anuncios.js": "./config-anuncios.js?v=20261016-02",
+			"./config-busca.js": "./config-busca.js?v=20261016-02",
+			"./anuncios.js": "./anuncios.js?v=20261016-02",
+			"./leitor.js": "./leitor.js?v=20261016-02",
+			"./produtos.js": "./produtos.js?v=20261016-02",
+			"./validade.js": "./validade.js?v=20261016-02",
+			"./foco.js": "./foco.js?v=20261016-02",
+			"./fotos.js": "./fotos.js?v=20261016-02",
+			"./nuvem/comum.js": "./nuvem/comum.js?v=20261016-02",
+			"./nuvem/firebase.js": "./nuvem/firebase.js?v=20261016-02",
+			"./nuvem/supabase.js": "./nuvem/supabase.js?v=20261016-02",
+			"./nuvem/dropbox.js": "./nuvem/dropbox.js?v=20261016-02"
 		}
 	}
 	</script>
-	<script type="module" src="./app.js?v=20261016-01"></script>
+	<script type="module" src="./app.js?v=20261016-02"></script>
 
 	<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2042570332495044" crossorigin="anonymous"></script>
 	<meta name="google-adsense-account" content="ca-pub-2042570332495044">
@@ -115,6 +128,7 @@
 						<button type="button" role="menuitem" data-acao="loja"><i data-lucide="store"></i>Nome da loja</button>
 						<button type="button" role="menuitemcheckbox" aria-checked="false" data-acao="sugestao-auto" id="itemSugestaoAuto" title="Ao ler um código novo, preencher o nome sozinho"><i data-lucide="sparkles"></i><span class="menu-texto">Sugerir nome automaticamente <span class="pilula-exp">Experimental</span></span><span class="menu-chave" aria-hidden="true"></span></button>
 						<button type="button" role="menuitemcheckbox" aria-checked="true" data-acao="fotos-auto" id="itemFotosAuto" title="Buscar a foto quando o código de barras é válido (digitado ou lido pelo leitor). Só com o nome, use o botão de foto."><i data-lucide="image"></i><span class="menu-texto">Buscar fotos automaticamente</span><span class="menu-chave" aria-hidden="true"></span></button>
+						<button type="button" role="menuitemcheckbox" aria-checked="false" data-acao="modo-leve" id="itemModoLeve" title="Menos animações e efeitos, para o app ficar leve em aparelhos mais lentos. Liga sozinho quando o aparelho é lento."><i data-lucide="gauge"></i><span class="menu-texto">Modo leve <small class="menu-detalhe" id="detalheModoLeve"></small></span><span class="menu-chave" aria-hidden="true"></span></button>
 						<div class="menu-links-rodape">
 							<hr>
 							<a role="menuitem" href="privacidade.html"><i data-lucide="shield-check"></i>Política de privacidade</a>

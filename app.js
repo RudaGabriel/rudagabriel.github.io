@@ -33,6 +33,8 @@ const CHAVE = {
 	lojaOrigem: "cv2:lojaOrigem",
 	formRecolhido: "cv2:formRecolhido",
 	sugestaoAuto: "cv2:sugestaoAuto",
+	modoLeve: "cv2:modoLeve",             // "ligado" | "desligado" | vazio = automático
+	modoLeveMedido: "cv2:modoLeveMedido", // { fraco, ms, quando }: resultado da medição de velocidade
 	fotosAuto: "cv2:fotosAuto",
 	loginPendente: "cv2:loginPendente"
 };
@@ -741,7 +743,12 @@ function render() {
    ========================================================= */
 const mqCelular = window.matchMedia?.("(max-width: 760px)");
 const ehCelular = () => !!mqCelular?.matches;
-const semMovimento = () => !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+/* ---------- Modo leve (aparelhos mais fracos) ----------
+   Menos animações, sem desfoques/brilhos e sem transições caras: o app fica fluido em
+   celulares e computadores lentos. A decisão inicial é feita no <head> do index.html
+   (antes de desenhar); aqui o app mede a velocidade do aparelho e a pessoa pode mudar no menu ⋮. */
+const modoLeve = () => document.documentElement.classList.contains("modo-leve");
+const semMovimento = () => modoLeve() || !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 const comportamentoRolagem = () => (semMovimento() ? "auto" : "smooth");
 const SUAVE = "cubic-bezier(.2, .8, .2, 1)";
 
@@ -1655,6 +1662,74 @@ async function processarFilaFotos() {
 	} finally {
 		buscandoFotos = false;
 	}
+}
+
+let animacaoLista = null; // controle do AutoAnimate (liga/desliga com o modo leve)
+
+/** Liga/desliga o modo leve na hora (sem recarregar). */
+function aplicarModoLeve(ligar) {
+	document.documentElement.classList.toggle("modo-leve", !!ligar);
+	try { ligar ? animacaoLista?.disable?.() : animacaoLista?.enable?.(); } catch { /* ignora */ }
+	atualizarItemModoLeve();
+}
+
+function atualizarItemModoLeve() {
+	const item = $("#itemModoLeve");
+	if (!item) return;
+	item.setAttribute("aria-checked", String(modoLeve()));
+	const pref = armazenamento.lerTexto(CHAVE.modoLeve);
+	const detalhe = $("#detalheModoLeve");
+	if (detalhe) detalhe.textContent = pref === "ligado" || pref === "desligado" ? "" : "(automático)";
+}
+
+/** Menu ⋮ → Modo leve: a escolha da pessoa vale mais que a detecção automática. */
+function alternarModoLeve() {
+	const ligar = !modoLeve();
+	armazenamento.gravarTexto(CHAVE.modoLeve, ligar ? "ligado" : "desligado");
+	aplicarModoLeve(ligar);
+	toast("info", ligar
+		? "Modo leve <b>ligado</b>: menos animações e efeitos, para o app ficar fluido neste aparelho."
+		: "Modo leve <b>desligado</b>: animações e efeitos completos.", 5000);
+}
+
+/**
+ * Mede a velocidade do aparelho (uns milissegundos de cálculo, quando o app está ocioso).
+ * Referência: ~7 ms num computador comum; acima de 30 ms (≈ 4× mais lento) o aparelho é tratado como fraco.
+ * Repete a cada 7 dias; nunca roda se a pessoa escolheu o modo no menu.
+ */
+const LIMITE_FRACO_MS = 30;
+function agendarMedicaoDesempenho() {
+	const pref = armazenamento.lerTexto(CHAVE.modoLeve);
+	if (pref === "ligado" || pref === "desligado") return;
+	const anterior = armazenamento.ler(CHAVE.modoLeveMedido, null);
+	if (anterior && Date.now() - (Number(anterior.quando) || 0) < 7 * 864e5) return;
+	const medir = () => {
+		if (document.visibilityState !== "visible") { setTimeout(medir, 5000); return; }
+		const rodada = () => {
+			const t = performance.now();
+			let x = 0;
+			for (let i = 1; i < 200000; i++) x += Math.sqrt(i) * Math.sin(i);
+			const a = [];
+			for (let i = 0; i < 15000; i++) a.push({ i: (i * 7919) % 15000, s: "p" + i });
+			a.sort((p, q) => p.i - q.i);
+			return performance.now() - t + (x === 1 ? 1 : 0);
+		};
+		// Mediana de 3 rodadas (uma interrupção do sistema não decide sozinha)
+		const tempos = [rodada(), rodada(), rodada()].sort((a, b) => a - b);
+		const ms = Math.round(tempos[1] * 10) / 10;
+		const fraco = ms > LIMITE_FRACO_MS;
+		armazenamento.gravar(CHAVE.modoLeveMedido, { fraco, ms, quando: Date.now() });
+		// A escolha pode ter mudado enquanto esperava
+		const prefAgora = armazenamento.lerTexto(CHAVE.modoLeve);
+		if (prefAgora === "ligado" || prefAgora === "desligado") return;
+		if (fraco && !modoLeve()) {
+			aplicarModoLeve(true);
+			toast("info", `Este aparelho é mais lento: ativamos o <b>modo leve</b> (menos animações) para o app ficar fluido. Mude no menu ${iconeTexto("EllipsisVertical")} em <b>Modo leve</b>.`, 8000);
+		}
+	};
+	const quandoOcioso = window.requestIdleCallback ? cb => requestIdleCallback(cb, { timeout: 8000 }) : cb => setTimeout(cb, 4000);
+	// Espera o app terminar de abrir (a medição no meio do carregamento daria tempos altos)
+	setTimeout(() => quandoOcioso(medir), 3000);
 }
 
 function alternarFotosAuto() {
@@ -4301,7 +4376,8 @@ function alternarTema(evento) {
 	};
 	armazenamento.gravarTexto(CHAVE.tema, novo);
 
-	if (typeof document.startViewTransition !== "function") return aplicar();
+	// Modo leve: troca direta (a transição da página inteira é cara em aparelho fraco)
+	if (typeof document.startViewTransition !== "function" || modoLeve()) return aplicar();
 	if (semMovimento()) {
 		// Sem movimento: só um esmaecimento suave entre os temas
 		try { document.startViewTransition(aplicar); } catch { aplicar(); }
@@ -4555,6 +4631,7 @@ function registrarEventos() {
 			case "loja": configurarNomeLoja(); break;
 			case "sugestao-auto": alternarSugestaoAuto(); break;
 			case "fotos-auto": alternarFotosAuto(); break;
+			case "modo-leve": alternarModoLeve(); break;
 		}
 	});
 	document.addEventListener("click", e => { if (el.menu.open && !el.menu.contains(e.target)) el.menu.open = false; });
@@ -4761,10 +4838,15 @@ function iniciar() {
 	// Anúncio (se configurado em config-anuncios.js)
 	iniciarAnuncios(document.getElementById("anuncioRodape"));
 
-	// Animação suave da lista (opcional)
+	// Animação suave da lista (opcional; desligada no modo leve)
 	import(URL_AUTO_ANIMATE)
-		.then(m => (m.default || m.autoAnimate)?.(el.lista, { duration: 320, easing: "cubic-bezier(.2, .8, .2, 1)" }))
+		.then(m => {
+			animacaoLista = (m.default || m.autoAnimate)?.(el.lista, { duration: 320, easing: "cubic-bezier(.2, .8, .2, 1)" }) || null;
+			if (modoLeve()) animacaoLista?.disable?.();
+		})
 		.catch(() => { /* sem animação */ });
+	atualizarItemModoLeve();
+	agendarMedicaoDesempenho();
 
 	if (emNuvem()) {
 		ligarLista(estado.sync).catch(erro => {
