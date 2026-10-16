@@ -312,7 +312,7 @@ Você pode deixar o app na tela inicial, com ícone próprio e abrindo em tela c
 - A **câmera** é usada só para ler códigos; as imagens são processadas no próprio aparelho e não são enviadas nem guardadas.
 - Com login, cada conta só acessa os **próprios dados**.
 - Os códigos de lista são longos e aleatórios, impossíveis de adivinhar.
-- O site exibe anúncios do Google AdSense, que podem usar cookies.
+- O site exibe anúncios do Google AdSense, que podem usar cookies. O script do AdSense está no `<head>` das páginas (`index.html` e `privacidade.html`) e o arquivo [`ads.txt`](ads.txt) autoriza o editor `pub-2042570332495044`.
 
 Detalhes completos na [Política de Privacidade](https://rudagabriel.github.io/privacidade.html).
 
