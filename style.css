@@ -2513,6 +2513,21 @@ input[type="number"]::-webkit-inner-spin-button {
 	box-shadow: var(--sombra-flutuante) !important;
 }
 
+/* Ícone SVG dentro de textos (no lugar de emoji): mesmo tamanho da letra, alinhado à linha */
+.ico-texto {
+	display: inline-flex;
+	align-items: center;
+	vertical-align: -0.16em;
+	line-height: 1;
+}
+
+.ico-texto svg {
+	width: 1.1em;
+	height: 1.1em;
+	flex: none;
+	stroke-width: 2.2;
+}
+
 /* A mensagem recebe o toque (nada passa para o que está atrás) e o ✕ tem área de toque grande */
 .notyf__toast {
 	pointer-events: auto !important;
