@@ -770,11 +770,11 @@ function definirTotal(seletor, valor) {
 	} catch { /* ignora */ }
 }
 
-/* ---------- Celular: "Novo produto" recolhe sozinho depois de 10 s sem uso ----------
+/* ---------- Celular: "Novo produto" recolhe sozinho depois de 6 s sem uso ----------
    Só recolhe se ninguém estiver usando: sem foco nos campos, campos vazios (nada a perder
    de vista), sem edição em andamento e sem janela aberta (câmera, leitor, diálogos).
    Qualquer toque ou digitação no cartão recomeça a contagem. */
-const FECHAR_FORM_MS = 10000;
+const FECHAR_FORM_MS = 6000;
 let timerFecharForm = null;
 
 function cancelarFecharForm() {
@@ -800,6 +800,16 @@ function agendarFecharForm() {
 		if (emUso) return agendarFecharForm();
 		definirFormRecolhido(true, { animar: true });
 	}, FECHAR_FORM_MS);
+}
+
+/** Celular: rolou para baixo (indo para a lista) com o formulário vazio → recolhe na hora. */
+let ultimoGestoRolagem = 0; // só rolagem feita pela pessoa (dedo/rodinha), não pelo app
+function recolherFormAoRolar() {
+	if (!ehCelular() || Date.now() - ultimoGestoRolagem > 800) return;
+	const cartao = el.cartaoForm;
+	if (!cartao || cartao.classList.contains("recolhido") || animacaoForm) return;
+	if (formComConteudo() || estado.editandoId || cartao.contains(document.activeElement)) return;
+	definirFormRecolhido(true, { animar: true });
 }
 
 let animacaoForm = null; // { animacao, alvo }
@@ -970,6 +980,21 @@ function registrarEventosLayout() {
 	window.addEventListener("scroll", agendarLayout, { passive: true });
 	window.addEventListener("resize", agendarLayout, { passive: true });
 	mqCelular?.addEventListener?.("change", agendarLayout);
+	// Celular: rolar para baixo (na página ou dentro da lista) com o formulário vazio recolhe ele
+	for (const tipo of ["touchmove", "wheel"]) window.addEventListener(tipo, () => { ultimoGestoRolagem = Date.now(); }, { passive: true, capture: true });
+	let ultimoYPagina = window.scrollY;
+	window.addEventListener("scroll", () => {
+		const y = window.scrollY;
+		if (y > ultimoYPagina + 4) recolherFormAoRolar();
+		ultimoYPagina = y;
+	}, { passive: true });
+	const areaLista = $(".tabela-envoltorio");
+	let ultimoYLista = areaLista?.scrollTop || 0;
+	areaLista?.addEventListener("scroll", () => {
+		const y = areaLista.scrollTop;
+		if (y > ultimoYLista + 4) recolherFormAoRolar();
+		ultimoYLista = y;
+	}, { passive: true });
 	// Celular: uso do cartão "Novo produto" recomeça a contagem para recolher sozinho
 	for (const tipo of ["pointerdown", "keydown", "input", "change", "focusin", "focusout"]) {
 		el.cartaoForm?.addEventListener(tipo, () => agendarFecharForm(), { passive: true });
