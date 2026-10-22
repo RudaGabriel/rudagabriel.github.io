@@ -200,7 +200,7 @@ As cores ajudam a ler a lista de relance: **vermelho** = vencido, **amarelo** = 
 ### Navegar por listas grandes
 - A lista ocupa o espaço da tela até o rodapé e **rola por dentro**, então resumo, busca e filtros ficam sempre à mão. Ela sempre mostra **pelo menos 3 produtos** inteiros; se a janela for baixa demais, a página rola só o necessário. Ela sempre mostra **pelo menos 3 produtos** inteiros; se a janela for baixa demais, a página rola só o necessário.
 - Depois de rolar bastante, aparece um **botão com seta para cima**: toque nele para voltar ao início da lista.
-- **No celular**, toque em **Novo produto** para mostrar ou esconder o formulário. Com ele recolhido, sobra mais espaço para os produtos. O app lembra sua escolha e abre o formulário sozinho quando você edita um produto. Se o formulário ficar **10 segundos sem uso** (vazio, sem nada sendo digitado), ele **recolhe sozinho** para liberar a tela — nunca enquanto você estiver preenchendo, editando ou com a câmera/janela aberta.
+- **No celular**, toque em **Novo produto** para mostrar ou esconder o formulário. Com ele recolhido, sobra mais espaço para os produtos. O app lembra sua escolha e abre o formulário sozinho quando você edita um produto. Com o formulário **vazio**, ele **recolhe sozinho** para liberar a tela quando você **rola para baixo** (indo para a lista) ou depois de **6 segundos sem uso** — nunca enquanto você estiver preenchendo, editando ou com a câmera/janela aberta.
 - **No celular**, a lista sempre tem espaço para mostrar **pelo menos 3 produtos** inteiros. Os links de **Política de privacidade** e **Código-fonte** ficam no menu **⋮**.
 
 ## Editar e remover
