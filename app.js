@@ -770,11 +770,45 @@ function definirTotal(seletor, valor) {
 	} catch { /* ignora */ }
 }
 
+/* ---------- Celular: "Novo produto" recolhe sozinho depois de 10 s sem uso ----------
+   Só recolhe se ninguém estiver usando: sem foco nos campos, campos vazios (nada a perder
+   de vista), sem edição em andamento e sem janela aberta (câmera, leitor, diálogos).
+   Qualquer toque ou digitação no cartão recomeça a contagem. */
+const FECHAR_FORM_MS = 10000;
+let timerFecharForm = null;
+
+function cancelarFecharForm() {
+	clearTimeout(timerFecharForm);
+	timerFecharForm = null;
+}
+
+/** O formulário tem algo digitado/escolhido que a pessoa ainda não adicionou? */
+const formComConteudo = () => [el.codigo, el.nome, el.quantidade, el.vencimento].some(c => String(c?.value || "").trim())
+	|| !!fotoPendente;
+
+function agendarFecharForm() {
+	cancelarFecharForm();
+	if (!ehCelular() || !el.cartaoForm || el.cartaoForm.classList.contains("recolhido")) return;
+	timerFecharForm = setTimeout(() => {
+		timerFecharForm = null;
+		const cartao = el.cartaoForm;
+		if (!ehCelular() || !cartao || cartao.classList.contains("recolhido")) return;
+		if (formComConteudo() || estado.editandoId) return; // preenchendo/editando: não some (volta a contar no próximo toque)
+		// Em uso agora (foco no cartão, janela aberta ou app em segundo plano): espera mais 10 s
+		const emUso = cartao.contains(document.activeElement) || document.querySelector("dialog[open], .swal2-container")
+			|| document.visibilityState !== "visible";
+		if (emUso) return agendarFecharForm();
+		definirFormRecolhido(true, { animar: true });
+	}, FECHAR_FORM_MS);
+}
+
 let animacaoForm = null; // { animacao, alvo }
 function definirFormRecolhido(recolher, { lembrar = true, animar = false } = {}) {
 	const cartao = el.cartaoForm;
 	if (!cartao) return;
 	recolher = !!recolher;
+	if (recolher) cancelarFecharForm();
+	else setTimeout(agendarFecharForm, 0); // depois de aplicar a classe (expandido)
 	$("#btnRecolherForm")?.setAttribute("aria-expanded", String(!recolher));
 	if (lembrar) armazenamento.gravarTexto(CHAVE.formRecolhido, recolher ? "1" : "0");
 	// Animação anterior em andamento: encerra já no estado que ela pretendia (o evento de
@@ -936,6 +970,11 @@ function registrarEventosLayout() {
 	window.addEventListener("scroll", agendarLayout, { passive: true });
 	window.addEventListener("resize", agendarLayout, { passive: true });
 	mqCelular?.addEventListener?.("change", agendarLayout);
+	// Celular: uso do cartão "Novo produto" recomeça a contagem para recolher sozinho
+	for (const tipo of ["pointerdown", "keydown", "input", "change", "focusin", "focusout"]) {
+		el.cartaoForm?.addEventListener(tipo, () => agendarFecharForm(), { passive: true });
+	}
+	mqCelular?.addEventListener?.("change", () => agendarFecharForm());
 	mqComputador?.addEventListener?.("change", agendarLayout);
 	// A largura do texto muda quando as fontes terminam de carregar
 	document.fonts?.ready?.then(agendarLayout).catch(() => { });
