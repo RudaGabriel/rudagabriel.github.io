@@ -54,7 +54,7 @@
 	<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3.10.0/notyf.min.css">
-	<link rel="stylesheet" href="style.css?v=20261022-02">
+	<link rel="stylesheet" href="style.css?v=20261105-01">
 
 	<!-- Bibliotecas (carregadas sem bloquear a página) -->
 	<script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11.26.25/dist/sweetalert2.all.min.js"></script>
@@ -65,24 +65,24 @@
 	<script type="importmap">
 	{
 		"imports": {
-			"./app.js": "./app.js?v=20261022-02",
-			"./config-nuvem.js": "./config-nuvem.js?v=20261022-02",
-			"./config-anuncios.js": "./config-anuncios.js?v=20261022-02",
-			"./config-busca.js": "./config-busca.js?v=20261022-02",
-			"./anuncios.js": "./anuncios.js?v=20261022-02",
-			"./leitor.js": "./leitor.js?v=20261022-02",
-			"./produtos.js": "./produtos.js?v=20261022-02",
-			"./validade.js": "./validade.js?v=20261022-02",
-			"./foco.js": "./foco.js?v=20261022-02",
-			"./fotos.js": "./fotos.js?v=20261022-02",
-			"./nuvem/comum.js": "./nuvem/comum.js?v=20261022-02",
-			"./nuvem/firebase.js": "./nuvem/firebase.js?v=20261022-02",
-			"./nuvem/supabase.js": "./nuvem/supabase.js?v=20261022-02",
-			"./nuvem/dropbox.js": "./nuvem/dropbox.js?v=20261022-02"
+			"./app.js": "./app.js?v=20261105-01",
+			"./config-nuvem.js": "./config-nuvem.js?v=20261105-01",
+			"./config-anuncios.js": "./config-anuncios.js?v=20261105-01",
+			"./config-busca.js": "./config-busca.js?v=20261105-01",
+			"./anuncios.js": "./anuncios.js?v=20261105-01",
+			"./leitor.js": "./leitor.js?v=20261105-01",
+			"./produtos.js": "./produtos.js?v=20261105-01",
+			"./validade.js": "./validade.js?v=20261105-01",
+			"./foco.js": "./foco.js?v=20261105-01",
+			"./fotos.js": "./fotos.js?v=20261105-01",
+			"./nuvem/comum.js": "./nuvem/comum.js?v=20261105-01",
+			"./nuvem/firebase.js": "./nuvem/firebase.js?v=20261105-01",
+			"./nuvem/supabase.js": "./nuvem/supabase.js?v=20261105-01",
+			"./nuvem/dropbox.js": "./nuvem/dropbox.js?v=20261105-01"
 		}
 	}
 	</script>
-	<script type="module" src="./app.js?v=20261022-02"></script>
+	<script type="module" src="./app.js?v=20261105-01"></script>
 
 	<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2042570332495044" crossorigin="anonymous"></script>
 	<meta name="google-adsense-account" content="ca-pub-2042570332495044">
@@ -126,9 +126,9 @@
 						<hr>
 						<button type="button" role="menuitem" data-acao="sincronizar"><i data-lucide="share-2"></i>Salvar e compartilhar</button>
 						<button type="button" role="menuitem" data-acao="loja"><i data-lucide="store"></i>Nome da loja</button>
-						<button type="button" role="menuitemcheckbox" aria-checked="false" data-acao="sugestao-auto" id="itemSugestaoAuto" title="Ao ler um código novo, preencher o nome sozinho"><i data-lucide="sparkles"></i><span class="menu-texto">Sugerir nome automaticamente <span class="pilula-exp">Experimental</span></span><span class="menu-chave" aria-hidden="true"></span></button>
-						<button type="button" role="menuitemcheckbox" aria-checked="true" data-acao="fotos-auto" id="itemFotosAuto" title="Buscar a foto quando o código de barras é válido (digitado ou lido pelo leitor). Só com o nome, use o botão de foto."><i data-lucide="image"></i><span class="menu-texto">Buscar fotos automaticamente</span><span class="menu-chave" aria-hidden="true"></span></button>
-						<button type="button" role="menuitemcheckbox" aria-checked="false" data-acao="modo-leve" id="itemModoLeve" title="Menos animações e efeitos, para o app ficar leve em aparelhos mais lentos. Liga sozinho quando o aparelho é lento."><i data-lucide="gauge"></i><span class="menu-texto">Modo leve <small class="menu-detalhe" id="detalheModoLeve"></small></span><span class="menu-chave" aria-hidden="true"></span></button>
+						<button type="button" role="menuitemcheckbox" aria-checked="false" data-acao="sugestao-auto" id="itemSugestaoAuto" title="Ao ler um código novo, preencher o nome automaticamente"><i data-lucide="sparkles"></i><span class="menu-texto">Sugerir nome automaticamente <span class="pilula-exp">Experimental</span></span><span class="menu-chave" aria-hidden="true"></span></button>
+						<button type="button" role="menuitemcheckbox" aria-checked="true" data-acao="fotos-auto" id="itemFotosAuto" title="Buscar a foto quando o código de barras é válido (digitado ou lido pelo leitor). Para produtos cadastrados apenas com o nome, use o botão de foto."><i data-lucide="image"></i><span class="menu-texto">Buscar fotos automaticamente</span><span class="menu-chave" aria-hidden="true"></span></button>
+						<button type="button" role="menuitemcheckbox" aria-checked="false" data-acao="modo-leve" id="itemModoLeve" title="Menos animações e efeitos, para que o aplicativo funcione bem em aparelhos com desempenho reduzido. É ativado automaticamente quando o aparelho é lento."><i data-lucide="gauge"></i><span class="menu-texto">Modo leve <small class="menu-detalhe" id="detalheModoLeve"></small></span><span class="menu-chave" aria-hidden="true"></span></button>
 						<div class="menu-links-rodape">
 							<hr>
 							<a role="menuitem" href="privacidade.html"><i data-lucide="shield-check"></i>Política de privacidade</a>
@@ -308,7 +308,7 @@
 		</div>
 		<div class="leitor-rodape">
 			<p class="aviso-experimental"><i data-lucide="flask-conical"></i><span><b>Função experimental:</b> a leitura pode não ser totalmente precisa. Confira sempre a data.</span></p>
-			<p class="dica" id="validadeDica">Enquadre <strong>só a data de validade</strong> na moldura, bem de perto e reta. Se estiver escuro, ligue o flash.</p>
+			<p class="dica" id="validadeDica">Enquadre <strong>somente a data de validade</strong> na moldura, bem de perto e alinhada. Se o ambiente estiver escuro, ative o flash.</p>
 			<button type="button" class="btn btn-primario btn-bloco" id="btnCapturarValidade" disabled><i data-lucide="scan-text"></i>Ler data</button>
 			<button type="button" class="btn btn-fantasma btn-bloco" id="btnFotoValidade"><i data-lucide="image"></i>Usar uma foto</button>
 			<input type="file" id="arquivoValidade" accept="image/*" hidden>
@@ -340,8 +340,8 @@
 			</div>
 		</div>
 		<div class="leitor-rodape">
-			<p class="dica">Centralize o código na faixa. Se ficar borrado, <strong>toque na imagem</strong> para focar, use o botão de <strong>foco</strong> ou <strong>afaste um pouco</strong> o celular.</p>
-			<button type="button" class="btn btn-fantasma btn-bloco" id="btnFotoCodigo"><i data-lucide="camera"></i>Não está lendo? Tirar foto do código</button>
+			<p class="dica">Centralize o código na faixa. Se a imagem estiver desfocada, <strong>toque nela</strong> para focar, use o botão de <strong>foco</strong> ou <strong>afaste um pouco</strong> o celular.</p>
+			<button type="button" class="btn btn-fantasma btn-bloco" id="btnFotoCodigo"><i data-lucide="camera"></i>A leitura não funcionou? Tirar foto do código</button>
 			<input type="file" id="arquivoFotoCodigo" accept="image/*" capture="environment" hidden>
 		</div>
 	</dialog>
@@ -355,7 +355,7 @@
 
 		<!-- Visão: desconectado -->
 		<div id="syncDesconectado" class="dialogo-corpo">
-			<p class="intro">Hoje seus produtos ficam salvos <strong>apenas neste aparelho</strong>. Salve na nuvem para ver a mesma lista no celular, no computador ou com sua equipe — em tempo real.</p>
+			<p class="intro">Atualmente, seus produtos estão salvos <strong>apenas neste aparelho</strong>. Salve na nuvem para ver a mesma lista no celular, no computador ou com sua equipe — em tempo real.</p>
 
 			<!-- Nenhuma opção de nuvem ativada pelo dono do site -->
 			<div id="syncIndisponivel" class="aviso-caixa" hidden>
@@ -389,7 +389,7 @@
 								<i data-lucide="mail-check"></i>
 								<span>Link enviado para <b id="emailEnviadoPara"></b>. Abra seu e-mail <b>neste aparelho</b> e toque no link para entrar. Confira também o spam.</span>
 							</div>
-							<button type="button" class="link-botao" id="btnEmailAlternativo" hidden>Não chegou? Enviar por outro servidor</button>
+							<button type="button" class="link-botao" id="btnEmailAlternativo" hidden>Não recebeu o e-mail? Enviar por outro servidor</button>
 							<div id="loginCodigoCaixa" class="campo" hidden>
 								<label for="loginCodigo">Recebeu um código em <b id="loginEmailTexto"></b>? Digite aqui:</label>
 								<div class="grupo-entrada">
@@ -415,7 +415,7 @@
 						<span class="opcao-icone"><i data-lucide="cloud-upload"></i></span>
 						<span class="opcao-texto">
 							<strong>Criar lista com código</strong>
-							<small>Um clique. Compartilhe com a equipe por link ou QR Code.</small>
+							<small>Em um clique, compartilhe com a equipe por link ou QR Code.</small>
 						</span>
 						<i data-lucide="chevron-right"></i>
 					</button>
@@ -426,7 +426,7 @@
 							<input type="text" id="syncCodigo" class="entrada-codigo" placeholder="ABCD-EFGH-JKLM-NPQR" maxlength="400" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go">
 							<button type="button" class="btn-anexo btn-anexo-texto" id="btnEntrarCodigo">Entrar</button>
 						</div>
-						<small class="ajuda">Dica: no outro aparelho, é só abrir o link ou ler o QR Code — nem precisa digitar.</small>
+						<small class="ajuda">Dica: no outro aparelho, basta abrir o link ou ler o QR Code, sem necessidade de digitar.</small>
 					</div>
 				</div>
 			</div>
@@ -488,14 +488,14 @@
 
 			<div class="compartilhar" id="blocoCompartilhar">
 				<h3><i data-lucide="users"></i>Convidados</h3>
-				<p class="ajuda">Cada convidado recebe um <b>link próprio</b>. Você muda a permissão de cada um quando quiser — o aparelho dele é avisado na hora.</p>
+				<p class="ajuda">Cada convidado recebe um <b>link próprio</b>. Você pode alterar a permissão de cada um a qualquer momento, e o aparelho do convidado é avisado imediatamente.</p>
 				<p class="ajuda" id="avisoConvidados" hidden></p>
 				<ul id="listaConvidados" class="lista-convidados" aria-label="Convidados da lista"></ul>
 				<button type="button" class="btn btn-secundario btn-bloco" id="btnNovoConvidado"><i data-lucide="user-plus"></i>Novo convidado</button>
 				<div class="compartilhar-grade" id="gradeLinkConvidado" hidden>
 					<div id="qrCompartilhar" class="qr" aria-label="QR Code do link de compartilhamento"></div>
 					<div class="compartilhar-link">
-						<p id="textoLinkConvidado">Abra este link (ou leia o QR Code) no aparelho do convidado. Ele será conectado automaticamente.</p>
+						<p id="textoLinkConvidado">Abra este link (ou leia o QR Code) no aparelho do convidado. A conexão será feita automaticamente.</p>
 						<div class="grupo-entrada">
 							<input type="text" id="linkCompartilhar" readonly aria-label="Link de compartilhamento">
 							<button type="button" class="btn-anexo" id="btnCopiarLink" title="Copiar link" aria-label="Copiar link"><i data-lucide="copy"></i></button>

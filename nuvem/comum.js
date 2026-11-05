@@ -73,7 +73,7 @@ export function explicarErro(erro) {
 		return { tipo: "cancelado", mensagem: "Login cancelado." };
 	}
 	if (/popup-blocked/i.test(codigo + texto)) {
-		return { tipo: "popup", mensagem: "O navegador bloqueou a janela de login. Permita pop-ups para este site e tente de novo." };
+		return { tipo: "popup", mensagem: "O navegador bloqueou a janela de login. Permita pop-ups para este site e tente novamente." };
 	}
 	if (/unauthorized-domain/i.test(codigo + texto)) {
 		dicaDono("Domínio não autorizado: Firebase → Authentication → Settings → Authorized domains.");
@@ -85,7 +85,7 @@ export function explicarErro(erro) {
 	}
 	if (/permission|not allowed|row-level security|42501|PGRST301|insufficient/i.test(codigo + texto) || codigo === "403") {
 		dicaDono("Acesso recusado: publique as regras do Firestore / rode o SQL do Supabase.");
-		return { tipo: "permissao", mensagem: "A nuvem recusou o acesso. Tente de novo em instantes; se continuar, use outra opção de entrada." };
+		return { tipo: "permissao", mensagem: "A nuvem recusou o acesso. Tente novamente em instantes; se o problema persistir, use outra opção de entrada." };
 	}
 	if (/api[- ]?key|invalid.*key|JWT|apikey|401/i.test(codigo + texto)) {
 		dicaDono("Chave inválida em config-nuvem.js.");
@@ -96,13 +96,13 @@ export function explicarErro(erro) {
 		return { tipo: "config", mensagem: "Este servidor da nuvem está temporariamente indisponível. Tente outra opção de entrada." };
 	}
 	if (/expired|invalid.*(otp|token|code)|otp_expired|token has expired/i.test(codigo + texto)) {
-		return { tipo: "codigo", mensagem: "Código inválido ou expirado. Peça um novo." };
+		return { tipo: "codigo", mensagem: "Código inválido ou expirado. Solicite um novo." };
 	}
 	if (/rate.?limit|too many|429|over_email_send_rate_limit/i.test(codigo + texto)) {
-		return { tipo: "limite", mensagem: "Muitas tentativas. Aguarde alguns minutos e tente de novo." };
+		return { tipo: "limite", mensagem: "Muitas tentativas. Aguarde alguns minutos e tente novamente." };
 	}
 	if (/resource-exhausted|quota/i.test(codigo + texto)) {
-		return { tipo: "cota", mensagem: "Limite gratuito da nuvem atingido por hoje. Tente mais tarde." };
+		return { tipo: "cota", mensagem: "O limite gratuito da nuvem foi atingido hoje. Tente novamente mais tarde." };
 	}
 	if (/unavailable|deadline-exceeded|Failed to fetch|NetworkError|network|Load failed|dynamically imported module|Importing a module|offline/i.test(codigo + texto)) {
 		return { tipo: "rede", mensagem: "Sem conexão com a nuvem. As alterações serão enviadas quando a internet voltar." };

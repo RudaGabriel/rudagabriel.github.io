@@ -1409,7 +1409,7 @@ async function escolherNome(codigo, opcoes, { pergunta, html: introducao, rotulo
 		+ `<div class="opcoes-data opcoes-nome" role="radiogroup" aria-label="${esc(rotulo)}">${opcoes.map((o, i) =>
 			`<button type="button" class="opcao-data opcao-nome" role="radio" data-i="${i}" aria-checked="${i === 0}">`
 			+ `<b>${esc(o.nome)}</b><small>${esc(o.fonte)}${o.codigo ? ` · ${esc(o.codigo)}` : ""}${o.abreviado ? " · nome abreviado" : ""}${atual && o.nome === atual ? " · igual ao atual" : ""}</small></button>`).join("")}</div>`
-		+ `<p class="ajuda links-web">Não é nenhum? Pesquise na web: ${htmlLinksPesquisa(codigo, true)}</p>`;
+		+ `<p class="ajuda links-web">Nenhuma opção corresponde? Pesquise na web: ${htmlLinksPesquisa(codigo, true)}</p>`;
 	const executar = async () => {
 		const r = await window.Swal.fire({
 			title: "Escolha o nome do produto",
@@ -1451,11 +1451,11 @@ async function sugerirNomeManual() {
 	if (!podeEditar()) return toast("aviso", "Este aparelho está no modo <b>somente leitura</b>.");
 	const codigo = el.codigo.value.replace(/\s+/g, "");
 	if (!codigo) {
-		toast("info", "Leia ou digite o <b>código de barras</b> primeiro; depois toque aqui para sugerir o nome.");
+		toast("info", "Leia ou digite o <b>código de barras</b> primeiro; em seguida, toque aqui para sugerir o nome.");
 		el.codigo.focus();
 		return;
 	}
-	if (!codigoConsultavel(codigo)) return toast("aviso", "Esse código não é de um produto comum (EAN/UPC). Digite o nome.");
+	if (!codigoConsultavel(codigo)) return toast("aviso", "Este código não corresponde a um produto comercial (EAN/UPC). Digite o nome.");
 	sugerindoManual = true;
 	el.btnSugerirNome?.classList.add("carregando");
 	el.btnSugerirNome?.setAttribute("aria-busy", "true");
@@ -1475,7 +1475,7 @@ async function sugerirNomeManual() {
 			const nome = await escolherNome(codigo, opcoes, {
 				pergunta: `Usar o nome “${opcoes[0].nome}”?`,
 				html: avisoExperimental("os nomes vêm de bases públicas e da web. Confira com a embalagem.")
-					+ `<p>Para o código <b>${esc(codigo)}</b> encontramos <b>${opcoes.length}</b> opções — escolha a que bate com a embalagem${atual ? ` (vai substituir “${esc(atual)}”)` : ""}:</p>`,
+					+ `<p>Para o código <b>${esc(codigo)}</b> encontramos <b>${opcoes.length}</b> opções. Selecione a que corresponde à embalagem${atual ? ` (substituirá “${esc(atual)}”)` : ""}:</p>`,
 				atual
 			});
 			if (nome && el.codigo.value.replace(/\s+/g, "") === codigo) {
@@ -1528,7 +1528,7 @@ async function sugerirNomeManual() {
 		el.quantidade.focus();
 	} catch (e) {
 		console.warn("[sugerir nome]", e);
-		toast("erro", "Não foi possível buscar o nome agora. Tente de novo.");
+		toast("erro", "Não foi possível buscar o nome agora. Tente novamente.");
 	} finally {
 		sugerindoManual = false;
 		el.btnSugerirNome?.classList.remove("carregando");
@@ -1579,7 +1579,7 @@ async function aplicarFotoPendente(item) {
 	// Produto só com nome: a foto não é buscada sozinha — avisa uma vez como buscar
 	if (!fotoPendente && estado.fotosAuto && !gtinValido(item?.codigoBarras) && !estado.fotos.get(chave)?.src && !armazenamento.lerTexto("cv2:avisoFotoNome")) {
 		armazenamento.gravarTexto("cv2:avisoFotoNome", "1");
-		toast("info", `${iconeTexto("Camera")} A foto automática só é buscada com <b>código de barras válido</b> (digitado ou lido pelo leitor). Produto só com nome: toque na <b>miniatura</b> dele para buscar a foto.`, 9000);
+		toast("info", `${iconeTexto("Camera")} A foto automática é buscada somente com <b>código de barras válido</b> (digitado ou lido pelo leitor). Para produtos cadastrados apenas com o nome, toque na <b>miniatura</b> do produto para buscar a foto.`, 9000);
 	}
 	if (!fotoPendente) {
 		// Produto adicionado/salvo agora: um "não achei" antigo não impede uma busca nova
@@ -1752,8 +1752,8 @@ function alternarModoLeve() {
 	armazenamento.gravarTexto(CHAVE.modoLeve, ligar ? "ligado" : "desligado");
 	aplicarModoLeve(ligar);
 	toast("info", ligar
-		? "Modo leve <b>ligado</b>: menos animações e efeitos, para o app ficar fluido neste aparelho."
-		: "Modo leve <b>desligado</b>: animações e efeitos completos.", 5000);
+		? "Modo leve <b>ativado</b>: menos animações e efeitos, para que o aplicativo funcione com fluidez neste aparelho."
+		: "Modo leve <b>desativado</b>: animações e efeitos completos.", 5000);
 }
 
 /**
@@ -1788,7 +1788,7 @@ function agendarMedicaoDesempenho() {
 		if (prefAgora === "ligado" || prefAgora === "desligado") return;
 		if (fraco && !modoLeve()) {
 			aplicarModoLeve(true);
-			toast("info", `Este aparelho é mais lento: ativamos o <b>modo leve</b> (menos animações) para o app ficar fluido. Mude no menu ${iconeTexto("EllipsisVertical")} em <b>Modo leve</b>.`, 8000);
+			toast("info", `Este aparelho apresenta desempenho reduzido; por isso, o <b>modo leve</b> (menos animações) foi ativado para que o aplicativo funcione com fluidez. Para alterar, acesse o menu ${iconeTexto("EllipsisVertical")} → <b>Modo leve</b>.`, 8000);
 		}
 	};
 	const quandoOcioso = window.requestIdleCallback ? cb => requestIdleCallback(cb, { timeout: 8000 }) : cb => setTimeout(cb, 4000);
@@ -1801,12 +1801,12 @@ function alternarFotosAuto() {
 	armazenamento.gravarTexto(CHAVE.fotosAuto, estado.fotosAuto ? "1" : "0");
 	$("#itemFotosAuto")?.setAttribute("aria-checked", String(estado.fotosAuto));
 	toast("info", estado.fotosAuto
-		? "Busca automática de fotos <b>ligada</b>: acontece quando o <b>código de barras é válido</b> (digitado ou lido pelo leitor). Produto só com nome: toque no botão de foto para buscar."
-		: "Busca automática de fotos <b>desligada</b>. Você ainda pode colocar a foto tocando na miniatura do produto.", 5000);
+		? "Busca automática de fotos <b>ativada</b>: ela ocorre quando o <b>código de barras é válido</b> (digitado ou lido pelo leitor). Para produtos cadastrados apenas com o nome, toque no botão de foto para buscar."
+		: "Busca automática de fotos <b>desativada</b>. Ainda é possível adicionar a foto tocando na miniatura do produto.", 5000);
 	if (estado.fotosAuto) agendarBuscaFotos();
 }
 
-const ROTULO_ORIGEM = { usuario: "Foto colocada por você", codigo: "Encontrada pelo código de barras", nome: "Encontrada pelo nome (confira)" };
+const ROTULO_ORIGEM = { usuario: "Foto adicionada por você", codigo: "Encontrada pelo código de barras", nome: "Encontrada pelo nome (confira)" };
 
 /** Escolhe uma imagem do aparelho (tirar foto ou galeria/arquivos). */
 function escolherArquivoFoto() {
@@ -1972,7 +1972,7 @@ async function dialogoFoto(produto, { pendente = false } = {}) {
 				botao.innerHTML = textoBotao;
 				if (!popup.isConnected) return;
 				if (!opcoes.length) {
-					resultados.innerHTML = `<p class="ajuda">${navigator.onLine === false ? "Sem internet agora." : falhou ? "As bases de fotos não responderam agora. Tente de novo em alguns minutos, ou tire/escolha uma foto." : (produto.nome ? "Nenhuma foto de produto com nome parecido. Confira o nome ou tire/escolha uma foto." : "Nenhuma foto encontrada. Tire ou escolha uma foto.")}</p>`;
+					resultados.innerHTML = `<p class="ajuda">${navigator.onLine === false ? "Sem internet agora." : falhou ? "As bases de fotos não responderam no momento. Tente novamente em alguns minutos ou tire/selecione uma foto." : (produto.nome ? "Nenhuma foto de produto com nome semelhante foi encontrada. Confira o nome ou tire/selecione uma foto." : "Nenhuma foto foi encontrada. Tire ou selecione uma foto.")}</p>`;
 					mostrarResultados();
 					return;
 				}
@@ -2059,14 +2059,14 @@ function alternarSugestaoAuto() {
 	armazenamento.gravarTexto(CHAVE.sugestaoAuto, estado.sugestaoAuto ? "1" : "0");
 	aplicarSugestaoAuto();
 	toast("info", estado.sugestaoAuto
-		? "Sugestão automática <b>ligada</b>: ao ler um código novo, o nome é preenchido sozinho (confira sempre)."
-		: `Sugestão automática <b>desligada</b>. Use o botão ${iconeTexto("Sparkles")} no campo Produto quando quiser uma sugestão.`, 5000);
+		? "Sugestão automática <b>ativada</b>: ao ler um código novo, o nome é preenchido automaticamente (confira sempre)."
+		: `Sugestão automática <b>desativada</b>. Use o botão ${iconeTexto("Sparkles")} no campo Produto quando quiser uma sugestão.`, 5000);
 	// Ligou com um código já digitado e sem nome: sugere agora
 	if (estado.sugestaoAuto && el.codigo.value.trim() && !el.nome.value.trim()) autoPreencherPorCodigo();
 }
 
 /* ---------- Leitor da data de validade (câmera com moldura + confirmação) ---------- */
-const DICA_CAMERA_VALIDADE = "Enquadre <strong>só a data de validade</strong> na moldura, bem de perto e reta. Se estiver escuro, ligue o flash.";
+const DICA_CAMERA_VALIDADE = "Enquadre <strong>somente a data de validade</strong> na moldura, bem de perto e alinhada. Se o ambiente estiver escuro, ative o flash.";
 const DICA_FOTO_VALIDADE = "<strong>Arraste o dedo sobre a data</strong> para marcar a área e toque em <strong>Ler data</strong>.";
 let cameraValidade = null;
 let sessaoValidade = 0;          // invalida leituras e câmeras de aberturas anteriores
@@ -2239,7 +2239,7 @@ async function escolherDataLida(candidatas, previa) {
 		showCancelButton: true,
 		showDenyButton: true,
 		confirmButtonText: "Usar esta data",
-		denyButtonText: "Ler de novo",
+		denyButtonText: "Ler novamente",
 		cancelButtonText: "Cancelar",
 		reverseButtons: true,
 		buttonsStyling: false,
@@ -2291,13 +2291,13 @@ async function lerDataDaArea() {
 			recorte: true,
 			aoProgresso: ({ etapa, atual, total }) => {
 				if (minha !== sessaoValidade) return;
-				statusValidade(etapa === "baixando" ? "Preparando o leitor (só na 1ª vez)…" : `Lendo a data… ${atual || 1}/${total || 1}`);
+				statusValidade(etapa === "baixando" ? "Preparando o leitor (somente na primeira vez)…" : `Lendo a data… ${atual || 1}/${total || 1}`);
 			}
 		});
 		if (minha !== sessaoValidade || !el.dlgValidade.open) return;
 		if (!candidatas.length) {
-			statusValidade("Não consegui ler — aproxime e tente de novo");
-			toast("aviso", "Não encontrei a data. Deixe <b>só a data</b> na moldura, bem de perto, com luz, e toque em <b>Ler data</b> de novo. Data <b>em relevo</b> (sem tinta)? Ilumine de lado para criar sombra nas letras, ou digite a data.", 8000);
+			statusValidade("Não foi possível ler — aproxime a câmera e tente novamente");
+			toast("aviso", "A data não foi encontrada. Enquadre <b>somente a data</b> na moldura, bem de perto e com boa iluminação, e toque em <b>Ler data</b> novamente. Se a data estiver <b>em relevo</b> (sem tinta), ilumine-a lateralmente para criar sombra nas letras ou digite a data.", 8000);
 			return;
 		}
 		const escolha = await escolherDataLida(candidatas, previaRecorte(recorte));
@@ -2316,8 +2316,8 @@ async function lerDataDaArea() {
 	} catch (e) {
 		console.error("[ler validade]", e);
 		toast("erro", navigator.onLine === false
-			? "Sem internet para preparar o leitor de datas (necessário só na primeira vez)."
-			: "Não foi possível ler agora. Tente de novo ou digite a data.", 6500);
+			? "Sem conexão com a internet para preparar o leitor de datas (necessário somente na primeira vez)."
+			: "Não foi possível ler a data agora. Tente novamente ou digite a data.", 6500);
 	} finally {
 		lendoValidade = false;
 		el.validadeArea.classList.remove("lendo");
@@ -2380,7 +2380,7 @@ async function alertaInicial() {
 	if (valor) {
 		proximos.forEach(c => estado.silenciados.add(c.item.id));
 		salvarSilenciados();
-		toast("info", "Pronto! Você pode reativar o alerta pelo ícone do sino.");
+		toast("info", "Alertas silenciados. Você pode reativá-los pelo ícone do sino.");
 	} else if (silenciadosAgora.size) {
 		toast("info", `${silenciadosAgora.size} produto${silenciadosAgora.size > 1 ? "s" : ""} não ${silenciadosAgora.size > 1 ? "serão mais alertados" : "será mais alertado"}. Reative pelo ícone do sino na lista.`);
 	}
@@ -2663,7 +2663,7 @@ async function pedirAcesso() {
 		pararMeuPedido = prov.ouvirMeuPedido(s.codigo, pedido => receberMeuPedido(s, pedido));
 		dialogo({
 			titulo: "Pedido enviado",
-			html: `O dono da lista vai ver seu pedido.<br><br>Código de confirmação:<br><b class="codigo-confirmacao">${confirmacao}</b><br><br><small>O dono vê o mesmo código — confirmem entre vocês (ligação ou mensagem) antes da aprovação.</small>`,
+			html: `O dono da lista verá o seu pedido.<br><br>Código de confirmação:<br><b class="codigo-confirmacao">${confirmacao}</b><br><br><small>O dono vê o mesmo código. Confirmem entre si (por ligação ou mensagem) antes da aprovação.</small>`,
 			icone: "success"
 		});
 	} catch (e) {
@@ -2673,9 +2673,9 @@ async function pedirAcesso() {
 			dialogo({ titulo: "Não foi possível enviar o pedido", icone: "warning", html: "O servidor não conseguiu identificar este aparelho.<br><br><small>Dono da lista: no Firebase, ative <b>Authentication → Método de login → Anônimo</b>.</small>" });
 		} else if (/permission-denied|insufficient permissions/i.test(codigoErro + " " + (e?.message || ""))) {
 			// Regras antigas no Firebase (sem a parte dos pedidos): o servidor recusa a gravação
-			dialogo({ titulo: "O servidor recusou o pedido", icone: "warning", html: "As regras de segurança da nuvem estão desatualizadas e ainda não aceitam pedidos de acesso.<br><br><small>Dono da lista: publique de novo as regras no Firebase (<b>Firestore → Regras</b>) com o texto atual do arquivo <b>docs/CONFIGURACAO.md</b>. Depois disso, o pedido funciona na hora.</small>" });
+			dialogo({ titulo: "O servidor recusou o pedido", icone: "warning", html: "As regras de segurança da nuvem estão desatualizadas e ainda não aceitam pedidos de acesso.<br><br><small>Dono da lista: publique novamente as regras no Firebase (<b>Firestore → Regras</b>) com o texto atual do arquivo <b>docs/CONFIGURACAO.md</b>. Em seguida, o pedido funcionará imediatamente.</small>" });
 		} else {
-			toast("erro", explicarErro(e).tipo === "rede" ? "Sem conexão: tente de novo quando a internet voltar." : "Não foi possível enviar o pedido agora. Tente de novo.");
+			toast("erro", explicarErro(e).tipo === "rede" ? "Sem conexão: tente novamente quando a internet voltar." : "Não foi possível enviar o pedido agora. Tente novamente.");
 		}
 	}
 }
@@ -2706,7 +2706,7 @@ async function receberMeuPedido(s, pedido) {
 		await prov.cancelarPedido?.(s.codigo).catch(() => { });
 		estado.meuPedido = null;
 		atualizarDialogoSync();
-		toast("aviso", "O dono <b>recusou</b> o pedido de acesso. Você continua só visualizando.", 8000);
+		toast("aviso", "O dono <b>recusou</b> o pedido de acesso. Você continua com acesso somente para visualização.", 8000);
 	}
 }
 
@@ -2744,8 +2744,8 @@ async function acaoPedido(evento) {
 	const ok = await confirmar({
 		titulo: aprovar ? "Aprovar acesso?" : "Recusar pedido?",
 		html: aprovar
-			? `<b>${esc(nome)}</b> vai poder <b>editar</b> a lista (você pode mudar ou remover depois em Convidados).<br><br>Confira com a pessoa o código de confirmação: <b class="codigo-confirmacao">${esc(p.confirmacao || "—")}</b>`
-			: `<b>${esc(nome)}</b> continua só visualizando.`,
+			? `<b>${esc(nome)}</b> poderá <b>editar</b> a lista (é possível alterar ou remover o acesso depois, em Convidados).<br><br>Confira com a pessoa o código de confirmação: <b class="codigo-confirmacao">${esc(p.confirmacao || "—")}</b>`
+			: `<b>${esc(nome)}</b> continuará com acesso somente para visualização.`,
 		confirmar: aprovar ? "Aprovar" : "Recusar",
 		icone: "question",
 		perigo: !aprovar
@@ -2754,7 +2754,7 @@ async function acaoPedido(evento) {
 	botao.disabled = true;
 	try {
 		await provAtual().responderPedido(estado.sync.codigo, p.uid, aprovar ? { aprovar: true, convite: gerarCodigoConvidado(), nome } : { aprovar: false });
-		toast(aprovar ? "sucesso" : "info", aprovar ? `Acesso aprovado para <b>${esc(nome)}</b>. O aparelho dele é liberado na hora.` : "Pedido recusado.");
+		toast(aprovar ? "sucesso" : "info", aprovar ? `Acesso aprovado para <b>${esc(nome)}</b>. O aparelho do convidado é liberado imediatamente.` : "Pedido recusado.");
 	} catch (e) {
 		botao.disabled = false;
 		erroConvite(e);
@@ -2813,7 +2813,7 @@ async function ligarLista(s) {
 				if (estado.sync && idSync(estado.sync) === idSync(s)) { estado.sync = s; armazenamento.gravar(CHAVE.sync, s); }
 				return ligarLista(s);
 			}
-			toast("aviso", "Este aparelho não tem a prova de dono desta lista: entrando <b>só para visualizar</b>. Entre com a conta que criou a lista para ter acesso completo.", 8000);
+			toast("aviso", "Este aparelho não possui a comprovação de dono desta lista; o acesso será <b>somente para visualização</b>. Entre com a conta que criou a lista para ter acesso completo.", 8000);
 			return virarVisualizacao(s);
 		}
 		if (erro?.code === "convite-invalido") { acessoRemovido("convite"); return false; }
@@ -2839,15 +2839,15 @@ async function pedirLoginDono(s) {
 	const google = provedores.firebase.disponivel;
 	const { acao } = await dialogo({
 		titulo: "Acesso completo",
-		html: "Você está <b>só visualizando</b> esta lista.<br><br>Se você é o dono, entre com a <b>conta que criou a lista</b> (Google ou e-mail): o acesso completo é liberado na hora.",
+		html: "Você está com acesso <b>somente para visualização</b> desta lista.<br><br>Se você é o dono, entre com a <b>conta que criou a lista</b> (Google ou e-mail): o acesso completo será liberado imediatamente.",
 		icone: "info",
 		confirmar: google ? "Entrar com Google" : "Entrar com e-mail",
 		negar: google ? "Entrar com e-mail" : undefined,
-		cancelar: "Continuar só visualizando"
+		cancelar: "Continuar somente visualizando"
 	});
 	if (acao === "confirmar" && google) return loginGoogle();
 	if (acao === "confirmar" || acao === "negar") {
-		const { acao: a2, valor } = await dialogo({ titulo: "Entrar com e-mail", html: "Digite o e-mail da conta que criou a lista. Você vai receber um link para entrar.", confirmar: "Receber link", cancelar: "Cancelar", input: "email" });
+		const { acao: a2, valor } = await dialogo({ titulo: "Entrar com e-mail", html: "Digite o e-mail da conta que criou a lista. Você receberá um link de acesso.", confirmar: "Receber link", cancelar: "Cancelar", input: "email" });
 		const email = String(valor || "").trim().toLowerCase();
 		if (a2 !== "confirmar" || !RE_EMAIL.test(email)) return false;
 		const prov = provedorEmail(false);
@@ -2886,7 +2886,7 @@ function desenharConvidados() {
 			<div class="convidado-info" data-c="detalhes" role="button" tabindex="0" title="Ver detalhes e renomear" aria-label="Detalhes de ${esc(c.nome)}">
 				<strong class="convidado-titulo" title="${esc(titulo)}"><span class="convidado-nome">${esc(titulo)}</span><span class="convidado-mais" aria-hidden="true">${icone("ChevronRight")}</span></strong>
 				<small class="convite-completo">Código de convite: <b class="codigo-convidado">${esc(estado.sync?.codigo ? codigoDeConvite(estado.sync.codigo, c.codigo) : formatarCodigoConvidado(c.codigo))}</b></small>
-				<small>${c.podeEditar ? "pode editar" : "só visualizar"} · ${c.visto ? `visto ${esc(fmtRelativoCurto(c.visto))}` : "ainda não entrou"}</small>
+				<small>${c.podeEditar ? "pode editar" : "somente visualizar"} · ${c.visto ? `visto ${esc(fmtRelativoCurto(c.visto))}` : "ainda não entrou"}</small>
 			</div>
 			<label class="mini-interruptor" title="Pode editar">
 				<input type="checkbox" data-c="permissao" ${c.podeEditar ? "checked" : ""} aria-label="${esc(c.nome)} pode editar">
@@ -2920,20 +2920,20 @@ function gerarCodigoConvidado() {
 const erroConvite = e => {
 	console.warn("[convidados]", e);
 	const info = explicarErro(e);
-	toast("erro", info.tipo === "rede" ? "Sem conexão: tente de novo quando a internet voltar." : "Não foi possível salvar no servidor. Tente de novo.");
+	toast("erro", info.tipo === "rede" ? "Sem conexão: tente novamente quando a internet voltar." : "Não foi possível salvar no servidor. Tente novamente.");
 };
 
 async function novoConvidado() {
 	if (!emNuvem() || !ehDono()) return toast("aviso", "Só o <b>dono da lista</b> pode convidar.");
 	if (!temConvidadosNoServidor()) return toast("aviso", "Convidados ficam disponíveis nas listas do Google ou com código.");
-	if (estado.sync.protecao !== "protegida") return toast("aviso", "A proteção da lista ainda não está ativa no servidor. Tente de novo em instantes.");
+	if (estado.sync.protecao !== "protegida") return toast("aviso", "A proteção da lista ainda não está ativa no servidor. Tente novamente em instantes.");
 	if (estado.convidados.length >= 50) return toast("aviso", "Limite de 50 convidados. Remova algum para convidar outro.");
 	const padrao = `Convidado ${estado.convidados.length + 1}`;
 	let nome = padrao, podeEditarConv = true;
 	if (window.Swal) {
 		const r = await window.Swal.fire({
 			title: "Novo convidado",
-			html: "Dê um nome para reconhecer o convidado (ex.: <b>Caixa 1</b>, <b>Maria</b>) e escolha a permissão. Você pode mudar depois. O convidado também pode informar o próprio nome.",
+			html: "Informe um nome para identificar o convidado (ex.: <b>Caixa 1</b>, <b>Maria</b>) e escolha a permissão. É possível alterá-los depois. O convidado também pode informar o próprio nome.",
 			input: "text",
 			inputValue: padrao,
 			inputAttributes: { maxlength: String(LIMITE_NOME_CONVIDADO), autocapitalize: "words", spellcheck: "false" },
@@ -2956,7 +2956,7 @@ async function novoConvidado() {
 		const v = window.prompt("Nome do convidado:", padrao);
 		if (v === null) return;
 		nome = v;
-		podeEditarConv = window.confirm("Este convidado pode editar a lista? (Cancelar = só visualizar)");
+		podeEditarConv = window.confirm("Este convidado poderá editar a lista? (Cancelar = somente visualizar)");
 	}
 	nome = limparNomeConvidado(nome) || padrao;
 	let codigo;
@@ -2967,7 +2967,7 @@ async function novoConvidado() {
 	atualizarCompartilhamento();
 	try {
 		await provAtual().salvarConvite(estado.sync.codigo, codigo, { nome, editar: podeEditarConv, criadoEm: c.criadoEm });
-		toast("sucesso", `Convidado <b>${esc(nome)}</b> criado. Envie o link (ou mostre o QR Code) só para ele.`, 5000);
+		toast("sucesso", `Convidado <b>${esc(nome)}</b> criado. Envie o link (ou mostre o QR Code) somente a essa pessoa.`, 5000);
 	} catch (e) {
 		estado.convidados = estado.convidados.filter(x => x.codigo !== codigo);
 		if (convidadoSelecionado === codigo) convidadoSelecionado = null;
@@ -2996,7 +2996,7 @@ async function detalhesConvidado(c) {
 	const html = `<div class="det-convidado">
 		<div class="det-bloco">
 			${linha("Nome que você deu", esc(c.nome))}
-			${linha("Permissão", c.podeEditar ? "pode editar" : "só visualizar")}
+			${linha("Permissão", c.podeEditar ? "pode editar" : "somente visualizar")}
 			${linha("Código de convite", `<span class="codigo-convidado">${esc(codigoDeConvite(estado.sync.codigo, c.codigo))}</span>`)}
 			${linha("Criado em", esc(quando(c.criadoEm)))}
 		</div>
@@ -3025,7 +3025,7 @@ async function renomearConvidado(c) {
 	if (!window.Swal || !ehDono() || !emNuvem()) return;
 	const abrir = () => window.Swal.fire({
 		title: "Renomear convidado",
-		html: `<p>Este é o nome que <b>você</b> vê na lista de convidados. O nome que o convidado escolheu para ele continua aparecendo ao lado.</p>`,
+		html: `<p>Este é o nome que <b>você</b> vê na lista de convidados. O nome escolhido pelo próprio convidado continua sendo exibido ao lado.</p>`,
 		input: "text",
 		inputValue: c.nome,
 		inputAttributes: { maxlength: "40", autocapitalize: "words", enterkeyhint: "done" },
@@ -3075,7 +3075,7 @@ async function acaoConvidado(evento) {
 		desenharConvidados();
 		try {
 			await provAtual().salvarConvite(codigoLista, c.codigo, { nome: c.nome, editar: c.podeEditar, criadoEm: c.criadoEm });
-			toast("info", `<b>${esc(c.nome)}</b> agora ${c.podeEditar ? "<b>pode editar</b>" : "<b>só pode visualizar</b>"}. O servidor já aplica; o aparelho dele é avisado assim que estiver online.`, 5000);
+			toast("info", `<b>${esc(c.nome)}</b> agora ${c.podeEditar ? "<b>pode editar</b>" : "<b>pode somente visualizar</b>"}. A alteração já vale no servidor; o aparelho do convidado será avisado assim que estiver on-line.`, 5000);
 		} catch (e) {
 			c.podeEditar = antes;
 			desenharConvidados();
@@ -3089,7 +3089,7 @@ async function acaoConvidado(evento) {
 		const ok = await copiarTexto(codigoConvite);
 		feedbackBotao(alvo, ok);
 		toast(ok ? "sucesso" : "erro", ok
-			? `Código de convite de <b>${esc(c.nome)}</b> copiado:<br><b class="codigo-convidado">${esc(codigoConvite)}</b><br><small>No aparelho dele: Salvar e compartilhar → “Já tem um código?”.</small>`
+			? `Código de convite de <b>${esc(c.nome)}</b> copiado:<br><b class="codigo-convidado">${esc(codigoConvite)}</b><br><small>No aparelho do convidado: Salvar e compartilhar → “Já tem um código?”.</small>`
 			: "Não foi possível copiar. Use o link ou o QR Code.", 6000);
 	} else if (tipo === "link") {
 		convidadoSelecionado = convidadoSelecionado === c.codigo ? null : c.codigo;
@@ -3097,7 +3097,7 @@ async function acaoConvidado(evento) {
 	} else if (tipo === "remover") {
 		const ok = await confirmar({
 			titulo: "Remover convidado?",
-			html: `<b>${esc(c.nome)}</b> perde o acesso à lista na hora (o servidor bloqueia). O link dele para de funcionar.`,
+			html: `<b>${esc(c.nome)}</b> perderá o acesso à lista imediatamente (o servidor bloqueia). O link do convidado deixará de funcionar.`,
 			confirmar: "Remover",
 			icone: "warning",
 			perigo: true
@@ -3143,7 +3143,7 @@ function aplicarPermissaoConvidado(info = {}) {
 	} else if (mudou) {
 		toast(modo === "edicao" ? "sucesso" : "aviso", modo === "edicao"
 			? `${iconeTexto("Pencil")} O dono da lista liberou: agora você <b>pode editar</b>.`
-			: `${iconeTexto("Eye")} O dono da lista mudou sua permissão: agora você <b>só pode visualizar</b>.`, 8000);
+			: `${iconeTexto("Eye")} O dono da lista alterou sua permissão: agora você <b>pode somente visualizar</b>.`, 8000);
 	}
 }
 
@@ -3185,7 +3185,7 @@ async function exigirNomeConvidado() {
 		armazenamento.gravarTexto(CHAVE.nomeAparelho, nome);
 		if (el.nomeConvidado) el.nomeConvidado.value = nome;
 		enviarAparelho().catch(e => console.warn("[convidados] nome:", e));
-		toast("sucesso", `Obrigado, <b>${esc(nome)}</b>! O dono da lista vê este aparelho com o seu nome.`, 4000);
+		toast("sucesso", `Obrigado, <b>${esc(nome)}</b>. O dono da lista verá este aparelho com o seu nome.`, 4000);
 	} finally {
 		pedindoNome = false;
 	}
@@ -3246,7 +3246,7 @@ async function acessoRemovido(motivo = "dono") {
 			html: motivo === "convite"
 				? "Este convite não vale mais (o dono removeu ou trocou). Peça um novo link ao dono da lista."
 				: motivo === "protegida"
-					? "O dono protegeu esta lista: agora só entram convidados. Peça um link de convite ao dono."
+					? "O dono protegeu esta lista: agora o acesso é permitido somente a convidados. Solicite um link de convite ao dono."
 					: "O dono da lista removeu o acesso deste aparelho. Os produtos deste aparelho continuam salvos nele.",
 			icone: "info"
 		});
@@ -3329,8 +3329,8 @@ async function configurarNomeLoja() {
 		const r = await window.Swal.fire({
 			title: "Nome da loja",
 			html: "Aparece antes de <b>Controle de Vencimento</b>, no topo do app e no título da aba. " + (emNuvem()
-				? "Fica salvo na lista e muda na hora em <b>todos os aparelhos</b> conectados a ela."
-				: "Fica salvo neste aparelho e, ao ativar a nuvem, vai para <b>todos os aparelhos</b> da lista."),
+				? "O nome é salvo na lista e atualizado imediatamente em <b>todos os aparelhos</b> conectados a ela."
+				: "O nome é salvo neste aparelho e, ao ativar a nuvem, será enviado a <b>todos os aparelhos</b> da lista."),
 			input: "text",
 			inputValue: atual,
 			inputPlaceholder: "Ex.: Mercado São José",
@@ -3353,7 +3353,7 @@ async function configurarNomeLoja() {
 	if (limpo === atual) return;
 	definirNomeLoja(limpo);
 	enviarNomeLojaNuvem();
-	const nosAparelhos = emNuvem() ? " Os outros aparelhos da lista recebem na hora." : "";
+	const nosAparelhos = emNuvem() ? " Os demais aparelhos da lista recebem a alteração imediatamente." : "";
 	toast("sucesso", (limpo ? `Nome da loja definido: <b>${esc(limpo)}</b>.` : "Nome padrão restaurado.") + nosAparelhos);
 }
 
@@ -3578,11 +3578,11 @@ async function lerFotoDoCodigo(arquivo) {
 			leituraOk(r.codigo, r.formato);
 		} else {
 			el.leitorStatus.textContent = leitor?.ativo ? "Procurando código…" : "Nenhum código na foto";
-			toast("aviso", "Não encontrei um código na foto. Tire outra bem de perto, com o código nítido e reto.", 6000);
+			toast("aviso", "Nenhum código foi encontrado na foto. Tire outra foto bem de perto, com o código nítido e alinhado.", 6000);
 		}
 	} catch (e) {
 		console.warn(e);
-		toast("erro", "Não foi possível analisar a foto. Verifique sua internet e tente de novo.");
+		toast("erro", "Não foi possível analisar a foto. Verifique sua conexão com a internet e tente novamente.");
 	}
 }
 
@@ -3838,9 +3838,9 @@ async function desconectarNuvem() {
 	const u = usuarioAtual();
 	const prov = provAtual();
 	const lembrete = estado.sync.provedor === "dropbox"
-		? "<br><br>Para voltar, basta entrar de novo com o Dropbox."
+		? "<br><br>Para voltar, basta entrar novamente com o Dropbox."
 		: u?.email
-			? `<br><br>Para voltar, basta entrar de novo com <b>${esc(u.email)}</b>.`
+			? `<br><br>Para voltar, basta entrar novamente com <b>${esc(u.email)}</b>.`
 			: `<br><br>Para voltar a esta lista depois, guarde o código:<br><b style="font-family:var(--fonte-mono);font-size:1.05rem">${formatarCodigoLista(estado.sync.codigo)}</b>`;
 	const comConta = !!u || estado.sync.provedor === "dropbox";
 	const { acao } = await dialogo({
@@ -3869,7 +3869,7 @@ async function desconectarNuvem() {
 	render();
 	atualizarIndicadorSync();
 	atualizarDialogoSync();
-	toast("info", "Desconectado. Os produtos agora ficam apenas neste aparelho.");
+	toast("info", "Desconectado. Os produtos passam a ser salvos apenas neste aparelho.");
 }
 
 /* ---------- Link de compartilhamento ---------- */
@@ -3972,17 +3972,17 @@ async function entrarEmLista(dados) {
 		titulo: "Conectar à lista na nuvem?",
 		html: novo.papel === "convidado"
 			? novo.convidado
-				? `Você vai entrar como <b>convidado</b>.<br>O <b>dono da lista</b> define se você pode editar ou só visualizar — e você é avisado quando isso mudar.${trocar}`
+				? `Você entrará como <b>convidado</b>.<br>O <b>dono da lista</b> define se você poderá editar ou somente visualizar, e você será avisado quando isso mudar.${trocar}`
 				: novo.donoPendente
-					? `Com o <b>código da lista</b> você entra para <b>visualizar</b>.<br><small>Se você é o dono, entre com a <b>conta que criou a lista</b>: o acesso completo é liberado sozinho.</small>${trocar}`
-					: `Você vai entrar como <b>convidado</b>.<br>Permissão: <b>${novo.modo === "leitura" ? "somente visualizar" : "pode editar"}</b><br><small>Só o dono da lista pode mudar essa permissão.</small>${trocar}`
+					? `Com o <b>código da lista</b> você entra para <b>visualizar</b>.<br><small>Se você é o dono, entre com a <b>conta que criou a lista</b>: o acesso completo será liberado automaticamente.</small>${trocar}`
+					: `Você entrará como <b>convidado</b>.<br>Permissão: <b>${novo.modo === "leitura" ? "somente visualizar" : "pode editar"}</b><br><small>Somente o dono da lista pode alterar essa permissão.</small>${trocar}`
 			: `Código: <b style="font-family:var(--fonte-mono)">${formatarCodigoLista(novo.codigo)}</b>${trocar}`,
 		confirmar: "Conectar",
 		icone: "question"
 	});
 	if (!ok) return false;
 	const conectou = await conectarNuvem(novo);
-	if (conectou) toast("sucesso", "Conectado! A lista será carregada em instantes.");
+	if (conectou) toast("sucesso", "Conectado. A lista será carregada em instantes.");
 	return conectou;
 }
 
@@ -4010,7 +4010,7 @@ async function atualizarCompartilhamento() {
 	if (!temCodigo || !ehDono()) return;
 	mostrarCodigoLista(codigoVisivel);
 	el.ajudaCodigo.innerHTML = provAtual()?.recursos?.convidados
-		? "Quem digitar este código <b>só visualiza</b> a lista. Acesso completo só com a <b>conta que criou a lista</b> (ou neste aparelho). Para outras pessoas, use <b>convidados</b>."
+		? "Quem digitar este código poderá <b>somente visualizar</b> a lista. O acesso completo é restrito à <b>conta que criou a lista</b> (ou a este aparelho). Para outras pessoas, use <b>convidados</b>."
 		: "Guarde este código: com ele você recupera a lista em qualquer aparelho.";
 	// Convidados com permissão garantida pelo servidor (listas do Google/código)
 	const comConvidados = temConvidadosNoServidor();
@@ -4026,7 +4026,7 @@ async function atualizarCompartilhamento() {
 	const escolhido = estado.convidados.find(c => c.codigo === convidadoSelecionado);
 	el.gradeLinkConvidado.hidden = !escolhido;
 	if (!escolhido) { qrUltimoLink = ""; return; }
-	el.textoLinkConvidado.innerHTML = `Link de <b>${esc(escolhido.nome)}</b>: abra no aparelho dele (ou leia o QR Code). Ele será conectado automaticamente.`;
+	el.textoLinkConvidado.innerHTML = `Link de <b>${esc(escolhido.nome)}</b>: abra-o no aparelho do convidado (ou leia o QR Code). A conexão será feita automaticamente.`;
 	const link = gerarLink(escolhido.codigo);
 	el.linkCompartilhar.value = link;
 	if (link === qrUltimoLink) return;
@@ -4071,7 +4071,7 @@ function atualizarDialogoSync() {
 		el.syncPermissaoAjuda.textContent = dono
 			? "Desative para que este aparelho apenas visualize a lista."
 			: estado.sync.donoPendente
-				? "Você entrou com o código da lista: só visualizar. Para ter acesso completo, entre com a conta que criou a lista."
+				? "Você entrou com o código da lista: acesso somente para visualização. Para ter acesso completo, entre com a conta que criou a lista."
 			: estado.sync.convidado
 				? estado.sync.confirmado
 					? "Você é convidado. Só o dono da lista muda esta permissão — você é avisado quando ela mudar."
@@ -4136,7 +4136,7 @@ async function aposLogin(provedorId, usuario) {
 	} catch (e) { console.warn(e); }
 	if (codigo) {
 		if (await conectarNuvem({ provedor: provedorId, codigo, segredo, modo: "edicao", papel: "dono", reconciliar: estado.itensLocais.length > 0 })) {
-			toast("sucesso", `Bem-vindo de volta! Lista da conta <b>${esc(usuario.email || "")}</b> carregada.`, 6000);
+			toast("sucesso", `Lista da conta <b>${esc(usuario.email || "")}</b> carregada.`, 6000);
 		}
 	} else {
 		const s = estado.sync;
@@ -4146,12 +4146,12 @@ async function aposLogin(provedorId, usuario) {
 		if (adotar) {
 			// A conta passa a ser a dona desta lista (outros aparelhos com a mesma conta terão acesso completo)
 			if (await conectarNuvem({ provedor: provedorId, codigo: s.codigo, segredo: s.segredo || gerarChaveDono(), modo: "edicao", papel: "dono" })) {
-				toast("sucesso", `Lista ligada à conta <b>${esc(usuario.email || "")}</b>: entre com ela nos outros aparelhos para ter acesso completo.`, 7000);
+				toast("sucesso", `Lista vinculada à conta <b>${esc(usuario.email || "")}</b>: entre com ela nos demais aparelhos para ter acesso completo.`, 7000);
 			}
 			return;
 		}
 		await criarListaNova({ provedorId, silencioso: true });
-		toast("sucesso", "Pronto! Entre com a mesma conta nos outros aparelhos para ver a mesma lista.", 7000);
+		toast("sucesso", "Concluído. Entre com a mesma conta nos demais aparelhos para acessar a mesma lista.", 7000);
 	}
 }
 
@@ -4784,9 +4784,9 @@ function registrarEventos() {
 			return toast("erro", "Digite seu nome (pelo menos 2 letras). O nome é obrigatório.");
 		}
 		armazenamento.gravarTexto(CHAVE.nomeAparelho, nome);
-		if (!estado.sync?.confirmado) return toast("info", "Nome guardado. Ele vai para o dono assim que o convite for confirmado.");
+		if (!estado.sync?.confirmado) return toast("info", "Nome salvo. Ele será enviado ao dono assim que o convite for confirmado.");
 		enviarAparelho().catch(e => console.warn("[convidados] nome:", e));
-		toast("sucesso", `Pronto! O dono da lista vê este aparelho como <b>${esc(nome)}</b>.`);
+		toast("sucesso", `Concluído. O dono da lista verá este aparelho como <b>${esc(nome)}</b>.`);
 	};
 	el.btnSalvarNomeConvidado.addEventListener("click", salvarNomeConvidado);
 	el.nomeConvidado.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); salvarNomeConvidado(); } });
@@ -4883,7 +4883,7 @@ function iniciar() {
 		if (copia.length) copiarNuvemParaLocal(copia);
 		armazenamento.remover(CHAVE.sync);
 		armazenamento.remover(CHAVE.cacheNuvem);
-		setTimeout(() => toast("info", "A nuvem do app foi atualizada. Seus produtos foram mantidos neste aparelho — toque em <b>Apenas neste aparelho</b> para salvar na nuvem de novo.", 9000), 800);
+		setTimeout(() => toast("info", "A nuvem do app foi atualizada. Seus produtos foram mantidos neste aparelho — toque em <b>Apenas neste aparelho</b> para salvar na nuvem novamente.", 9000), 800);
 	}
 
 	registrarEventos();
