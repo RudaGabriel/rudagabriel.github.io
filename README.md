@@ -355,6 +355,8 @@ O app é um site estático, rápido e sem instalação. As bibliotecas abaixo s�
 
 Em aparelhos mais fracos, o **modo leve** desliga as animações, as transições de tema e os desfoques para manter tudo fluido (veja *Personalizar*).
 
+Os textos do app (avisos, diálogos, dicas e botões) seguem o **português do Brasil em linguagem formal**, claros e objetivos sobre o que cada função faz.
+
 Recursos modernos do navegador também entram em ação: **BarcodeDetector** (leitor nativo do aparelho), **View Transitions** (troca de tema suave), **container queries** (layout que se ajusta a cada cartão) e **PWA** (instalação na tela inicial).
 
 ## Perguntas e problemas comuns

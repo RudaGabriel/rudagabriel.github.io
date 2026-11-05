@@ -189,7 +189,7 @@ export function criarDropbox(configBruta, { aoReceber, aoStatus, aoErro, aoUsuar
 			arg: { path: ARQUIVO, mode: modo, autorename: false, mute: true, strict_conflict: true },
 			binario: new Blob([conteudo], { type: "application/octet-stream" })
 		});
-		if (r.status === 409) throw Object.assign(new Error("O arquivo mudou em outro aparelho; tentando de novo."), { status: 409, code: "conflito" });
+		if (r.status === 409) throw Object.assign(new Error("O arquivo foi alterado em outro aparelho; tentando novamente."), { status: 409, code: "conflito" });
 		if (!r.ok) throw Object.assign(new Error(`Erro ${r.status} ao salvar no Dropbox`), { status: r.status });
 		const meta = await r.json().catch(() => ({}));
 		return meta.rev || null;
