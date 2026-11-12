@@ -429,7 +429,7 @@ svg.lucide,
 	width: 100%;
 	max-width: var(--largura-pagina);
 	margin: 0 auto;
-	padding: 22px var(--margem-pagina) 32px;
+	padding: 22px var(--margem-pagina) 5px;
 	display: flex;
 	flex-direction: column;
 	gap: 18px;
@@ -2850,7 +2850,7 @@ input[type="date"]::-webkit-date-and-time-value {
 	}
 
 	.pagina {
-		padding: 14px 12px 24px;
+		padding: 14px 12px 5px;
 		gap: 14px;
 	}
 
@@ -3536,7 +3536,7 @@ input[type="date"]::-webkit-date-and-time-value {
 	.pagina {
 		gap: 10px;
 		padding-top: 10px;
-		padding-bottom: 10px;
+		padding-bottom: 5px;
 	}
 
 	.rodape {
