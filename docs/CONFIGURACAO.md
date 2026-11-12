@@ -1,5 +1,7 @@
 # Configuração técnica (dono do site)
 
+*Controle de Vencimento — desenvolvido e mantido por [Ruda Gabriel](https://github.com/RudaGabriel).*
+
 > Este documento é só para quem mantém o site. Quem usa o app não precisa configurar nada — o guia de uso está no [README](../README.md).
 
 Quando algo de configuração falha, o app mostra ao usuário uma mensagem simples e registra no **console do navegador** uma dica técnica começando com `[nuvem · dono do site]`.
