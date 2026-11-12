@@ -13,7 +13,7 @@
      OSCBR_USUARIO   (Secret) OSCBR API GTIN — só pessoa jurídica (CNPJ);
      OSCBR_SENHA     (Secret)   sem as chaves fica desligada
      COSMOS_TOKEN    (Secret) Cosmos (Bluesoft) — exige franquia
-     BRAVE_TOKEN     (Secret) Brave Search — busca de imagens (opcional; cobrado por créditos)
+     BRAVE_TOKEN     (Secret) Brave Search — busca de imagens (opcional; US$ 5 de créditos grátis/mês)
      ORIGEM          (Text)   ex.: https://rudagabriel.github.io
 
      Abertas: catálogos públicos de lojas (plataforma VTEX: Cobasi,

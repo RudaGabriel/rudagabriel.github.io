@@ -249,9 +249,9 @@ No botão ✨ do app, o pedido vai com `todas=1`: o intermediário consulta **to
 | Kodebar | 50 consultas/dia | <https://kodebar.korvensistemas.com.br> → cadastro → **Painel do Usuário** → chave | `KODEBAR_KEY` |
 | Cosmos (Bluesoft) | depende do plano (conta gratuita veio com franquia 0) | <https://cosmos.bluesoft.com.br/api> → token | `COSMOS_TOKEN` |
 | OSCBR – API GTIN | 20 consultas/minuto — **só para empresa (pede CNPJ)** | <https://gtin.rscsistemas.com.br/cadastro> | `OSCBR_USUARIO` e `OSCBR_SENHA` |
-| Brave Search (imagens) | pago por créditos (pode haver crédito de teste; confira os planos no painel — exige cartão) | <https://api-dashboard.search.brave.com> → criar chave | `BRAVE_TOKEN` |
+| Brave Search (imagens) | US$ 5 em créditos gratuitos por mês (o consumo por consulta aparece no painel) | <https://api-dashboard.search.brave.com> → criar conta → criar chave | `BRAVE_TOKEN` |
 
-> O Brave é **opcional**: entra como mais um buscador de imagens (pelo código e pelo nome). Sem a chave, fica desligado e os demais (Bing, DuckDuckGo e Yandex, sem chave) continuam funcionando.
+> O Brave é **opcional**: entra como mais um buscador de imagens (pelo código e pelo nome). Sem a chave, fica desligado e os demais (Bing, DuckDuckGo e Yandex, sem chave) continuam funcionando. As respostas ficam guardadas no cache do intermediário por 7 dias, o que reduz o consumo dos créditos; acompanhe o uso no painel do Brave.
 
 > Pessoa física: use SI5 e Kodebar e deixe a OSCBR de fora — sem as chaves ela fica desligada (`/status` mostra `sem chave`), e isso é normal.
 
