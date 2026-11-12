@@ -1475,7 +1475,7 @@ async function sugerirNomeManual() {
 			const nome = await escolherNome(codigo, opcoes, {
 				pergunta: `Usar o nome “${opcoes[0].nome}”?`,
 				html: avisoExperimental("os nomes vêm de bases públicas e da web. Confira com a embalagem.")
-					+ `<p>Para o código <b>${esc(codigo)}</b> encontramos <b>${opcoes.length}</b> opções. Selecione a que corresponde à embalagem${atual ? ` (substituirá “${esc(atual)}”)` : ""}:</p>`,
+					+ `<p>Para o código <b>${esc(codigo)}</b>, foram encontradas <b>${opcoes.length}</b> opções. Selecione a que corresponde à embalagem${atual ? ` (substituirá “${esc(atual)}”)` : ""}:</p>`,
 				atual
 			});
 			if (nome && el.codigo.value.replace(/\s+/g, "") === codigo) {
@@ -1512,7 +1512,7 @@ async function sugerirNomeManual() {
 		if (atual === resultado.nome) return toast("info", "O nome já está igual à sugestão.");
 		const { acao } = await dialogo({
 			titulo: "Nome sugerido",
-			html: avisoExperimental("o nome pode não ser totalmente preciso. Confira com a embalagem.") + `<p>Para o código <b>${esc(codigo)}</b> encontramos:</p>`
+			html: avisoExperimental("o nome pode não ser totalmente preciso. Confira com a embalagem.") + `<p>Para o código <b>${esc(codigo)}</b>, foi encontrado:</p>`
 				+ `<p class="nome-sugerido">${esc(resultado.nome)}</p>`
 				+ `<p class="ajuda">Fonte: ${esc(resultado.fonte)}${atual ? ` · vai substituir “${esc(atual)}”` : ""}. Você pode ajustar depois.</p>`,
 			confirmar: "Usar este nome",
