@@ -123,7 +123,7 @@ Cada produto da lista mostra uma **miniatura** ao lado do nome.
 - **Automático:** quando o **código de barras é válido** (digitado ou lido pelo leitor), o app procura a foto sozinho — ela já aparece no botão de foto do formulário e entra com o produto. Produto **só com nome** não busca sozinho: toque no botão de foto (ou na miniatura) para buscar. A foto encontrada é baixada **uma vez** e guardada no aparelho. Dá para desligar em **⋮ → Buscar fotos automaticamente**.
 - **Toque na miniatura** para ver a foto grande e:
   - **Tirar ou escolher foto** — use a câmera ou escolha uma imagem do celular/computador. A sua foto **sempre tem prioridade**;
-  - **Buscar na internet** — mostra as fotos encontradas pelo nome e pelo código para você escolher;
+  - **Buscar na internet** — mostra as fotos encontradas pelo nome e pelo código, em vários buscadores de imagem ao mesmo tempo (Bing, DuckDuckGo, Yandex e, se configurado, Brave), para você escolher. Pelo código, só valem imagens de páginas que **citam o código**; imagem de outro código de barras, avatar ou logotipo é descartada;
   - **Remover foto** — o app não busca de novo para esse produto.
 - No formulário, o botão de **foto** (ao lado do ✨) deixa escolher a foto antes de adicionar o produto.
 - A foto vale para o **produto** (mesmo código de barras ou, sem código, mesmo nome): todos os lotes mostram a mesma foto.
@@ -133,7 +133,7 @@ Cada produto da lista mostra uma **miniatura** ao lado do nome.
 
 1. Toque no ícone ao lado do campo **Vencimento**. A câmera abre com uma **moldura**.
 2. Deixe **só as linhas da data** dentro da moldura, bem de perto e com luz, e toque em **Ler data**. Se a câmera não abrir, toque em **Usar uma foto**, escolha a foto e **arraste o dedo sobre a data** para marcar a área (pode ser só a linha da validade; o app amplia um pouco a área para não cortar as letras).
-3. O app mostra a área lida e as datas encontradas, com a **validade mais provável já selecionada**. Confira com a embalagem, toque em outra data se for preciso e confirme. Se nenhuma estiver certa, toque em **Ler de novo**.
+3. O app mostra a área lida e as datas encontradas, com a **validade mais provável já selecionada**. Confira com a embalagem, toque em outra data se for preciso e confirme. Se nenhuma estiver certa, toque em **Ler novamente**.
 
 - Entende os formatos usados no Brasil:
   - **dia/mês/ano:** *15/03/2027*, *15.03.27*, *15-03-27*, *15 03 27*, *2027-03-15*;
@@ -230,21 +230,21 @@ Bom saber:
 - O botão do topo mostra a situação: **Salvo na nuvem**, **Salvando…**, **Sem internet** ou **Apenas neste aparelho**.
 - **Para sair**, toque no mesmo botão e em **Desconectar**. Você pode guardar uma cópia da lista no aparelho.
 
-> **O e-mail de acesso não chegou?** Confira a pasta de spam/lixo eletrônico. Se ainda assim não chegar, toque em **"Não chegou? Enviar por outro servidor"** e digite o código de 6 dígitos que vier no novo e-mail.
+> **O e-mail de acesso não chegou?** Confira a pasta de spam/lixo eletrônico. Se ainda assim não chegar, toque em **"Não recebeu o e-mail? Enviar por outro servidor"** e digite o código de 6 dígitos que vier no novo e-mail.
 
 ## Compartilhar com a equipe
 
-Depois de conectar uma lista com código, toque no botão de nuvem e use a área **Compartilhar**:
+Depois de conectar uma lista (com Google ou com código), toque no botão de nuvem → **Salvar e compartilhar** e use a área **Convidados**:
 
-1. Escolha o tipo de acesso:
+1. Toque em **Novo convidado**, dê um nome para reconhecer a pessoa (ex.: *Caixa 1*) e escolha a permissão:
    - **Pode editar:** a pessoa pode adicionar, editar e remover produtos;
-   - **Só visualizar:** a pessoa só vê a lista.
-2. Envie o **link** (botão de copiar) ou mostre o **QR Code** para a pessoa ler com a câmera.
-3. A pessoa também pode digitar o **código da lista** em **"Já tem um código?"**.
+   - **Somente visualizar:** a pessoa apenas vê a lista.
+2. Envie o **link próprio** desse convidado (botão de copiar), mostre o **QR Code** dele ou copie o **código de convite**, que a pessoa digita em **"Já tem um código?"**.
+3. Quem digitar apenas o **código da lista** entra **somente para visualizar** e pode tocar em **Pedir acesso para editar** — o pedido aparece para você em **Solicitações pendentes**.
 
-Todos veem as alterações **em tempo real**.
+Todos veem as alterações **em tempo real**. A permissão de cada convidado pode ser alterada ou removida a qualquer momento.
 
-> ⚠️ Quem tiver o link, o QR Code ou o código pode acessar a lista. Compartilhe apenas com pessoas de confiança.
+> ⚠️ Quem tiver um link ou código de convite acessa a lista com a permissão daquele convite. Compartilhe apenas com pessoas de confiança.
 
 **Dono e convidados — permissões garantidas pelo servidor:**
 
@@ -343,7 +343,7 @@ O app é um site estático, rápido e sem instalação. As bibliotecas abaixo s�
 | [barcode-detector](https://github.com/Sec-ant/barcode-detector) · [ZXing-C++](https://github.com/zxing-cpp/zxing-cpp) | Leitura rápida de códigos de barras (WebAssembly), inclusive no iPhone. |
 | [ZXing JS](https://github.com/zxing-js/library) | Leitor reserva para aparelhos e navegadores mais antigos. |
 | [Tesseract.js](https://tesseract.projectnaptha.com/) | Lê a data de validade de uma foto, no próprio aparelho (OCR). |
-| [Open Food Facts](https://world.openfoodfacts.org/) (e as bases irmãs de produtos, beleza e pet) · [UPCitemdb](https://www.upcitemdb.com/) · [Wikidata](https://www.wikidata.org/) · catálogos públicos de lojas (plataforma VTEX: Cobasi, Carrefour, drogarias…) · pesquisa na web (Bing/DuckDuckGo) | Bases públicas usadas para encontrar o **nome** e a **foto** do produto pelo código de barras ou pelo nome. |
+| [Open Food Facts](https://world.openfoodfacts.org/) (e as bases irmãs de produtos, beleza e pet) · [UPCitemdb](https://www.upcitemdb.com/) · [Wikidata](https://www.wikidata.org/) · catálogos públicos de lojas (plataforma VTEX: Cobasi, Carrefour, drogarias…) · pesquisa na web e de imagens (Bing, DuckDuckGo, Yandex e, opcionalmente com chave, Brave Search) | Bases públicas usadas para encontrar o **nome** e a **foto** do produto pelo código de barras ou pelo nome. |
 | [SI5 Global](https://si5.com.br/) · [Kodebar](https://kodebar.korvensistemas.com.br/) · [Cosmos (Bluesoft)](https://cosmos.bluesoft.com.br/) · OSCBR (API GTIN) | Bases brasileiras com chave, consultadas **só pelo intermediário** (cada uma só entra se a chave estiver configurada). |
 | [Cloudflare Workers](https://workers.cloudflare.com/) (intermediário) | Consulta as bases de produtos **guardando as chaves em segredo** (nunca aparecem no site), junta os resultados num formato único, guarda em cache por 7 dias e libera as fotos para o app guardar uma cópia no aparelho. Código em [`docs/intermediario.js`](docs/intermediario.js). |
 | [SweetAlert2](https://sweetalert2.github.io/) | Janelas de confirmação claras e acessíveis. |
@@ -368,7 +368,7 @@ Recursos modernos do navegador também entram em ação: **BarcodeDetector** (le
 |---|---|
 | **"Não foi possível iniciar a câmera"** | Permita a câmera para o site. No iPhone: *Ajustes → Safari → Câmera → Permitir*. No Android: toque no cadeado da barra de endereço → *Permissões → Câmera*. Enquanto isso, use **Tirar foto do código**. |
 | **O leitor não lê o código** | Afaste um pouco o celular, mantenha o código reto na faixa, use o **zoom** e, se estiver escuro, o **flash**. |
-| **O e-mail de acesso não chegou** | Veja o spam e toque em **"Não chegou? Enviar por outro servidor"**. |
+| **O e-mail de acesso não chegou** | Veja o spam e toque em **"Não recebeu o e-mail? Enviar por outro servidor"**. |
 | **Abri o link do e-mail em outro aparelho** | O app pede para confirmar seu e-mail; digite o mesmo e-mail usado no pedido. |
 | **O navegador bloqueou a janela de login** | Permita pop-ups para o site e tente de novo. |
 | **A lista não aparece no outro aparelho** | Confirme se entrou com a **mesma conta** (ou o mesmo código) nos dois aparelhos e se há internet. |
