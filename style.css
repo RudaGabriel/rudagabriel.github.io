@@ -429,7 +429,9 @@ svg.lucide,
 	width: 100%;
 	max-width: var(--largura-pagina);
 	margin: 0 auto;
-	padding: 22px var(--margem-pagina) 5px;
+	/* Embaixo: espaço entre cartões (18px) − espaço acima do texto do rodapé (18px) = 0,
+	   para o rodapé ficar à mesma distância que separa um cartão do outro */
+	padding: 22px var(--margem-pagina) 0;
 	display: flex;
 	flex-direction: column;
 	gap: 18px;
@@ -2849,9 +2851,14 @@ input[type="date"]::-webkit-date-and-time-value {
 		max-width: 150px;
 	}
 
+	/* Embaixo: 0 + 14px acima do texto do rodapé = os mesmos 14px entre os cartões */
 	.pagina {
-		padding: 14px 12px 5px;
+		padding: 14px 12px 0;
 		gap: 14px;
+	}
+
+	.rodape {
+		padding-top: 14px;
 	}
 
 	.cartao {
@@ -3267,6 +3274,12 @@ input[type="date"]::-webkit-date-and-time-value {
 		padding-top: 10px;
 		padding-bottom: calc(14px + env(safe-area-inset-bottom));
 	}
+
+	/* Embaixo: 18px entre cartões − 10px acima do texto do rodapé = 8px
+	   (no celular em pé o rodapé fica oculto e vale a regra própria, mais abaixo) */
+	.pagina {
+		padding-bottom: 8px;
+	}
 }
 
 /* ---------- Celular: lista ocupa a tela ---------- */
@@ -3536,7 +3549,7 @@ input[type="date"]::-webkit-date-and-time-value {
 	.pagina {
 		gap: 10px;
 		padding-top: 10px;
-		padding-bottom: 5px;
+		padding-bottom: 10px; /* rodapé oculto: mesmo espaço do topo */
 	}
 
 	.rodape {
