@@ -140,7 +140,7 @@ service cloud.firestore {
 
 ### 2) E-mail — Supabase (servidor alternativo)
 
-Quando o Firebase também está configurado, o "Entrar com e-mail" usa o Firebase e o Supabase aparece como **"Não chegou? Enviar por outro servidor"** (link ou código de 6 dígitos). Também pode ser usado sozinho.
+Quando o Firebase também está configurado, o "Entrar com e-mail" usa o Firebase e o Supabase aparece como **"Não recebeu o e-mail? Enviar por outro servidor"** (link ou código de 6 dígitos). Também pode ser usado sozinho.
 
 1. Crie um projeto em https://supabase.com/dashboard (região *South America (São Paulo)*).
 2. **SQL Editor → New query** → cole e clique em **Run** (deve aparecer *"Success. No rows returned"*):
@@ -237,7 +237,9 @@ O Firebase não permite trocar o texto do e-mail de login por link, mas permite 
 
 As bases brasileiras de códigos de barras exigem uma **chave** que não pode ficar no site (qualquer pessoa veria). Por isso o app consulta essas bases por um **intermediário gratuito na Cloudflare** ([`docs/intermediario.js`](intermediario.js)), que guarda as chaves em segredo, só atende o site do app e guarda as respostas por 7 dias (economiza as cotas).
 
-O intermediário tenta **primeiro as bases com chave e limite diário** (na ordem abaixo) e, **depois, as abertas** (sem chave). Junta nome e foto e para quando já tem os dois. Base que estourar a cota do dia fica pausada até a meia-noite.
+O intermediário tenta **primeiro as bases com chave e limite diário** (na ordem abaixo) e, **depois, as abertas** (sem chave). Junta nome e foto e para quando já tem os dois — mas, se o nome achado for **abreviado** (ex.: `CR TRAT NOVEX`), continua procurando um nome completo nas outras bases. Base que estourar a cota do dia fica pausada até a meia-noite.
+
+No botão ✨ do app, o pedido vai com `todas=1`: o intermediário consulta **todas** as bases e devolve a lista `nomes` (completos primeiro) para a pessoa escolher. Isso gasta 1 consulta de cada base com chave.
 
 **Com chave** (cada uma é opcional — ligue as que quiser):
 
@@ -247,6 +249,9 @@ O intermediário tenta **primeiro as bases com chave e limite diário** (na orde
 | Kodebar | 50 consultas/dia | <https://kodebar.korvensistemas.com.br> → cadastro → **Painel do Usuário** → chave | `KODEBAR_KEY` |
 | Cosmos (Bluesoft) | depende do plano (conta gratuita veio com franquia 0) | <https://cosmos.bluesoft.com.br/api> → token | `COSMOS_TOKEN` |
 | OSCBR – API GTIN | 20 consultas/minuto — **só para empresa (pede CNPJ)** | <https://gtin.rscsistemas.com.br/cadastro> | `OSCBR_USUARIO` e `OSCBR_SENHA` |
+| Brave Search (imagens) | pago por créditos (pode haver crédito de teste; confira os planos no painel — exige cartão) | <https://api-dashboard.search.brave.com> → criar chave | `BRAVE_TOKEN` |
+
+> O Brave é **opcional**: entra como mais um buscador de imagens (pelo código e pelo nome). Sem a chave, fica desligado e os demais (Bing, DuckDuckGo e Yandex, sem chave) continuam funcionando.
 
 > Pessoa física: use SI5 e Kodebar e deixe a OSCBR de fora — sem as chaves ela fica desligada (`/status` mostra `sem chave`), e isso é normal.
 
@@ -257,9 +262,10 @@ O intermediário tenta **primeiro as bases com chave e limite diário** (na orde
 | Catálogos públicos de lojas (plataforma VTEX): Carrefour Mercado, Cobasi, Petz, Drogaria São Paulo, Drogarias Pacheco, Pague Menos, Época Cosméticos, Zona Sul, Sonda, Super Nosso, Atacadão, Drogaria Araujo, Ultrafarma, Drogaria Venancio, Mambo, Hirota | Nome e foto pelo código de barras (só aceita o item com o **mesmo** código) e busca de fotos pelo nome (`/busca`). |
 | UPCitemdb | Base internacional (o navegador não consegue consultar direto; por isso passa pelo intermediário). |
 | Cosmos (página pública) | A página do produto no site do Cosmos — não gasta a cota da API do Cosmos. |
-| Pesquisa na web (Bing; reservas: DuckDuckGo, DuckDuckGo "lite" e DuckDuckGo Imagens) | Pesquisa o código de barras entre aspas, abre as 3 primeiras páginas de loja e lê os dados do produto (JSON-LD/`og:image`). Nome e foto só são aceitos quando a página traz o **mesmo** código; sem isso, usa o nome que se repete em 2+ resultados (sem foto). Também completa a busca de fotos **por nome** quando as lojas trazem pouco, junto com a **busca de imagens** (Bing; reserva: DuckDuckGo) e uma 2ª consulta às lojas só pelo tipo do produto. |
+| Pesquisa na web (Bing, DuckDuckGo e DuckDuckGo "lite") | Pesquisa o código de barras entre aspas, abre as 3 primeiras páginas de loja e lê os dados do produto (JSON-LD/`og:image`). Nome e foto são aceitos quando a página traz o **mesmo** código; sem isso, só valem títulos de resultados que **citam o código** (no título, no link ou no trecho) — resultados aleatórios do buscador nunca viram nome. |
+| Busca de imagens (Bing Imagens, DuckDuckGo Imagens, Yandex Imagens e, com chave, Brave) | Todos ao mesmo tempo, **pelo código de barras e pelo nome**, com os resultados intercalados e sem repetir. Pelo código, só valem imagens cuja página, título ou trecho **cita o código**; imagens com **outro** código no endereço, avatares, logotipos e ícones são descartados. O Google não entra: a busca dele exige JavaScript e a API oficial foi fechada para novos usos (encerramento em 01/01/2027). |
 
-As bases abertas só são consultadas quando as anteriores não trouxeram nome **e** foto, e ficam dentro do limite gratuito da Cloudflare (50 consultas externas por pedido). Lojas que bloquearem a consulta são simplesmente ignoradas. Para ver o que cada loja respondeu: `https://SEU-WORKER.workers.dev/lojas?gtin=7898019864316`.
+As bases abertas são consultadas quando as anteriores não trouxeram nome **e** foto, quando o nome veio abreviado ou com `todas=1`, e ficam dentro do limite gratuito da Cloudflare (50 consultas externas por pedido). Lojas que bloquearem a consulta são simplesmente ignoradas. Para ver o que cada loja respondeu: `https://SEU-WORKER.workers.dev/lojas?gtin=7898019864316`.
 
 As fotos encontradas são baixadas **uma única vez** e guardadas no aparelho (IndexedDB, como imagem própria). Quando o site da foto não permite isso, o app pega a imagem pelo intermediário (`/imagem`).
 
@@ -277,7 +283,7 @@ As fotos encontradas são baixadas **uma única vez** e guardadas no aparelho (I
 - `https://SEU-WORKER.workers.dev/busca?q=arroz tio joao` → produtos com foto encontrados pelo nome.
 - `https://SEU-WORKER.workers.dev/lojas?gtin=7898019864316` → o que cada loja respondeu (diagnóstico).
 
-> Depois de atualizar o código do Worker, as respostas antigas de "não encontrado" continuam guardadas por até 1 dia.
+> Depois de atualizar o código do Worker, as respostas antigas guardadas no cache são ignoradas automaticamente quando a regra muda (as chaves do cache têm versão: `produto4/`, `busca10/`). Respostas da mesma versão ficam guardadas por até 7 dias ("não encontrado": 1 dia).
 
 O painel de teste da própria Cloudflare (aba **HTTP**) responde `{"erro":"origem"}` — é a proteção (só o app e a barra de endereço são aceitos). Teste pela barra de endereço.
 
@@ -315,8 +321,9 @@ O site já está preparado para o AdSense (editor `pub-2042570332495044`):
 ├── leitor.js             # Leitor de código de barras (3 motores, flash, zoom, foto)
 ├── foco.js               # Foco da câmera (perto/longe, toque, lente macro no iPhone)
 ├── validade.js           # Leitura da data de validade (OCR no aparelho)
-├── produtos.js           # Sugestão de nome pelo código de barras
+├── produtos.js           # Sugestão de nome pelo código de barras (e opções para o botão ✨)
 ├── fotos.js              # Foto do produto (busca automática e foto própria)
+├── sw.js                 # Service worker: abre sem internet e pega a versão nova
 ├── nuvem/
 │   ├── comum.js          # Códigos de lista, UUIDs, erros e fila offline
 │   ├── firebase.js       # Google: Firestore, login Google e link no e-mail
@@ -330,7 +337,9 @@ O site já está preparado para o AdSense (editor `pub-2042570332495044`):
 ├── ads.txt               # Autorização de vendedores do AdSense
 ├── docs/                 # Capturas de tela, CONFIGURACAO.md e intermediario.js (Cloudflare)
 ├── icones/               # Ícone do app (SVG original + PNGs) 
-└── manifest.webmanifest  # Instalação na tela inicial (PWA)
+├── manifest.webmanifest  # Instalação na tela inicial (PWA)
+├── CLAUDE.md             # Regras do projeto para o assistente (manter a documentação atualizada)
+└── LICENSE               # Licença MIT
 ```
 
 ## Tecnologias
@@ -348,6 +357,9 @@ Site estático (GitHub Pages), **sem etapa de build** — JavaScript moderno com
 | [Lucide](https://lucide.dev/) | Ícones |
 | [qrcode-generator](https://github.com/kazuhikoarase/qrcode-generator) | QR Code de compartilhamento |
 | [AutoAnimate](https://auto-animate.formkit.com/) | Animações da lista |
+| [Tesseract.js 6](https://tesseract.projectnaptha.com/) | Leitura da data de validade por foto (OCR no aparelho) |
+| [Fuse.js](https://www.fusejs.io/) | Busca da lista tolerante a erros de digitação |
+| [Dexie.js](https://dexie.org/) | Fotos dos produtos guardadas no aparelho (IndexedDB) |
 
 ## Desenvolvimento local
 

@@ -13,6 +13,7 @@
      OSCBR_USUARIO   (Secret) OSCBR API GTIN — só pessoa jurídica (CNPJ);
      OSCBR_SENHA     (Secret)   sem as chaves fica desligada
      COSMOS_TOKEN    (Secret) Cosmos (Bluesoft) — exige franquia
+     BRAVE_TOKEN     (Secret) Brave Search — busca de imagens (opcional; cobrado por créditos)
      ORIGEM          (Text)   ex.: https://rudagabriel.github.io
 
      Abertas: catálogos públicos de lojas (plataforma VTEX: Cobasi,
@@ -187,8 +188,8 @@ const BASES = [
 	{
 		id: "web", nome: "Pesquisa na web",
 		ativa: () => true,
-		async consultar(gtin) {
-			const achado = await pesquisarNaWeb(gtin);
+		async consultar(gtin, env) {
+			const achado = await pesquisarNaWeb(gtin, env);
 			// Buscador fora do ar/bloqueado: não é "não encontrado" (não grava no cache)
 			if (!achado) return { status: 0 };
 			if (achado.vazio) return { status: 404 };
@@ -290,6 +291,20 @@ async function buscarPagina(url, limiteMs = 7000) {
 	}
 }
 
+/** O endereço da imagem traz um código de barras (8 a 14 dígitos) DIFERENTE do procurado? */
+function fotoDeOutroCodigo(foto, gtin) {
+	const alvo = String(gtin || "").replace(/\D/g, "").replace(/^0+/, "");
+	if (!alvo) return false;
+	const codigos = (String(foto || "").match(/(?<!\d)\d{8,14}(?!\d)/g) || []).map(c => c.replace(/^0+/, ""));
+	// Só conta números com cara de GTIN brasileiro/internacional (prefixos 789/790 ou 12–14 dígitos)
+	const gtins = codigos.filter(c => /^(789|790)\d{10}$/.test(c) || (c.length >= 12 && c.length <= 14));
+	return gtins.length > 0 && !gtins.includes(alvo);
+}
+
+/** Endereço que claramente não é foto de produto (avatar, logo, ícone, banner, perfil de usuário). */
+const FOTO_NAO_PRODUTO = /\/(users?|avatars?|profiles?|perfil|logos?|icons?|sprites?|banners?|emoji)\b|[_./-](avatar|logo|icon|favicon|sprite|banner|placeholder)[_./-]/i;
+const fotoSuspeita = (foto, gtin) => FOTO_NAO_PRODUTO.test(String(foto || "")) || fotoDeOutroCodigo(foto, gtin);
+
 /** O texto cita o código de barras (com ou sem zeros à esquerda)? */
 function citaCodigo(texto, gtin) {
 	const semZeros = String(gtin || "").replace(/\D/g, "").replace(/^0+/, "");
@@ -365,23 +380,97 @@ async function imagensDuckDuckGo(consulta) {
 	return { respondeu: r.status === 200, lista };
 }
 
-/** Fotos pelo nome em buscadores de imagem: Bing (rápido e completo); vazio → DuckDuckGo. */
-async function imagensDaWeb(consulta) {
+/**
+ * Imagens do Yandex (sem chave). A página traz, para cada imagem, o título, o trecho e a
+ * página de origem — usados para conferir se a imagem é mesmo do produto.
+ * Formato: ..."snippet":{"title":…,"text":…,"url":…},"detail_url":"…","img_href":"<imagem original>"...
+ */
+function lerImagensYandex(html) {
+	// Os dados ficam DENTRO de um atributo (data-state): só converte as entidades, sem tirar as tags
+	const texto = String(html || "")
+		.replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+	const lista = [];
+	for (const m of texto.matchAll(/"snippet":(\{[^{}]*\}),"detail_url":"[^"]*","img_href":"([^"]+)"/g)) {
+		let s = null;
+		try { s = JSON.parse(m[1]); } catch { continue; }
+		const foto = urlHttps(String(m[2] || "").replace(/^\/\//, "https://").replace(/^http:\/\//i, "https://"));
+		const pagina = String(s?.url || "");
+		const titulo = decodificarHtml(String(s?.title || "").replace(/<[^>]+>/g, ""));
+		if (foto && titulo && !SITES_IGNORADOS.test(pagina) && !lista.some(x => x.foto === foto)) {
+			lista.push({ titulo, foto, pagina, texto: decodificarHtml(String(s?.text || "").replace(/<[^>]+>/g, "")), fonte: "Yandex Imagens" });
+		}
+		if (lista.length >= 30) break;
+	}
+	return lista;
+}
+
+async function imagensYandex(consulta) {
+	const p = await buscarPagina(`https://yandex.com/images/search?text=${encodeURIComponent(consulta)}`, 6000);
+	// Verificação "não sou robô": conta como fora do ar (não como "não achei")
+	if (!p.html || /showcaptcha|SmartCaptcha|checkcaptcha/i.test(p.html.slice(0, 20000))) return { respondeu: false, lista: [] };
+	return { respondeu: true, lista: lerImagensYandex(p.html) };
+}
+
+/**
+ * Imagens do Brave Search (opcional): só com a chave em BRAVE_TOKEN (Secret).
+ * Sem a chave fica desligado — nada é consultado.
+ */
+async function imagensBrave(consulta, env) {
+	if (!env?.BRAVE_TOKEN) return { respondeu: false, lista: [] };
+	const r = await buscar(`https://api.search.brave.com/res/v1/images/search?q=${encodeURIComponent(consulta)}&count=30&country=BR&search_lang=pt-br&safesearch=strict`,
+		{ Accept: "application/json", "X-Subscription-Token": env.BRAVE_TOKEN }, 7000);
+	if (r.status === 429) return { respondeu: false, lista: [] };
+	const resultados = Array.isArray(r.dados?.results) ? r.dados.results : [];
+	const lista = resultados.map(x => ({
+		titulo: decodificarHtml(String(x?.title || "")),
+		foto: urlHttps(String(x?.properties?.url || x?.thumbnail?.src || "").replace(/^http:\/\//i, "https://")),
+		pagina: String(x?.url || ""),
+		texto: "",
+		fonte: "Brave Imagens"
+	})).filter(x => x.titulo && x.foto && !SITES_IGNORADOS.test(x.pagina));
+	return { respondeu: r.status === 200, lista };
+}
+
+/** Junta as listas de vários buscadores, alternando entre eles (um de cada) e sem repetir a mesma imagem. */
+function juntarImagens(listas, maximo = 60) {
+	const saida = [];
+	const vistas = new Set();
+	for (let i = 0; saida.length < maximo && listas.some(l => i < l.length); i++) {
+		for (const l of listas) {
+			const im = l[i];
+			if (!im || vistas.has(im.foto)) continue;
+			vistas.add(im.foto);
+			saida.push(im);
+			if (saida.length >= maximo) break;
+		}
+	}
+	return saida;
+}
+
+/**
+ * Imagens na web por um texto (nome do produto ou código de barras), em vários buscadores ao mesmo
+ * tempo: Bing, Yandex, DuckDuckGo e, com chave, Brave. Cada um que falhar é ignorado.
+ * (O Google não entra: a busca dele exige JavaScript e a API oficial foi fechada para novos usos.)
+ */
+async function imagensDaWeb(consulta, env) {
 	const q = encodeURIComponent(consulta);
-	// Bing e DuckDuckGo ao mesmo tempo; vale o Bing se ele trouxer algo, senão o DuckDuckGo
-	const [bing, ddg] = await Promise.all([
-		buscarPagina(`https://www.bing.com/images/async?q=${q}&first=0&count=35&mmasync=1&setlang=pt-BR&cc=BR`, 5000),
-		imagensDuckDuckGo(consulta).catch(() => ({ respondeu: false, lista: [] }))
+	const vazio = { respondeu: false, lista: [] };
+	const [bing, yandex, ddg, brave] = await Promise.all([
+		buscarPagina(`https://www.bing.com/images/async?q=${q}&first=0&count=35&mmasync=1&setlang=pt-BR&cc=BR`, 5000)
+			.then(p => ({ respondeu: !!p.html, lista: lerImagensBing(p.html) })).catch(() => vazio),
+		imagensYandex(consulta).catch(() => vazio),
+		imagensDuckDuckGo(consulta).catch(() => vazio),
+		imagensBrave(consulta, env).catch(() => vazio)
 	]);
-	const doBing = lerImagensBing(bing.html);
-	return { respondeu: !!bing.html || ddg.respondeu, lista: doBing.length ? doBing : ddg.lista };
+	const todos = [bing, yandex, ddg, brave];
+	return { respondeu: todos.some(r => r.respondeu), lista: juntarImagens(todos.map(r => r.lista)) };
 }
 
 const palavrasDe = t => limpar(t).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/[^a-z0-9]+/).filter(p => p.length > 2 && !/^\d+$/.test(p));
 
-async function pesquisarNaWeb(gtin) {
-	// Páginas da web e imagens do DuckDuckGo ao mesmo tempo (o Bing costuma bloquear o Worker)
-	const [web, imagens] = await Promise.all([resultadosDaWeb(`"${gtin}"`, gtin), imagensDuckDuckGo(gtin)]);
+async function pesquisarNaWeb(gtin, env) {
+	// Páginas da web e imagens de vários buscadores ao mesmo tempo, todos pelo código de barras
+	const [web, imagens] = await Promise.all([resultadosDaWeb(`"${gtin}"`, gtin), imagensDaWeb(gtin, env)]);
 	if (!web.respondeu && !imagens.respondeu) return null;
 	const resultados = web.lista;
 	// Abre as 3 primeiras páginas e procura uma que confirme o código de barras
@@ -402,7 +491,7 @@ async function pesquisarNaWeb(gtin) {
 	// esses não podem virar nome de produto, nem por consenso entre si.
 	const site = link => { try { return new URL(link).hostname.replace(/^www\./, ""); } catch { return ""; } };
 	// Imagens só apoiam (e dão a foto) — a não ser que o título ou a página da imagem cite o código
-	const daImagem = imagens.lista.map(im => ({ nome: limparTituloProduto(im.titulo, gtin), foto: im.foto, site: site(im.pagina), citaCodigo: citaCodigo(im.titulo, gtin) || citaCodigo(im.pagina, gtin) }))
+	const daImagem = imagens.lista.map(im => ({ nome: limparTituloProduto(im.titulo, gtin), foto: im.foto, site: site(im.pagina), citaCodigo: citaCodigo(im.titulo, gtin) || citaCodigo(im.pagina, gtin) || citaCodigo(im.texto, gtin) }))
 		.filter(c => palavrasDe(c.nome).length >= 2);
 	const doCodigo = [
 		...resultados.filter(r => r.citaCodigo).map(r => ({ nome: limparTituloProduto(r.titulo, gtin), foto: "", site: site(r.link) })),
@@ -417,13 +506,14 @@ async function pesquisarNaWeb(gtin) {
 		return { ...c, apoio };
 	}).sort((a, b) => b.apoio - a.apoio || a.nome.length - b.nome.length);
 	const melhor = pontuados[0];
-	// Foto: a imagem cujo título mais se parece com o nome escolhido
+	// Foto: primeiro a imagem que CITA o código; senão, a de título mais parecido com o nome.
+	// Imagem cujo endereço traz OUTRO código de barras é de outro produto (ex.: a versão "light"): nunca entra.
 	const pm = new Set(palavrasDe(melhor.nome));
 	const comFoto = candidatos
-		.filter(c => c.foto)
-		.map(c => ({ c, n: palavrasDe(c.nome).filter(p => pm.has(p)).length }))
-		.filter(x => x.n >= 2)
-		.sort((a, b) => b.n - a.n)[0]?.c;
+		.filter(c => c.foto && !fotoSuspeita(c.foto, gtin))
+		.map(c => ({ c, cita: c.citaCodigo || citaCodigo(c.foto, gtin) ? 1 : 0, n: palavrasDe(c.nome).filter(p => pm.has(p)).length }))
+		.filter(x => x.cita || x.n >= 2)
+		.sort((a, b) => b.cita - a.cita || b.n - a.n)[0]?.c;
 	return {
 		nome: melhor.nome, marca: "", foto: comFoto?.foto || "",
 		fonte: melhor.site ? `Pesquisa na web (${melhor.site})` : "Pesquisa na web",
@@ -531,8 +621,8 @@ const BASES_ABERTAS = new Set(["lojas", "upcitemdb", "cosmos-site", "web"]);
  *   para a pessoa escolher (botão ✨). Gasta 1 consulta de cada base com chave.
  */
 async function rotaProduto(gtin, env, ctx, origemPedido, json, todas = false) {
-	// "produto3/": resultados antigos (nome abreviado havendo um completo; nome da web sem citar o código) não valem mais
-	const chaveCache = `produto3${todas ? "t" : ""}/${gtin}`;
+	// "produto4/": resultados antigos (antes dos buscadores de imagem novos e das regras de nome) não valem mais
+	const chaveCache = `produto4${todas ? "t" : ""}/${gtin}`;
 	const emCache = await lerCache(chaveCache);
 	if (emCache) return json(emCache.status, await emCache.json());
 	const resultado = { gtin, nome: "", marca: "", foto: "", fonte: "", fonteFoto: "", fontes: [], nomes: [] };
@@ -553,7 +643,7 @@ async function rotaProduto(gtin, env, ctx, origemPedido, json, todas = false) {
 		if (r.nome && (!resultado.nome || (nomeAbreviado(resultado.nome) && !nomeAbreviado(r.nome)))) {
 			resultado.nome = r.nome; resultado.marca = r.marca; resultado.fonte = r.nomeFonte || base.nome;
 		}
-		if (!resultado.foto && r.foto) { resultado.foto = r.foto; resultado.fonteFoto = r.nomeFonteFoto || r.nomeFonte || base.nome; }
+		if (!resultado.foto && r.foto && !fotoSuspeita(r.foto, gtin)) { resultado.foto = r.foto; resultado.fonteFoto = r.nomeFonteFoto || r.nomeFonte || base.nome; }
 		if (r.nome || r.foto) resultado.fontes.push(r.nomeFonte || base.nome);
 		if (r.nome) juntarNome(r.nome, r.marca, r.nomeFonte || base.nome);
 		for (const alt of r.alternativas || []) juntarNome(alt.nome, "", alt.fonte || base.nome);
@@ -661,8 +751,8 @@ function pontuacao(procurado, achado) {
 	return relevancia(procurado, achado) + noComeco * 0.08 + Math.min(mesmos, 2) * 0.05 - Math.min(pb.length, 12) * 0.002;
 }
 
-async function rotaBusca(q, ctx, json) {
-	const chave = `busca9/${q.toLowerCase()}`; // muda o número quando a regra de relevância muda (ignora o cache antigo)
+async function rotaBusca(q, ctx, json, env) {
+	const chave = `busca10/${q.toLowerCase()}`; // muda o número quando a regra de relevância muda (ignora o cache antigo)
 	const emCache = await lerCache(chave);
 	if (emCache) return json(200, await emCache.json());
 	const termos = encodeURIComponent(q);
@@ -677,7 +767,7 @@ async function rotaBusca(q, ctx, json) {
 		}));
 		return { respondeu, paginas, links: lista.length };
 	})().catch(() => ({ respondeu: false, paginas: [], links: 0 }));
-	const imagensJa = imagensDaWeb(q).catch(() => ({ respondeu: false, lista: [] }));
+	const imagensJa = imagensDaWeb(q, env).catch(() => ({ respondeu: false, lista: [] }));
 	const [lojas, off] = await Promise.all([
 		consultarLojas(`?ft=${termos}&_from=0&_to=9`, "", 7000),
 		buscar(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${termos}&search_simple=1&action=process&json=1&page_size=12&fields=product_name,product_name_pt,brands,image_front_url,image_url&lc=pt`, CABECALHO_LOJA, 9000)
@@ -816,6 +906,9 @@ export default {
 			if (url.pathname === "/status") {
 				const bases = {};
 				for (const b of BASES) bases[b.id] = !b.ativa(env) ? "sem chave" : (await pausada(b.id)) ? "pausada até meia-noite" : "ativa";
+				// Buscadores de imagem (pelo código e pelo nome): os abertos sempre; o Brave só com a chave
+				bases["imagens-bing"] = "ativa"; bases["imagens-yandex"] = "ativa"; bases["imagens-duckduckgo"] = "ativa";
+				bases["imagens-brave"] = env.BRAVE_TOKEN ? "ativa" : "sem chave";
 				return json(200, { bases, origem: origemPermitida });
 			}
 			if (url.pathname === "/produto") {
@@ -825,7 +918,7 @@ export default {
 			if (url.pathname === "/busca") {
 				const q = limpar(url.searchParams.get("q")).slice(0, 80);
 				if (q.length < 3) return json(400, { erro: "texto curto" });
-				return await rotaBusca(q, ctx, json);
+				return await rotaBusca(q, ctx, json, env);
 			}
 			if (url.pathname === "/imagem") return await rotaImagem(url.searchParams.get("url") || "", ctx, cors);
 			if (url.pathname === "/lojas") {
