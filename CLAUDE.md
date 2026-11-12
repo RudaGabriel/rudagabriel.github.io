@@ -7,6 +7,7 @@ Projeto de **Ruda Gabriel** ([@RudaGabriel](https://github.com/RudaGabriel)). PW
 - Responder ao dono **sempre em português do Brasil**; código, comentários e mensagens de commit também em pt-BR.
 - **Textos da interface** (avisos, diálogos, dicas, botões, títulos, página de privacidade): português do Brasil **formal**, claro e objetivo sobre o que a função faz. Evitar: "só" (usar "somente/apenas"), "de novo" ("novamente"), "na hora" ("imediatamente"), "sozinho" ("automaticamente"), "vai + verbo" (futuro simples), primeira pessoa ("Não encontrei" → "Não foi encontrado"), exclamações informais.
 - **Sem emojis na interface**: usar ícones SVG do Lucide (`icone()` / `iconeTexto()` em `app.js`). Na página de privacidade, SVG embutido.
+- **Revisão de texto obrigatória em toda mudança**: verificar **ortografia, acentuação, concordância, pontuação e formalidade** de todo texto novo ou alterado (interface, privacidade, README, documentação e mensagens de commit). O que não estiver formal deve ser **reescrito formalmente** antes de publicar. Atenção também a: espaços duplos, espaço antes de vírgula, palavras sem acento ("voce", "nao", "codigo"), primeira pessoa ("encontramos", "ativamos" → "foram encontradas", "foi ativado") e rótulos de botões que precisam ser idênticos entre o app e a documentação.
 
 ## A cada mudança — checklist obrigatório
 
@@ -18,6 +19,7 @@ Projeto de **Ruda Gabriel** ([@RudaGabriel](https://github.com/RudaGabriel)). PW
    - comentários de cabeçalho dos arquivos tocados.
    Um rótulo de botão citado na documentação deve existir no app **exatamente** com aquelas palavras.
 2. **Atualizar o README** com a funcionalidade nova ou alterada (e bibliotecas novas, se houver).
+2a. **Revisar ortografia e formalidade** de todos os textos tocados (ver "Idioma e textos"); corrigir no mesmo PR o que encontrar, mesmo em textos antigos próximos.
 3. **Versão dos arquivos**: trocar `?v=AAAAMMDD-NN` em **todas** as ocorrências do `index.html` (importmap e tags) a cada publicação.
 4. **Testar antes de publicar**: sintaxe (`node --check`), fluxo afetado no navegador (Playwright com o Chromium em `/opt/pw-browsers`), celular (390 px) e computador (1280 px), sem rolagem lateral. Mudanças no intermediário: testar com a rede real quando possível.
 5. **Publicar**: commit → push na branch de trabalho → PR → marcar como pronto → **merge automático** (preferência do dono).
