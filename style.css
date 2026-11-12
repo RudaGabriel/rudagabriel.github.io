@@ -4774,3 +4774,18 @@ html.modo-leve::view-transition-new(root) {
 	color: var(--texto-suave);
 	font-weight: 400;
 }
+
+/* ---------- Crédito do autor (rodapé do app e da página de privacidade) ---------- */
+.rodape-autor a,
+.rodape-autor-pagina a {
+	font-weight: 600;
+}
+
+.rodape-autor-pagina {
+	margin-top: 32px;
+	padding-top: 16px;
+	border-top: 1px solid var(--borda);
+	font-size: .82rem;
+	color: var(--texto-fraco);
+	text-align: center;
+}

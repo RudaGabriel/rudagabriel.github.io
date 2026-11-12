@@ -25,6 +25,8 @@
 
 Gratuito · Funciona no celular e no computador · Sem instalação · Sem cadastro obrigatório
 
+Desenvolvido por **[Ruda Gabriel](https://github.com/RudaGabriel)**
+
 </div>
 
 ---
@@ -50,6 +52,7 @@ Gratuito · Funciona no celular e no computador · Sem instalação · Sem cadas
 - [Onde funciona](#onde-funciona)
 - [Tecnologias e bibliotecas](#tecnologias-e-bibliotecas)
 - [Perguntas e problemas comuns](#perguntas-e-problemas-comuns)
+- [Autor](#autor)
 
 ---
 
@@ -379,11 +382,20 @@ Digite no campo de busca:
 - **`/ase`** — permite que este aparelho **edite** a lista da nuvem;
 - **`/dse`** — deixa este aparelho como **somente leitura**.
 
+## Autor
+
+O **Controle de Vencimento** foi criado, é desenvolvido e é mantido por **[Ruda Gabriel](https://github.com/RudaGabriel)** — idealização, código, design e documentação.
+
+- GitHub: [@RudaGabriel](https://github.com/RudaGabriel)
+- Código-fonte: [github.com/RudaGabriel/rudagabriel.github.io](https://github.com/RudaGabriel/rudagabriel.github.io)
+
 ---
 
 <div align="center">
 
 Encontrou um problema ou tem uma sugestão? [Abra uma solicitação](https://github.com/RudaGabriel/rudagabriel.github.io/issues).
+
+**Controle de Vencimento** · Desenvolvido por **[Ruda Gabriel](https://github.com/RudaGabriel)** · © 2025–2026
 
 Distribuído sob a licença **MIT** · [LICENSE](LICENSE)
 

@@ -6,6 +6,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 	<title>Controle de Vencimento</title>
 	<meta name="description" content="Controle a validade dos seus produtos, receba alertas de vencimento e compartilhe a lista entre aparelhos.">
+	<meta name="author" content="Ruda Gabriel">
 	<meta name="theme-color" content="#0b0d12" media="(prefers-color-scheme: dark)">
 	<meta name="theme-color" content="#f5f6fa" media="(prefers-color-scheme: light)">
 	<link rel="icon" href="icones/icone.svg" type="image/svg+xml">
@@ -54,7 +55,7 @@
 	<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3.10.0/notyf.min.css">
-	<link rel="stylesheet" href="style.css?v=20261105-01">
+	<link rel="stylesheet" href="style.css?v=20261112-01">
 
 	<!-- Bibliotecas (carregadas sem bloquear a página) -->
 	<script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11.26.25/dist/sweetalert2.all.min.js"></script>
@@ -65,24 +66,24 @@
 	<script type="importmap">
 	{
 		"imports": {
-			"./app.js": "./app.js?v=20261105-01",
-			"./config-nuvem.js": "./config-nuvem.js?v=20261105-01",
-			"./config-anuncios.js": "./config-anuncios.js?v=20261105-01",
-			"./config-busca.js": "./config-busca.js?v=20261105-01",
-			"./anuncios.js": "./anuncios.js?v=20261105-01",
-			"./leitor.js": "./leitor.js?v=20261105-01",
-			"./produtos.js": "./produtos.js?v=20261105-01",
-			"./validade.js": "./validade.js?v=20261105-01",
-			"./foco.js": "./foco.js?v=20261105-01",
-			"./fotos.js": "./fotos.js?v=20261105-01",
-			"./nuvem/comum.js": "./nuvem/comum.js?v=20261105-01",
-			"./nuvem/firebase.js": "./nuvem/firebase.js?v=20261105-01",
-			"./nuvem/supabase.js": "./nuvem/supabase.js?v=20261105-01",
-			"./nuvem/dropbox.js": "./nuvem/dropbox.js?v=20261105-01"
+			"./app.js": "./app.js?v=20261112-01",
+			"./config-nuvem.js": "./config-nuvem.js?v=20261112-01",
+			"./config-anuncios.js": "./config-anuncios.js?v=20261112-01",
+			"./config-busca.js": "./config-busca.js?v=20261112-01",
+			"./anuncios.js": "./anuncios.js?v=20261112-01",
+			"./leitor.js": "./leitor.js?v=20261112-01",
+			"./produtos.js": "./produtos.js?v=20261112-01",
+			"./validade.js": "./validade.js?v=20261112-01",
+			"./foco.js": "./foco.js?v=20261112-01",
+			"./fotos.js": "./fotos.js?v=20261112-01",
+			"./nuvem/comum.js": "./nuvem/comum.js?v=20261112-01",
+			"./nuvem/firebase.js": "./nuvem/firebase.js?v=20261112-01",
+			"./nuvem/supabase.js": "./nuvem/supabase.js?v=20261112-01",
+			"./nuvem/dropbox.js": "./nuvem/dropbox.js?v=20261112-01"
 		}
 	}
 	</script>
-	<script type="module" src="./app.js?v=20261105-01"></script>
+	<script type="module" src="./app.js?v=20261112-01"></script>
 
 	<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2042570332495044" crossorigin="anonymous"></script>
 	<meta name="google-adsense-account" content="ca-pub-2042570332495044">
@@ -133,6 +134,7 @@
 							<hr>
 							<a role="menuitem" href="privacidade.html"><i data-lucide="shield-check"></i>Política de privacidade</a>
 							<a role="menuitem" href="https://github.com/RudaGabriel/rudagabriel.github.io" target="_blank" rel="noopener noreferrer"><i data-lucide="code-xml"></i>Código-fonte</a>
+							<a role="menuitem" class="menu-autor" href="https://github.com/RudaGabriel" target="_blank" rel="noopener noreferrer author"><i data-lucide="user-round"></i><span>Desenvolvido por <b>Ruda Gabriel</b></span></a>
 						</div>
 					</div>
 				</details>
@@ -286,6 +288,8 @@
 		<a href="privacidade.html">Privacidade</a>
 		<span aria-hidden="true">·</span>
 		<a href="https://github.com/RudaGabriel/rudagabriel.github.io" target="_blank" rel="noopener noreferrer">Código-fonte</a>
+		<span aria-hidden="true">·</span>
+		<span class="rodape-autor">Desenvolvido por <a href="https://github.com/RudaGabriel" target="_blank" rel="noopener noreferrer author">Ruda Gabriel</a></span>
 	</footer>
 
 	<!-- ===== Diálogo: leitor da data de validade ===== -->
