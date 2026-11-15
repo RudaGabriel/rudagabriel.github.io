@@ -1092,6 +1092,7 @@ function lerFormulario() {
 
 function limparFormulario() {
 	el.form.reset();
+	codigoIdentificado = ""; // formulário vazio: nenhum código identificado
 	definirFotoPendente(null); // também atualiza os botões ✨ e foto
 	[el.nome, el.quantidade, el.vencimento].forEach(c => c.removeAttribute("aria-invalid"));
 	// Formulário limpo: nenhum campo continua verde
@@ -1193,6 +1194,7 @@ function iniciarEdicao(id) {
 	estado.editandoId = id;
 	definirFormRecolhido(false, { lembrar: false, animar: true });
 	el.codigo.value = item.codigoBarras;
+	codigoIdentificado = String(item.codigoBarras || "").replace(/\s+/g, "");
 	el.nome.value = item.nome;
 	el.quantidade.value = item.quantidade;
 	el.vencimento.value = item.vencimento;
@@ -1264,6 +1266,51 @@ async function copiarTexto(texto) {
 	}
 }
 
+/* ---------- Identificação automática pelo código de barras (formulário Novo produto) ----------
+   Cada leitura bem-sucedida de um código DIFERENTE refaz as buscas de nome e de foto para o
+   código novo, mesmo que já haja nome ou foto no formulário:
+   - o nome segue "Sugerir nome automaticamente" e a foto segue "Buscar fotos automaticamente"
+     (cada uma independente; desligada, não busca e não mexe no que já está preenchido);
+   - o resultado só é aplicado se ainda corresponder ao código que está no campo;
+   - sem resultado válido, o que já estava preenchido é mantido;
+   - ler o MESMO código não faz nada (nenhuma busca, nome e foto intactos). */
+let codigoIdentificado = ""; // código ao qual o nome e a foto do formulário correspondem
+
+/**
+ * @param {string} codigo código lido (câmera, foto, leitor USB/Bluetooth ou digitado)
+ * @returns {{ igual: boolean, reconhecido: boolean }} igual: era o mesmo código (nada foi feito);
+ *   reconhecido: o nome veio da própria lista
+ */
+function atualizarIdentificacao(codigo) {
+	codigo = String(codigo || "").replace(/\s+/g, "");
+	if (!codigo || estado.editandoId || !podeEditar()) return { igual: false, reconhecido: false };
+	if (codigo === codigoIdentificado) return { igual: true, reconhecido: false };
+	const havia = !!codigoIdentificado; // já havia um código identificado antes (troca de código)
+	codigoIdentificado = codigo;
+	let reconhecido = false;
+
+	// Nome: a própria lista primeiro (é o nome deste código); senão, a busca automática
+	const nomeAtual = el.nome.value.trim();
+	const podeTrocarNome = !nomeAtual || estado.sugestaoAuto; // desligada: só preenche campo vazio
+	const conhecido = itensAtuais().slice().sort((a, b) => b.atualizadoEm - a.atualizadoEm).find(i => i.codigoBarras === codigo);
+	if (conhecido && podeTrocarNome) {
+		if (conhecido.nome !== nomeAtual) {
+			el.nome.value = conhecido.nome;
+			el.nome.removeAttribute("aria-invalid");
+			marcarSugerido(el.nome);
+			atualizarBotoesCampos();
+			toast("info", `Produto reconhecido: <b>${esc(conhecido.nome)}</b>`, 2500);
+		}
+		reconhecido = true;
+	} else if (!conhecido && estado.sugestaoAuto) {
+		sugerirNomeOnline(codigo, { substituir: !!nomeAtual });
+	}
+
+	// Foto: só com a busca automática ligada e código válido; a anterior fica até chegar a nova
+	if (estado.fotosAuto) fotoAutomaticaDoFormulario({ substituir: havia || !!fotoPendente });
+	return { igual: false, reconhecido };
+}
+
 /** Preenche o nome automaticamente quando o código já existe na lista. */
 function autoPreencherPorCodigo() {
 	const codigo = el.codigo.value.replace(/\s+/g, "");
@@ -1307,11 +1354,14 @@ function marcarSugerido(campo) {
 /* ---------- Nome sugerido pelo código de barras (Open Food Facts) ---------- */
 const PLACEHOLDER_NOME = el.nome?.placeholder || "";
 let buscaNome = null;
-async function sugerirNomeOnline(codigo) {
+async function sugerirNomeOnline(codigo, { substituir = false } = {}) {
 	if (!codigoConsultavel(codigo) || !podeEditar() || estado.editandoId) return;
 	buscaNome?.abort();
 	const controle = new AbortController();
 	buscaNome = controle;
+	// Ao substituir: só troca se a pessoa não mexeu no nome enquanto a busca acontecia
+	const nomeNoInicio = el.nome.value.trim();
+	const nomeLivre = () => (substituir ? el.nome.value.trim() === nomeNoInicio : !el.nome.value.trim());
 	el.nome.placeholder = "Buscando o nome do produto…";
 	try {
 		const resultado = await buscarNomeProduto(codigo, { sinal: controle.signal });
@@ -1319,14 +1369,15 @@ async function sugerirNomeOnline(codigo) {
 		if (!resultado) {
 			// Não achou o código exato: oferece os nomes mais plausíveis (mesmo fabricante); sem nada, fica quieto
 			const parecidos = await nomesParecidos(codigo, controle.signal);
-			const aindaVale = () => !controle.signal.aborted && !el.nome.value.trim() && el.codigo.value.replace(/\s+/g, "") === codigo && !estado.editandoId;
+			const aindaVale = () => !controle.signal.aborted && nomeLivre() && el.codigo.value.replace(/\s+/g, "") === codigo && !estado.editandoId;
 			if (!parecidos.length || !aindaVale()) return;
 			const nome = await escolherNomeParecido(codigo, parecidos);
 			if (nome && aindaVale()) aplicarNomeSugerido(nome);
 			return;
 		}
-		// Só preenche se a pessoa não digitou nada e o código continua o mesmo
-		if (el.nome.value.trim() || el.codigo.value.replace(/\s+/g, "") !== codigo || estado.editandoId) return;
+		// Só preenche se o nome está livre (vazio, ou intocado ao substituir) e o código continua o mesmo
+		if (!nomeLivre() || el.codigo.value.replace(/\s+/g, "") !== codigo || estado.editandoId) return;
+		if (resultado.nome === el.nome.value.trim()) return;
 		el.nome.value = resultado.nome;
 		el.nome.removeAttribute("aria-invalid");
 		marcarSugerido(el.nome);
@@ -1655,15 +1706,18 @@ function gtinValido(codigo) {
 /* Foto automática no FORMULÁRIO: com código de barras válido (digitado ou lido pelo leitor),
    busca a foto e já mostra no botão de foto. Só com o nome, a busca é manual (botão de foto). */
 let buscaFotoForm = 0;
-async function fotoAutomaticaDoFormulario() {
-	if (!estado.fotosAuto || fotoPendente || estado.editandoId || navigator.onLine === false) return;
+async function fotoAutomaticaDoFormulario({ substituir = false } = {}) {
+	if (!estado.fotosAuto || estado.editandoId || navigator.onLine === false) return;
+	if (fotoPendente && !substituir) return;
 	const codigo = el.codigo.value.replace(/\s+/g, "");
 	if (!gtinValido(codigo)) return;
 	const minha = ++buscaFotoForm;
 	const chave = chaveFoto({ codigoBarras: codigo });
 	const guardada = estado.fotos.get(chave);
+	// A foto anterior continua até chegar a nova; se a pessoa escolher outra no meio, a dela vale
+	const fotoNoInicio = fotoPendente;
 	const aplicar = registro => {
-		if (minha !== buscaFotoForm || fotoPendente || el.codigo.value.replace(/\s+/g, "") !== codigo) return;
+		if (minha !== buscaFotoForm || fotoPendente !== fotoNoInicio || el.codigo.value.replace(/\s+/g, "") !== codigo) return;
 		definirFotoPendente(registro);
 	};
 	// Já tem foto deste produto no aparelho: mostra na hora
@@ -1671,7 +1725,8 @@ async function fotoAutomaticaDoFormulario() {
 	if (guardada?.removidaPeloUsuario) return;
 	el.btnFotoForm?.classList.add("carregando");
 	try {
-		const achada = await buscarFotoAutomatica({ nome: el.nome.value.trim(), codigoBarras: codigo });
+		// Somente pelo código: o nome do campo pode ainda ser o do código anterior (e a busca pelo nome é manual)
+		const achada = await buscarFotoAutomatica({ codigoBarras: codigo });
 		if (achada) aplicar({ src: achada.src, origem: achada.origem, fonte: achada.fonte });
 	} catch (e) {
 		console.warn("[fotos] formulário:", e?.message || e);
@@ -3547,11 +3602,12 @@ function leituraOk(codigo) {
 	setTimeout(() => {
 		pararLeitor();
 		if (el.dlgLeitor.open) el.dlgLeitor.close();
-		const reconhecido = autoPreencherPorCodigo();
+		const { igual, reconhecido } = atualizarIdentificacao(limpo);
 		marcarSugerido(el.codigo);
-		fotoAutomaticaDoFormulario();
-		(reconhecido ? el.quantidade : el.nome).focus();
-		toast("sucesso", `Código lido: <b>${esc(limpo)}</b>`, 2500);
+		(reconhecido || el.nome.value.trim() ? el.quantidade : el.nome).focus();
+		toast("sucesso", igual
+			? `Código lido: <b>${esc(limpo)}</b> (o mesmo já informado; nome e foto mantidos).`
+			: `Código lido: <b>${esc(limpo)}</b>`, 2500);
 	}, 350);
 }
 
@@ -4482,16 +4538,16 @@ function registrarEventos() {
 	el.codigo.addEventListener("keydown", e => {
 		if (e.key !== "Enter") return;
 		e.preventDefault();
-		const reconhecido = autoPreencherPorCodigo();
+		const { reconhecido } = atualizarIdentificacao(el.codigo.value);
 		(reconhecido || el.nome.value.trim() ? el.quantidade : el.nome).focus();
 	});
-	el.codigo.addEventListener("change", autoPreencherPorCodigo);
-	el.codigo.addEventListener("change", fotoAutomaticaDoFormulario);
-	const fotoAoDigitar = debounce(() => fotoAutomaticaDoFormulario(), 700);
+	el.codigo.addEventListener("change", () => atualizarIdentificacao(el.codigo.value));
+	// Código completo digitado (dígito verificador válido): identifica sem esperar sair do campo.
+	// O nome e a foto anteriores ficam até chegar o resultado do código novo (sem resultado, ficam).
+	const identificarAoDigitar = debounce(() => { if (gtinValido(el.codigo.value)) atualizarIdentificacao(el.codigo.value); }, 700);
 	el.codigo.addEventListener("input", () => {
-		// Trocou o código: a foto escolhida automaticamente para o código anterior sai
-		if (fotoPendente && fotoPendente.origem !== "usuario") definirFotoPendente(null);
-		if (gtinValido(el.codigo.value)) fotoAoDigitar();
+		if (!el.codigo.value.trim()) codigoIdentificado = ""; // campo apagado: o próximo código é novo
+		if (gtinValido(el.codigo.value)) identificarAoDigitar();
 	});
 
 	// Sugerir o nome sob demanda
