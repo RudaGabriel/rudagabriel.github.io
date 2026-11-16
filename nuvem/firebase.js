@@ -140,6 +140,10 @@ export function criarFirebase(configBruta, { aoReceber, aoStatus, aoErro, aoUsua
 	const config = configFirebaseValida(configBruta);
 	let fb = null, app = null, db = null, auth = null;
 	let preparando = null;
+	// Depois de um reinício (Firestore travado), usa cache em memória: no Safari do iPhone, a conexão
+	// com o banco local (IndexedDB) pode se perder com a aba em segundo plano e só volta recarregando
+	let usarCacheMemoria = false;
+	let reinicioAutomaticoFeito = false; // um reinício automático por conexão travada
 	let ref = null;
 	let cancelarEscuta = null;
 	let temporizador = null;
@@ -170,7 +174,7 @@ export function criarFirebase(configBruta, { aoReceber, aoStatus, aoErro, aoUsua
 				app = fb.getApps().find(a => a.name === "cv-nuvem") || fb.initializeApp(configApp, "cv-nuvem");
 				try {
 					db = fb.initializeFirestore(app, {
-						localCache: fb.persistentLocalCache({ tabManager: fb.persistentMultipleTabManager() }),
+						localCache: usarCacheMemoria ? fb.memoryLocalCache() : fb.persistentLocalCache({ tabManager: fb.persistentMultipleTabManager() }),
 						...(config.emulador ? { experimentalForceLongPolling: true } : {})
 					});
 				} catch (e) {
@@ -314,11 +318,21 @@ export function criarFirebase(configBruta, { aoReceber, aoStatus, aoErro, aoUsua
 		if (minha !== geracao) return;
 		ref = fb.doc(db, "listas", codigo);
 
-		temporizador = setTimeout(() => {
+		temporizador = setTimeout(async () => {
 			if (minha !== geracao || recebeuDoServidor) return;
 			if (navigator.onLine === false) seguro(aoStatus, "offline", "Sem internet — usando a cópia salva no aparelho.");
-			else {
-				seguro(aoStatus, "erro", "O servidor da nuvem não respondeu. Verifique a conexão com a internet e toque em Tentar novamente.");
+			else if (!reinicioAutomaticoFeito) {
+				// Primeira vez sem resposta: reinicia o Firebase sozinho e tenta de novo (antes de mostrar o erro)
+				reinicioAutomaticoFeito = true;
+				console.warn("[firebase] sem resposta do servidor: reiniciando a conexão automaticamente");
+				try {
+					await reiniciarConexao();
+					await conectar(codigo, acesso);
+				} catch (e) {
+					seguro(aoStatus, "erro", emitirErro(e).mensagem);
+				}
+			} else {
+				seguro(aoStatus, "erro", "O servidor da nuvem não respondeu. Verifique a conexão com a internet e use o botão abaixo para tentar novamente.");
 				console.warn("[nuvem · dono do site] O Firestore não respondeu: confira a configuração em config-nuvem.js e se o banco Firestore foi criado no projeto — veja docs/CONFIGURACAO.md");
 			}
 		}, TEMPO_LIMITE_MS);
@@ -326,7 +340,7 @@ export function criarFirebase(configBruta, { aoReceber, aoStatus, aoErro, aoUsua
 		cancelarEscuta = fb.onSnapshot(ref, { includeMetadataChanges: true }, snap => {
 			if (minha !== geracao) return;
 			const doServidor = !snap.metadata.fromCache;
-			if (doServidor) { recebeuDoServidor = true; clearTimeout(temporizador); }
+			if (doServidor) { recebeuDoServidor = true; reinicioAutomaticoFeito = false; clearTimeout(temporizador); }
 			const mapa = snap.exists() ? (snap.data()?.itens || {}) : {};
 			const itens = Object.entries(mapa).filter(([, v]) => v && typeof v === "object").map(([id, v]) => ({ ...v, id }));
 			seguro(aoReceber, itens, { doServidor });
@@ -512,11 +526,18 @@ export function criarFirebase(configBruta, { aoReceber, aoStatus, aoErro, aoUsua
 		await fb.updateDoc(refMembro, { nome: String(nome).slice(0, 40), aparelho: String(aparelho).slice(0, 80), visto: Date.now() });
 	}
 
-	/** "Tentar novamente": derruba e reabre a conexão do Firestore (uma conexão travada não se recupera sozinha). */
+	/**
+	 * Reinício completo do Firebase nesta página (o mesmo efeito de recarregar, sem recarregar):
+	 * encerra a instância travada, apaga o app e deixa o próximo conectar() criar tudo de novo,
+	 * agora com cache em memória. O login continua (fica guardado no aparelho).
+	 */
 	async function reiniciarConexao() {
-		if (!db) return;
-		try { await fb.disableNetwork(db); } catch { /* ignora */ }
-		try { await fb.enableNetwork(db); } catch (e) { console.warn("[firebase] reabrir conexão:", e?.code || e); }
+		desligar();
+		const appAntigo = app, dbAntigo = db;
+		db = null; auth = null; app = null; preparando = null;
+		usarCacheMemoria = true;
+		try { if (dbAntigo) await fb.terminate(dbAntigo); } catch (e) { console.warn("[firebase] encerrar instância:", e?.code || e); }
+		try { if (appAntigo) await fb.deleteApp(appAntigo); } catch (e) { console.warn("[firebase] apagar app:", e?.code || e); }
 	}
 
 	function desligar() {
