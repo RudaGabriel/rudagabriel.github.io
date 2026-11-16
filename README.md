@@ -375,6 +375,7 @@ Recursos modernos do navegador também entram em ação: **BarcodeDetector** (le
 | **A lista não aparece no outro aparelho** | Confirme se entrou com a **mesma conta** (ou o mesmo código) nos dois aparelhos e se há internet. |
 | **Não consigo editar uma lista compartilhada** | Você pode estar como **Só visualizar**. Peça ao dono da lista para liberar a edição do seu convidado — o aparelho é avisado na hora (o convidado não consegue mudar a permissão sozinho). No aparelho do dono, ative **"Permitir edição neste aparelho"**. |
 | **"Nuvem indisponível no momento"** | Seus produtos continuam salvos no aparelho. Tente outra forma de entrar ou tente mais tarde. |
+| **"Erro na nuvem"** ou **"Offline"** em **Salvar e compartilhar** | Verifique a conexão com a internet e toque em **Tentar novamente**, no próprio aviso: o app refaz a conexão com a lista sem desconectar e sem perder os produtos salvos no aparelho. |
 | **Perdi meus produtos ao limpar o navegador** | Restaure um **backup** (menu ⋮ → *Restaurar*) ou entre na nuvem com a conta usada antes. |
 
 ### Comandos rápidos (avançado)

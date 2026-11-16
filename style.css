@@ -4802,3 +4802,12 @@ html.modo-leve::view-transition-new(root) {
 	color: var(--texto-fraco);
 	text-align: center;
 }
+
+/* Botão "Tentar novamente" no aviso de erro da nuvem */
+.btn-tentar-sync {
+	margin-top: 10px;
+}
+
+.btn-tentar-sync[disabled] svg {
+	animation: girar 900ms linear infinite;
+}
