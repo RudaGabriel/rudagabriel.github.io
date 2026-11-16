@@ -572,6 +572,7 @@ const el = {
 	syncPermitirEdicao: $("#syncPermitirEdicao"),
 	syncStatusBox: $(".status-sync"),
 	syncStatusTitulo: $("#syncStatusTitulo"),
+	btnTentarNovamenteSync: $("#btnTentarNovamenteSync"),
 	syncStatusDetalhe: $("#syncStatusDetalhe"),
 	linkCompartilhar: $("#linkCompartilhar"),
 	btnCopiarLink: $("#btnCopiarLink"),
@@ -3827,6 +3828,34 @@ function atualizarIndicadorSync() {
 		el.syncStatusDetalhe.textContent = estado.detalheSync || base;
 		el.syncStatusDetalhe.title = base;
 	}
+	// "Tentar novamente": somente com erro na nuvem ou sem conexão (e não durante uma nova tentativa)
+	if (el.btnTentarNovamenteSync) el.btnTentarNovamenteSync.hidden = !emNuvem() || (st !== "erro" && st !== "offline") || tentandoNuvem;
+}
+
+/* ---------- Tentar novamente (erro na nuvem) ----------
+   Refaz a conexão com a lista atual sem desconectar nem perder nada: a escuta anterior é
+   cancelada pelo próprio provedor antes de abrir a nova, e os produtos continuam no aparelho. */
+let tentandoNuvem = false;
+async function tentarNovamenteNuvem() {
+	if (!emNuvem() || tentandoNuvem) return;
+	if (navigator.onLine === false) return toast("aviso", "Sem conexão com a internet. Conecte-se e tente novamente.");
+	tentandoNuvem = true;
+	estado.statusSync = "conectando";
+	estado.detalheSync = "";
+	errosJaAvisados.clear();
+	atualizarIndicadorSync();
+	try {
+		await provAtual()?.reiniciarConexao?.();
+		await ligarLista(estado.sync);
+	} catch (erro) {
+		const info = explicarErro(erro);
+		estado.statusSync = "erro";
+		estado.detalheSync = info.mensagem;
+		toast("erro", esc(info.mensagem));
+	} finally {
+		tentandoNuvem = false;
+		atualizarIndicadorSync();
+	}
 }
 
 /**
@@ -4531,6 +4560,7 @@ function aplicarAlertaNaTela() {
    Eventos
    ========================================================= */
 function registrarEventos() {
+	el.btnTentarNovamenteSync?.addEventListener("click", tentarNovamenteNuvem);
 	el.form.addEventListener("submit", enviarFormulario);
 	el.btnCancelarEdicao.addEventListener("click", () => sairDaEdicao());
 

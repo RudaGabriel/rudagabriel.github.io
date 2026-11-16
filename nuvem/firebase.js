@@ -317,7 +317,10 @@ export function criarFirebase(configBruta, { aoReceber, aoStatus, aoErro, aoUsua
 		temporizador = setTimeout(() => {
 			if (minha !== geracao || recebeuDoServidor) return;
 			if (navigator.onLine === false) seguro(aoStatus, "offline", "Sem internet — usando a cópia salva no aparelho.");
-			else seguro(aoStatus, "erro", "O Firebase não respondeu. Confira a configuração e se o Firestore foi criado.");
+			else {
+				seguro(aoStatus, "erro", "O servidor da nuvem não respondeu. Verifique a conexão com a internet e toque em Tentar novamente.");
+				console.warn("[nuvem · dono do site] O Firestore não respondeu: confira a configuração em config-nuvem.js e se o banco Firestore foi criado no projeto — veja docs/CONFIGURACAO.md");
+			}
 		}, TEMPO_LIMITE_MS);
 
 		cancelarEscuta = fb.onSnapshot(ref, { includeMetadataChanges: true }, snap => {
@@ -509,6 +512,13 @@ export function criarFirebase(configBruta, { aoReceber, aoStatus, aoErro, aoUsua
 		await fb.updateDoc(refMembro, { nome: String(nome).slice(0, 40), aparelho: String(aparelho).slice(0, 80), visto: Date.now() });
 	}
 
+	/** "Tentar novamente": derruba e reabre a conexão do Firestore (uma conexão travada não se recupera sozinha). */
+	async function reiniciarConexao() {
+		if (!db) return;
+		try { await fb.disableNetwork(db); } catch { /* ignora */ }
+		try { await fb.enableNetwork(db); } catch (e) { console.warn("[firebase] reabrir conexão:", e?.code || e); }
+	}
+
 	function desligar() {
 		geracao++;
 		clearTimeout(temporizador);
@@ -621,6 +631,7 @@ export function criarFirebase(configBruta, { aoReceber, aoStatus, aoErro, aoUsua
 		preparar,
 		conectar,
 		desligar,
+		reiniciarConexao,
 		salvarVarios,
 		removerVarios,
 		entrarGoogle,
