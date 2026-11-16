@@ -46,3 +46,4 @@ Projeto de **Ruda Gabriel** ([@RudaGabriel](https://github.com/RudaGabriel)). PW
 - Leitura da validade: os acertos da regressão de OCR não podem cair.
 - Modo leve (aparelhos fracos): sem animações caras; os indicadores de carregamento continuam girando.
 - Celular: "Novo produto" recolhe com o formulário vazio ao rolar para a lista ou após 6 s sem uso.
+- Nuvem (Firebase) sem resposta: reinício automático completo uma vez antes do erro; "Tentar novamente" reinicia a instância (cache em memória) e, se falhar de novo, vira "Recarregar a página"; nova tentativa automática ao voltar para a aba.

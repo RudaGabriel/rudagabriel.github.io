@@ -3675,6 +3675,11 @@ function eventosDe(id) {
 			if (!ativo()) return;
 			estado.statusSync = status;
 			estado.detalheSync = detalhe || "";
+			// Resultado de um "Tentar novamente" feito pela pessoa: o erro voltou → próximo toque recarrega
+			if (tentativaManualPendente && (status === "erro" || status === "sincronizado")) {
+				tentativaManualFalhou = status === "erro";
+				tentativaManualPendente = false;
+			}
 			atualizarIndicadorSync();
 			if (!itensAtuais().length) render();
 		},
@@ -3828,18 +3833,33 @@ function atualizarIndicadorSync() {
 		el.syncStatusDetalhe.textContent = estado.detalheSync || base;
 		el.syncStatusDetalhe.title = base;
 	}
-	// "Tentar novamente": somente com erro na nuvem ou sem conexão (e não durante uma nova tentativa)
-	if (el.btnTentarNovamenteSync) el.btnTentarNovamenteSync.hidden = !emNuvem() || (st !== "erro" && st !== "offline") || tentandoNuvem;
+	// "Tentar novamente": somente com erro na nuvem ou sem conexão (e não durante uma nova tentativa).
+	// Se o reinício pelo botão também falhar, o botão passa a recarregar a página (o que sempre resolve)
+	if (st === "sincronizado") tentativaManualFalhou = false;
+	const b = el.btnTentarNovamenteSync;
+	if (b) {
+		b.hidden = !emNuvem() || (st !== "erro" && st !== "offline") || tentandoNuvem;
+		const recarregar = st === "erro" && tentativaManualFalhou;
+		b.dataset.acao = recarregar ? "recarregar" : "tentar";
+		const rotulo = b.querySelector("span");
+		if (rotulo) rotulo.textContent = recarregar ? "Recarregar a página" : "Tentar novamente";
+	}
 }
 
 /* ---------- Tentar novamente (erro na nuvem) ----------
    Refaz a conexão com a lista atual sem desconectar nem perder nada: a escuta anterior é
    cancelada pelo próprio provedor antes de abrir a nova, e os produtos continuam no aparelho. */
 let tentandoNuvem = false;
-async function tentarNovamenteNuvem() {
+let tentativaManualFalhou = false; // o reinício pelo botão já foi feito e o erro voltou
+let tentativaManualPendente = false;
+async function tentarNovamenteNuvem({ automatica = false } = {}) {
 	if (!emNuvem() || tentandoNuvem) return;
-	if (navigator.onLine === false) return toast("aviso", "Sem conexão com a internet. Conecte-se e tente novamente.");
+	if (navigator.onLine === false) {
+		if (!automatica) toast("aviso", "Sem conexão com a internet. Conecte-se e tente novamente.");
+		return;
+	}
 	tentandoNuvem = true;
+	if (!automatica) tentativaManualPendente = true;
 	estado.statusSync = "conectando";
 	estado.detalheSync = "";
 	errosJaAvisados.clear();
@@ -3851,6 +3871,7 @@ async function tentarNovamenteNuvem() {
 		const info = explicarErro(erro);
 		estado.statusSync = "erro";
 		estado.detalheSync = info.mensagem;
+		if (!automatica) { tentativaManualFalhou = true; tentativaManualPendente = false; }
 		toast("erro", esc(info.mensagem));
 	} finally {
 		tentandoNuvem = false;
@@ -4560,7 +4581,14 @@ function aplicarAlertaNaTela() {
    Eventos
    ========================================================= */
 function registrarEventos() {
-	el.btnTentarNovamenteSync?.addEventListener("click", tentarNovamenteNuvem);
+	el.btnTentarNovamenteSync?.addEventListener("click", () => {
+		if (el.btnTentarNovamenteSync.dataset.acao === "recarregar") location.reload();
+		else tentarNovamenteNuvem();
+	});
+	// Voltou para a aba com a nuvem em erro (comum no iPhone após segundo plano): tenta sozinho
+	document.addEventListener("visibilitychange", () => {
+		if (document.visibilityState === "visible" && emNuvem() && estado.statusSync === "erro") tentarNovamenteNuvem({ automatica: true });
+	});
 	el.form.addEventListener("submit", enviarFormulario);
 	el.btnCancelarEdicao.addEventListener("click", () => sairDaEdicao());
 
