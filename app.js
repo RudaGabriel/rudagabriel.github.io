@@ -1094,6 +1094,8 @@ function lerFormulario() {
 function limparFormulario() {
 	el.form.reset();
 	codigoIdentificado = ""; // formulário vazio: nenhum código identificado
+	origemNome = { codigo: "", nome: "" };
+	origemFoto = { codigo: "", registro: null };
 	definirFotoPendente(null); // também atualiza os botões ✨ e foto
 	[el.nome, el.quantidade, el.vencimento].forEach(c => c.removeAttribute("aria-invalid"));
 	// Formulário limpo: nenhum campo continua verde
@@ -1273,9 +1275,35 @@ async function copiarTexto(texto) {
    - o nome segue "Sugerir nome automaticamente" e a foto segue "Buscar fotos automaticamente"
      (cada uma independente; desligada, não busca e não mexe no que já está preenchido);
    - o resultado só é aplicado se ainda corresponder ao código que está no campo;
-   - sem resultado válido, o que já estava preenchido é mantido;
+   - sem resultado válido, o nome e a foto que vieram AUTOMATICAMENTE de outro código são
+     apagados (não pertencem ao código novo); o que a pessoa digitou ou escolheu é mantido;
    - ler o MESMO código não faz nada (nenhuma busca, nome e foto intactos). */
 let codigoIdentificado = ""; // código ao qual o nome e a foto do formulário correspondem
+// De qual código vieram o nome e a foto preenchidos automaticamente (para limpar quando o código muda sem resultado)
+let origemNome = { codigo: "", nome: "" };
+let origemFoto = { codigo: "", registro: null };
+const codigoDoCampo = () => (el.codigo?.value || "").replace(/\s+/g, "");
+
+/** Apaga o nome preenchido automaticamente por OUTRO código (o digitado pela pessoa fica). */
+function limparNomeDeOutroCodigo(codigo) {
+	const nome = el.nome.value.trim();
+	if (!nome || !origemNome.codigo || origemNome.codigo === codigo || nome !== origemNome.nome) return false;
+	if (codigoDoCampo() !== codigo || estado.editandoId) return false;
+	el.nome.value = "";
+	temposRealce.get(el.nome)?.limpar();
+	origemNome = { codigo: "", nome: "" };
+	atualizarBotoesCampos();
+	return true;
+}
+
+/** Apaga a foto encontrada automaticamente para OUTRO código (a escolhida pela pessoa fica). */
+function limparFotoDeOutroCodigo(codigo) {
+	if (!fotoPendente || fotoPendente !== origemFoto.registro || !origemFoto.codigo || origemFoto.codigo === codigo) return false;
+	if (codigoDoCampo() !== codigo || estado.editandoId) return false;
+	definirFotoPendente(null);
+	origemFoto = { codigo: "", registro: null };
+	return true;
+}
 
 /**
  * @param {string} codigo código lido (câmera, foto, leitor USB/Bluetooth ou digitado)
@@ -1296,12 +1324,10 @@ function atualizarIdentificacao(codigo) {
 	const conhecido = itensAtuais().slice().sort((a, b) => b.atualizadoEm - a.atualizadoEm).find(i => i.codigoBarras === codigo);
 	if (conhecido && podeTrocarNome) {
 		if (conhecido.nome !== nomeAtual) {
-			el.nome.value = conhecido.nome;
-			el.nome.removeAttribute("aria-invalid");
-			marcarSugerido(el.nome);
-			atualizarBotoesCampos();
+			aplicarNomeSugerido(conhecido.nome);
 			toast("info", `Produto reconhecido: <b>${esc(conhecido.nome)}</b>`, 2500);
 		}
+		origemNome = { codigo, nome: conhecido.nome };
 		reconhecido = true;
 	} else if (!conhecido && estado.sugestaoAuto) {
 		sugerirNomeOnline(codigo, { substituir: !!nomeAtual });
@@ -1322,9 +1348,7 @@ function autoPreencherPorCodigo() {
 		if (estado.sugestaoAuto) sugerirNomeOnline(codigo);
 		return false;
 	}
-	el.nome.value = conhecido.nome;
-	el.nome.removeAttribute("aria-invalid");
-	atualizarBotoesCampos();
+	aplicarNomeSugerido(conhecido.nome);
 	toast("info", `Produto reconhecido: <b>${esc(conhecido.nome)}</b>`, 2500);
 	return true;
 }
@@ -1356,7 +1380,9 @@ function marcarSugerido(campo) {
 const PLACEHOLDER_NOME = el.nome?.placeholder || "";
 let buscaNome = null;
 async function sugerirNomeOnline(codigo, { substituir = false } = {}) {
-	if (!codigoConsultavel(codigo) || !podeEditar() || estado.editandoId) return;
+	if (!podeEditar() || estado.editandoId) return;
+	// Código fora das bases (não é EAN/UPC): não há resultado para ele
+	if (!codigoConsultavel(codigo)) { buscaNome?.abort(); limparNomeDeOutroCodigo(codigo); return; }
 	buscaNome?.abort();
 	const controle = new AbortController();
 	buscaNome = controle;
@@ -1371,21 +1397,22 @@ async function sugerirNomeOnline(codigo, { substituir = false } = {}) {
 			// Não achou o código exato: oferece os nomes mais plausíveis (mesmo fabricante); sem nada, fica quieto
 			const parecidos = await nomesParecidos(codigo, controle.signal);
 			const aindaVale = () => !controle.signal.aborted && nomeLivre() && el.codigo.value.replace(/\s+/g, "") === codigo && !estado.editandoId;
-			if (!parecidos.length || !aindaVale()) return;
-			const nome = await escolherNomeParecido(codigo, parecidos);
-			if (nome && aindaVale()) aplicarNomeSugerido(nome);
+			if (!aindaVale()) return;
+			const nome = parecidos.length ? await escolherNomeParecido(codigo, parecidos) : null;
+			if (!aindaVale()) return;
+			if (nome) aplicarNomeSugerido(nome);
+			else limparNomeDeOutroCodigo(codigo); // sem resultado: o nome do código anterior não vale para este
 			return;
 		}
 		// Só preenche se o nome está livre (vazio, ou intocado ao substituir) e o código continua o mesmo
 		if (!nomeLivre() || el.codigo.value.replace(/\s+/g, "") !== codigo || estado.editandoId) return;
-		if (resultado.nome === el.nome.value.trim()) return;
-		el.nome.value = resultado.nome;
-		el.nome.removeAttribute("aria-invalid");
-		marcarSugerido(el.nome);
-		atualizarBotoesCampos();
+		if (resultado.nome === el.nome.value.trim()) { origemNome = { codigo, nome: resultado.nome }; return; }
+		aplicarNomeSugerido(resultado.nome);
 		toast("info", `Nome sugerido: <b>${esc(resultado.nome)}</b>. Confira e ajuste se precisar <small>(função experimental)</small>.`, 5000);
 	} catch (e) {
 		console.warn("[nome sugerido]", e);
+		// Falha na busca (sem internet, base fora do ar): o nome do código anterior também não vale para este
+		if (!controle.signal.aborted && nomeLivre()) limparNomeDeOutroCodigo(codigo);
 	} finally {
 		if (buscaNome === controle) {
 			buscaNome = null;
@@ -1401,6 +1428,7 @@ const avisoExperimental = (texto = "pode não ser totalmente precisa. Confira se
 /** Preenche o campo Produto com um nome sugerido (realçado para conferir). */
 function aplicarNomeSugerido(nome) {
 	el.nome.value = nome;
+	origemNome = { codigo: codigoDoCampo(), nome: String(nome || "").trim() };
 	el.nome.removeAttribute("aria-invalid");
 	marcarSugerido(el.nome);
 	atualizarBotoesCampos();
@@ -1539,6 +1567,8 @@ async function sugerirNomeManual() {
 		const resultado = opcoes[0] || null;
 		if (!resultado) {
 			if (navigator.onLine === false) return toast("aviso", "Sem internet para buscar o nome agora.", 5000);
+			// Sem resultado para este código: o nome automático de outro código sai da caixa
+			limparNomeDeOutroCodigo(codigo);
 			// Código exato fora das bases: mostra os nomes mais plausíveis para escolher
 			const parecidos = await nomesParecidos(codigo);
 			if (parecidos.length) {
@@ -1566,17 +1596,14 @@ async function sugerirNomeManual() {
 			titulo: "Nome sugerido",
 			html: avisoExperimental("o nome pode não ser totalmente preciso. Confira com a embalagem.") + `<p>Para o código <b>${esc(codigo)}</b>, foi encontrado:</p>`
 				+ `<p class="nome-sugerido">${esc(resultado.nome)}</p>`
-				+ `<p class="ajuda">Fonte: ${esc(resultado.fonte)}${atual ? ` · vai substituir “${esc(atual)}”` : ""}. Você pode ajustar depois.</p>`,
+				+ `<p class="ajuda">Fonte: ${esc(resultado.fonte)}${atual ? ` · substituirá “${esc(atual)}”` : ""}. Você pode ajustar depois.</p>`,
 			confirmar: "Usar este nome",
 			cancelar: "Cancelar"
 		});
 		if (acao !== "confirmar") return;
 		// O código pode ter mudado enquanto o diálogo estava aberto
 		if (el.codigo.value.replace(/\s+/g, "") !== codigo) return;
-		el.nome.value = resultado.nome;
-		el.nome.removeAttribute("aria-invalid");
-		marcarSugerido(el.nome);
-		atualizarBotoesCampos();
+		aplicarNomeSugerido(resultado.nome);
 		el.quantidade.focus();
 	} catch (e) {
 		console.warn("[sugerir nome]", e);
@@ -1708,29 +1735,35 @@ function gtinValido(codigo) {
    busca a foto e já mostra no botão de foto. Só com o nome, a busca é manual (botão de foto). */
 let buscaFotoForm = 0;
 async function fotoAutomaticaDoFormulario({ substituir = false } = {}) {
-	if (!estado.fotosAuto || estado.editandoId || navigator.onLine === false) return;
+	if (!estado.fotosAuto || estado.editandoId) return;
 	if (fotoPendente && !substituir) return;
 	const codigo = el.codigo.value.replace(/\s+/g, "");
-	if (!gtinValido(codigo)) return;
+	// Sem como buscar para este código (inválido ou sem internet): a foto automática de outro código sai
+	if (!gtinValido(codigo) || navigator.onLine === false) { ++buscaFotoForm; limparFotoDeOutroCodigo(codigo); return; }
 	const minha = ++buscaFotoForm;
 	const chave = chaveFoto({ codigoBarras: codigo });
 	const guardada = estado.fotos.get(chave);
 	// A foto anterior continua até chegar a nova; se a pessoa escolher outra no meio, a dela vale
 	const fotoNoInicio = fotoPendente;
+	const aindaVale = () => minha === buscaFotoForm && fotoPendente === fotoNoInicio && el.codigo.value.replace(/\s+/g, "") === codigo;
 	const aplicar = registro => {
-		if (minha !== buscaFotoForm || fotoPendente !== fotoNoInicio || el.codigo.value.replace(/\s+/g, "") !== codigo) return;
+		if (!aindaVale()) return;
 		definirFotoPendente(registro);
+		origemFoto = { codigo, registro };
 	};
+	const semResultado = () => { if (aindaVale()) limparFotoDeOutroCodigo(codigo); };
 	// Já tem foto deste produto no aparelho: mostra na hora
 	if (guardada?.src) return aplicar({ src: guardada.src, origem: guardada.origem, fonte: guardada.fonte, original: guardada.original });
-	if (guardada?.removidaPeloUsuario) return;
+	if (guardada?.removidaPeloUsuario) return semResultado();
 	el.btnFotoForm?.classList.add("carregando");
 	try {
 		// Somente pelo código: o nome do campo pode ainda ser o do código anterior (e a busca pelo nome é manual)
 		const achada = await buscarFotoAutomatica({ codigoBarras: codigo });
 		if (achada) aplicar({ src: achada.src, origem: achada.origem, fonte: achada.fonte });
+		else semResultado();
 	} catch (e) {
 		console.warn("[fotos] formulário:", e?.message || e);
+		semResultado();
 	} finally {
 		if (minha === buscaFotoForm) el.btnFotoForm?.classList.remove("carregando");
 	}
