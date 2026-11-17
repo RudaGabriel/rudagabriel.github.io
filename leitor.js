@@ -8,7 +8,7 @@
      3. ZXing em JavaScript puro (iPhones/navegadores antigos).
    A câmera abre independente do motor, com várias tentativas
    de configuração. Se a câmera ao vivo não estiver disponível,
-   "Tirar foto do código" sempre funciona.
+   "Tirar foto ou selecionar imagem" sempre funciona.
    ========================================================= */
 
 import { criarFoco } from "./foco.js";
@@ -171,7 +171,7 @@ export function traduzirErroCamera(erro) {
 	const texto = `${nome} ${erro?.message || erro || ""}`;
 	const detalhe = `${nome || "Erro"}: ${erro?.message || String(erro || "")}`.slice(0, 160);
 	let mensagem = "Não foi possível iniciar a câmera.";
-	if (/sem-camera-api/.test(texto)) mensagem = "Este navegador não permite o uso da câmera ao vivo (situação comum em navegadores dentro de aplicativos). Use “Tirar foto do código” ou abra o site no Safari ou no Chrome.";
+	if (/sem-camera-api/.test(texto)) mensagem = "Este navegador não permite o uso da câmera ao vivo (situação comum em navegadores dentro de aplicativos). Use “Tirar foto ou selecionar imagem” ou abra o site no Safari ou no Chrome.";
 	else if (/NotAllowed|Permission|denied/i.test(texto)) mensagem = ehIOS()
 		? "Permissão da câmera negada. No iPhone: Ajustes → Safari → Câmera → Permitir (ou toque em “aA” na barra de endereço → Ajustes do Site → Câmera)."
 		: "Permissão da câmera negada. Libere o acesso à câmera nas configurações do navegador e tente novamente.";
@@ -401,7 +401,7 @@ export function criarLeitor({ video, mira, aoLer, aoStatus, aoCapacidades }) {
 			if (motor === motorAtual) motor = null;
 			obterMotor().catch(erro => {
 				console.error(erro);
-				if (minhaGeracao === geracao) status("Leitor indisponível — use “Tirar foto do código”");
+				if (minhaGeracao === geracao) status("Leitor indisponível — use o botão abaixo");
 			});
 		} finally {
 			ocupado = false;
@@ -458,7 +458,7 @@ export function criarLeitor({ video, mira, aoLer, aoStatus, aoCapacidades }) {
 		const m = await motorPronto;
 		if (minhaGeracao !== geracao) return;
 		if (!m) {
-			status("Leitor indisponível — use “Tirar foto do código”");
+			status("Leitor indisponível — use o botão abaixo");
 			return;
 		}
 		status("Procurando código…");

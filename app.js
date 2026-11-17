@@ -3579,7 +3579,7 @@ async function abrirLeitor() {
 		l.parar();
 		if (!el.dlgLeitor.open) return;
 		const { mensagem, detalhe } = l.traduzirErro(erro);
-		el.leitorStatus.textContent = "Câmera indisponível — use “Tirar foto do código”";
+		el.leitorStatus.textContent = "Câmera indisponível — use o botão abaixo";
 		el.btnFotoCodigo.classList.add("destaque");
 		toast("erro", `${esc(mensagem)}<br><small style="opacity:.8">${esc(detalhe)}</small>`, 9000);
 	}
@@ -3620,8 +3620,8 @@ async function alternarFlash() {
 	} catch {
 		el.btnFlash.classList.add("indisponivel");
 		toast("aviso", el.btnTrocarCamera.hidden
-			? "Este aparelho/navegador não permite ligar o flash pela página. Toque em <b>Tirar foto do código</b> e use o flash da câmera."
-			: "Não foi possível ligar o flash nesta câmera. Tente <b>trocar de câmera</b> ou use <b>Tirar foto do código</b>.", 7000);
+			? "Este aparelho ou navegador não permite ligar o flash pela página. Toque em <b>Tirar foto ou selecionar imagem</b> e use o flash da câmera."
+			: "Não foi possível ligar o flash nesta câmera. Tente <b>trocar de câmera</b> ou use <b>Tirar foto ou selecionar imagem</b>.", 7000);
 	}
 }
 

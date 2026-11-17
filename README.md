@@ -163,10 +163,10 @@ Na tela do leitor você encontra:
 | Botão | Para que serve |
 |---|---|
 | **Flash** | Liga a lanterna em lugares escuros (quando o aparelho permite). |
-| **Foco** | **Automático**, **De perto** ou **De longe**, com ajuste fino quando o aparelho permite. No iPhone, *De perto* usa a câmera múltipla, que troca sozinha para a lente macro. Também dá para **tocar na imagem** para focar num ponto. |
+| **Foco** | **Automático**, **De perto** ou **De longe**, com ajuste fino quando o aparelho permite. No iPhone, *De perto* usa a câmera múltipla, que troca automaticamente para a lente macro. Também dá para **tocar na imagem** para focar num ponto. |
 | **Zoom** | Aproxima códigos pequenos sem precisar encostar o celular. Arraste a barra ou toque nas **lupas** (− e +) para ajustar passo a passo. |
 | **Trocar câmera** | Alterna entre a câmera traseira e a frontal. |
-| **Tirar foto do código** | Abre a câmera do próprio celular para fotografar o código. Use quando a câmera ao vivo não abrir. |
+| **Tirar foto ou selecionar imagem** | Permite tirar uma foto do código com a câmera do aparelho ou selecionar uma imagem da galeria ou dos arquivos. Use quando a câmera ao vivo não abrir ou quando a leitura não funcionar. |
 
 > **Dicas para ler mais rápido:** afaste o celular uns 15 a 20 cm, evite reflexo de luz sobre o código e use o zoom em códigos pequenos.
 
@@ -326,11 +326,11 @@ Detalhes completos na [Política de Privacidade](https://rudagabriel.github.io/p
 |---|:---:|:---:|:---:|
 | App, alertas e nuvem | ✅ | ✅ | ✅ |
 | Leitor ao vivo | ✅ | ✅ | ✅ (webcam) |
-| Tirar foto do código | ✅ | ✅ | ✅ |
-| Flash pela página | ➖ use *Tirar foto* | ✅ | ➖ |
+| Tirar foto ou selecionar imagem | ✅ | ✅ | ✅ |
+| Flash pela página | ➖ use *Tirar foto ou selecionar imagem* | ✅ | ➖ |
 | Zoom e troca de câmera | depende do aparelho | ✅ | depende da webcam |
 
-> Navegadores **dentro de outros apps** (Instagram, WhatsApp, Facebook etc.) podem bloquear a câmera. Abra o link no **Safari** ou no **Chrome**, ou use **Tirar foto do código**.
+> Navegadores **dentro de outros apps** (Instagram, WhatsApp, Facebook etc.) podem bloquear a câmera. Abra o link no **Safari** ou no **Chrome**, ou use **Tirar foto ou selecionar imagem**.
 
 ## Tecnologias e bibliotecas
 
@@ -367,7 +367,7 @@ Recursos modernos do navegador também entram em ação: **BarcodeDetector** (le
 
 | Situação | O que fazer |
 |---|---|
-| **"Não foi possível iniciar a câmera"** | Permita a câmera para o site. No iPhone: *Ajustes → Safari → Câmera → Permitir*. No Android: toque no cadeado da barra de endereço → *Permissões → Câmera*. Enquanto isso, use **Tirar foto do código**. |
+| **"Não foi possível iniciar a câmera"** | Permita a câmera para o site. No iPhone: *Ajustes → Safari → Câmera → Permitir*. No Android: toque no cadeado da barra de endereço → *Permissões → Câmera*. Enquanto isso, use **Tirar foto ou selecionar imagem**. |
 | **O leitor não lê o código** | Afaste um pouco o celular, mantenha o código reto na faixa, use o **zoom** e, se estiver escuro, o **flash**. |
 | **O e-mail de acesso não chegou** | Veja o spam e toque em **"Não recebeu o e-mail? Enviar por outro servidor"**. |
 | **Abri o link do e-mail em outro aparelho** | O app pede para confirmar seu e-mail; digite o mesmo e-mail usado no pedido. |

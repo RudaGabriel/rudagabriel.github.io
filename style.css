@@ -2230,6 +2230,16 @@ input[type="number"]::-webkit-inner-spin-button {
 	height: 20px;
 }
 
+/* Rótulo longo: quebra a linha em telas estreitas em vez de ser cortado */
+#btnFotoCodigo {
+	height: auto;
+	min-height: 42px;
+	padding-block: 8px;
+	white-space: normal;
+	text-align: center;
+	line-height: 1.25;
+}
+
 #btnFotoCodigo.destaque,
 #btnFotoValidade.destaque {
 	color: var(--primaria-texto);
