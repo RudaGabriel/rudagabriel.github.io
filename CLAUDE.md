@@ -40,7 +40,7 @@ Projeto de **Ruda Gabriel** ([@RudaGabriel](https://github.com/RudaGabriel)). PW
 ## Comportamentos que não podem regredir
 
 - Fotos automáticas **somente com código de barras válido** (e somente pelo código); busca pelo nome só quando a pessoa pede.
-- Nova leitura de um código **diferente** no formulário refaz nome e foto (cada um conforme a sua opção automática); **mesmo código não faz nada**; sem resultado válido, mantém o que já estava; resultado de código anterior nunca é aplicado.
+- Nova leitura de um código **diferente** no formulário refaz nome e foto (cada um conforme a sua opção automática); **mesmo código não faz nada**; sem resultado válido, apaga somente o nome e a foto que vieram automaticamente do código anterior (o que a pessoa digitou ou escolheu fica); resultado de código anterior nunca é aplicado.
 - Pesquisa na web e de imagens **pelo código**: só vale resultado que **cita o código**; foto com outro código no endereço, avatar ou logotipo é descartada.
 - Sugestão de nome: nomes completos primeiro, abreviados só sem alternativa; o botão ✨ mostra todas as opções.
 - Leitura da validade: os acertos da regressão de OCR não podem cair.
