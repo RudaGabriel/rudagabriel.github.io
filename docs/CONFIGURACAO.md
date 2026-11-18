@@ -239,7 +239,7 @@ As bases brasileiras de códigos de barras exigem uma **chave** que não pode fi
 
 O intermediário tenta **primeiro as bases com chave e limite diário** (na ordem abaixo) e, **depois, as abertas** (sem chave). Junta nome e foto e para quando já tem os dois — mas, se o nome achado for **abreviado** (ex.: `CR TRAT NOVEX`), continua procurando um nome completo nas outras bases. Base que estourar a cota do dia fica pausada até a meia-noite.
 
-No botão ✨ do app, o pedido vai com `todas=1`: o intermediário consulta **todas** as bases e devolve a lista `nomes` (completos primeiro) para a pessoa escolher. Isso gasta 1 consulta de cada base com chave.
+No botão ✨ do app, o pedido vai com `todas=1`: o intermediário consulta **todas** as bases e devolve a lista `nomes` (completos primeiro) para a pessoa escolher. Isso gasta 1 consulta de cada base com chave. O botão **Ver nomes parecidos** desse diálogo usa a rota `/busca?q=<nome>` (a mesma da busca de fotos pelo nome): os resultados não precisam citar o código, por isso somente são exibidos quando a pessoa pede.
 
 **Com chave** (cada uma é opcional — ligue as que quiser):
 
