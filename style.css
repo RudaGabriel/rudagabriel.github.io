@@ -3995,6 +3995,30 @@ input.sugerido.sugerido-saindo {
 	overflow-wrap: anywhere;
 }
 
+.opcao-textos {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	min-width: 0;
+}
+
+/* Nomes parecidos: miniatura ao lado do nome, para comparar com a embalagem */
+.opcao-data.opcao-nome.com-miniatura {
+	flex-direction: row;
+	align-items: center;
+	gap: 10px;
+}
+
+.opcao-miniatura {
+	flex: 0 0 auto;
+	width: 44px;
+	height: 44px;
+	object-fit: contain;
+	border-radius: 8px;
+	background: #fff;
+	border: 1px solid var(--borda);
+}
+
 .links-web {
 	margin-top: 12px;
 	font-size: .82rem;

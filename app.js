@@ -1477,39 +1477,52 @@ async function escolherNomeParecido(codigo, opcoes) {
 	});
 }
 
+/** Resposta de escolherNome quando a pessoa toca em "Ver nomes parecidos". */
+const VER_PARECIDOS = Symbol("ver nomes parecidos");
+const ROTULO_VER_PARECIDOS = "Ver nomes parecidos";
+
 /**
  * Lista de nomes para a pessoa escolher um (o primeiro já vem marcado).
- * @param {{ nome: string, fonte: string, codigo?: string, abreviado?: boolean }[]} opcoes
- * @returns {Promise<string|null>} o nome escolhido ou null
+ * @param {{ nome: string, fonte: string, codigo?: string, abreviado?: boolean, foto?: string }[]} opcoes
+ * @param {{ extra?: string }} opcoes.extra rótulo de um botão a mais (devolve VER_PARECIDOS)
+ * @returns {Promise<string|null|symbol>} o nome escolhido, null ou VER_PARECIDOS
  */
-async function escolherNome(codigo, opcoes, { pergunta, html: introducao, rotulo = "Nomes encontrados", atual = "" }) {
+async function escolherNome(codigo, opcoes, { pergunta, html: introducao, rotulo = "Nomes encontrados", atual = "", extra = "" }) {
 	if (!window.Swal) return window.confirm(pergunta) ? opcoes[0].nome : null;
 	let escolhido = opcoes[0].nome;
 	const html = introducao
 		+ `<div class="opcoes-data opcoes-nome" role="radiogroup" aria-label="${esc(rotulo)}">${opcoes.map((o, i) =>
-			`<button type="button" class="opcao-data opcao-nome" role="radio" data-i="${i}" aria-checked="${i === 0}">`
-			+ `<b>${esc(o.nome)}</b><small>${esc(o.fonte)}${o.codigo ? ` · ${esc(o.codigo)}` : ""}${o.abreviado ? " · nome abreviado" : ""}${atual && o.nome === atual ? " · igual ao atual" : ""}</small></button>`).join("")}</div>`
+			`<button type="button" class="opcao-data opcao-nome${o.foto ? " com-miniatura" : ""}" role="radio" data-i="${i}" aria-checked="${i === 0}">`
+			+ (o.foto ? `<img class="opcao-miniatura" src="${esc(o.foto)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : "")
+			+ `<span class="opcao-textos"><b>${esc(o.nome)}</b><small>${esc(o.fonte)}${o.codigo ? ` · ${esc(o.codigo)}` : ""}${o.abreviado ? " · nome abreviado" : ""}${atual && o.nome === atual ? " · igual ao atual" : ""}</small></span></button>`).join("")}</div>`
 		+ `<p class="ajuda links-web">Nenhuma opção corresponde? Pesquise na web: ${htmlLinksPesquisa(codigo, true)}</p>`;
 	const executar = async () => {
 		const r = await window.Swal.fire({
 			title: "Escolha o nome do produto",
 			html,
 			showCancelButton: true,
+			showDenyButton: !!extra,
+			denyButtonText: extra || undefined,
 			confirmButtonText: "Usar este nome",
 			cancelButtonText: "Nenhum destes",
 			reverseButtons: true,
 			buttonsStyling: false,
 			heightAuto: false,
 			target: document.querySelector("dialog[open]") || "body",
-			customClass: { popup: "sw-popup", confirmButton: "btn btn-primario", cancelButton: "btn btn-fantasma" },
+			customClass: { popup: "sw-popup", confirmButton: "btn btn-primario", denyButton: "btn btn-secundario", cancelButton: "btn btn-fantasma" },
 			didOpen: popup => {
+				// Miniatura que não carrega some (o nome continua)
+				popup.querySelectorAll(".opcao-miniatura").forEach(img => img.addEventListener("error", () => {
+					img.closest(".opcao-nome")?.classList.remove("com-miniatura");
+					img.remove();
+				}, { once: true }));
 				popup.querySelectorAll(".opcao-nome").forEach(b => b.addEventListener("click", () => {
 					escolhido = opcoes[Number(b.dataset.i)]?.nome || escolhido;
 					popup.querySelectorAll(".opcao-nome").forEach(o => o.setAttribute("aria-checked", String(o === b)));
 				}));
 			}
 		});
-		return r.isConfirmed ? escolhido : null;
+		return r.isConfirmed ? escolhido : r.isDenied ? VER_PARECIDOS : null;
 	};
 	// Na fila dos diálogos, para não atropelar outro aberto
 	const promessa = filaDialogos.then(executar, executar);
@@ -1523,6 +1536,51 @@ function htmlLinksPesquisa(codigo, compacto = false) {
 		`<a class="${compacto ? "link-toast" : "btn btn-secundario btn-bloco"}" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.nome)}</a>`
 	).join(compacto ? " · " : "");
 }
+
+/**
+ * "Ver nomes parecidos": pesquisa pelo NOME já encontrado para o código (lojas, web e imagens).
+ * Traz mais opções, mas elas podem ser de outra versão do produto (dosagem, tamanho, quantidade):
+ * somente a pessoa decide. A sugestão automática continua aceitando somente o que cita o código.
+ * @param {string} codigo
+ * @param {string} nomeBase nome encontrado pelo código (o completo, quando houver)
+ * @param {{ nome: string }[]} jaMostrados opções já exibidas (não se repetem)
+ * @returns {Promise<string|null>} o nome escolhido ou null
+ */
+async function escolherNomePeloNome(codigo, nomeBase, jaMostrados = []) {
+	if (navigator.onLine === false) { toast("aviso", "Sem internet para pesquisar nomes parecidos agora.", 5000); return null; }
+	const normalizar = t => String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+	const vistos = new Set(jaMostrados.map(o => normalizar(o.nome)).filter(Boolean));
+	let achados = [];
+	toast("info", `Pesquisando nomes parecidos com <b>${esc(nomeBase)}</b>…`, 4000);
+	try {
+		achados = await fotosPorNome(nomeBase, { limite: 20 });
+	} catch (e) {
+		console.warn("[nomes parecidos pelo nome]", e);
+		toast("erro", "Não foi possível pesquisar nomes parecidos agora. Tente novamente.");
+		return null;
+	}
+	if (el.codigo.value.replace(/\s+/g, "") !== codigo) return null; // o código mudou enquanto pesquisava
+	const opcoes = [];
+	for (const a of achados) {
+		const nome = String(a?.nome || "").trim();
+		const chave = normalizar(nome);
+		if (!chave || vistos.has(chave)) continue;
+		vistos.add(chave);
+		opcoes.push({ nome, fonte: String(a.fonte || "Pesquisa na web"), foto: a.src || "", abreviado: nomeAbreviado(nome) });
+	}
+	if (!opcoes.length) { toast("info", `Não foram encontrados outros nomes parecidos com “${esc(nomeBase)}”.`, 5000); return null; }
+	const nome = await escolherNome(codigo, opcoes, {
+		pergunta: `Usar o nome parecido “${opcoes[0].nome}”?`,
+		html: avisoExperimental("estes nomes foram encontrados pela pesquisa do nome e <b>podem ser de outra versão</b> do produto (dosagem, tamanho ou quantidade). Confira com a embalagem.")
+			+ `<p>Resultados parecidos com <b>${esc(nomeBase)}</b>. Selecione o que corresponde à embalagem:</p>`,
+		rotulo: "Nomes parecidos",
+		atual: el.nome.value.trim()
+	});
+	return typeof nome === "string" ? nome : null;
+}
+
+/** Nome usado como base da pesquisa de parecidos: o primeiro completo (ou o primeiro). */
+const nomeBaseParecidos = opcoes => (opcoes.find(o => !o.abreviado && !nomeAbreviado(o.nome)) || opcoes[0])?.nome || "";
 
 /* ---------- Sugestão sob demanda (botão ✨ no campo Produto) ---------- */
 let sugerindoManual = false;
@@ -1552,13 +1610,16 @@ async function sugerirNomeManual() {
 		}
 		const atual = el.nome.value.trim();
 		if (opcoes.length > 1) {
-			const nome = await escolherNome(codigo, opcoes, {
+			let nome = await escolherNome(codigo, opcoes, {
 				pergunta: `Usar o nome “${opcoes[0].nome}”?`,
 				html: avisoExperimental("os nomes vêm de bases públicas e da web. Confira com a embalagem.")
-					+ `<p>Para o código <b>${esc(codigo)}</b>, foram encontradas <b>${opcoes.length}</b> opções. Selecione a que corresponde à embalagem${atual ? ` (substituirá “${esc(atual)}”)` : ""}:</p>`,
-				atual
-			});
-			if (nome && el.codigo.value.replace(/\s+/g, "") === codigo) {
+					+ `<p>Para o código <b>${esc(codigo)}</b>, foram encontradas <b>${opcoes.length}</b> opções. Selecione a que corresponde à embalagem${atual ? ` (substituirá “${esc(atual)}”)` : ""}:</p>`
+					+ `<p class="ajuda">Para mais opções, toque em <b>${ROTULO_VER_PARECIDOS}</b> (pesquisa pelo nome; podem ser de outra versão do produto).</p>`,
+				atual,
+				extra: ROTULO_VER_PARECIDOS
+			}).catch(() => null);
+			if (nome === VER_PARECIDOS) nome = await escolherNomePeloNome(codigo, nomeBaseParecidos(opcoes), opcoes);
+			if (typeof nome === "string" && nome && el.codigo.value.replace(/\s+/g, "") === codigo) {
 				aplicarNomeSugerido(nome);
 				el.quantidade.focus();
 			}
@@ -1598,8 +1659,17 @@ async function sugerirNomeManual() {
 				+ `<p class="nome-sugerido">${esc(resultado.nome)}</p>`
 				+ `<p class="ajuda">Fonte: ${esc(resultado.fonte)}${atual ? ` · substituirá “${esc(atual)}”` : ""}. Você pode ajustar depois.</p>`,
 			confirmar: "Usar este nome",
+			negar: window.Swal ? ROTULO_VER_PARECIDOS : undefined, // sem o SweetAlert, "Cancelar" viraria "negar"
 			cancelar: "Cancelar"
 		});
+		if (acao === "negar") {
+			const nome = await escolherNomePeloNome(codigo, resultado.nome, [resultado]);
+			if (nome && el.codigo.value.replace(/\s+/g, "") === codigo) {
+				aplicarNomeSugerido(nome);
+				el.quantidade.focus();
+			}
+			return;
+		}
 		if (acao !== "confirmar") return;
 		// O código pode ter mudado enquanto o diálogo estava aberto
 		if (el.codigo.value.replace(/\s+/g, "") !== codigo) return;
