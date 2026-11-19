@@ -2302,11 +2302,33 @@ input[type="number"]::-webkit-inner-spin-button {
 	box-shadow: var(--sombra-flutuante);
 	padding: 22px 22px 20px;
 	width: min(480px, calc(100vw - 24px));
-	/* Nunca passa da altura da tela: se ainda faltar espaço, rola só por dentro do alerta */
+	/* Nunca passa da altura da tela. Somente o conteúdo (texto e opções) rola; título e botões
+	   ficam sempre visíveis. No iPhone, o SweetAlert2 bloqueia o arraste fora da área do conteúdo
+	   (.swal2-html-container): se a rolagem fosse do alerta inteiro, os botões de baixo ficariam
+	   inalcançáveis. */
 	max-height: calc(100dvh - 24px); /* 24px = respiro do fundo escuro em volta */
+	display: flex !important; /* o SweetAlert2 usa "grid" em linha, que não deixa o conteúdo encolher */
+	flex-direction: column;
+	overflow: hidden;
+	font-family: var(--fonte);
+}
+
+.swal2-popup.sw-popup > * {
+	flex-shrink: 0;
+}
+
+.swal2-popup.sw-popup .swal2-html-container {
+	flex: 0 1 auto;
+	min-height: 0;
 	overflow-y: auto;
 	overscroll-behavior: contain;
-	font-family: var(--fonte);
+	-webkit-overflow-scrolling: touch;
+}
+
+/* Lista de nomes dentro do alerta: rola junto com o conteúdo (sem rolagem dentro de rolagem) */
+.swal2-popup.sw-popup .swal2-html-container .opcoes-nome {
+	max-height: none;
+	overflow: visible;
 }
 
 /* Telas baixas (notebook, celular deitado, janela pequena): alertas mais compactos, mesmo texto legível */
